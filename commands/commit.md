@@ -29,6 +29,10 @@ Analyze all uncommitted changes in the current git repository and create well-or
 
 5. **Create one commit per group**:
    - Stage only the files for that group using `git add <file> [<file> ...]` — never use `git add .` or `git add -A`
+   - Identify which AI agent is executing this commit and use the corresponding `Co-authored-by` trailer:
+     - Claude Code → `Co-authored-by: Claude Sonnet 4.6 <noreply@anthropic.com>`
+     - ChatGPT / Codex → `Co-authored-by: ChatGPT <noreply@openai.com>`
+     - GitHub Copilot → `Co-authored-by: GitHub Copilot <noreply@github.com>`
    - Write a commit message following this format:
      ```
      <type>(<scope>): <short summary>
@@ -36,8 +40,10 @@ Analyze all uncommitted changes in the current git repository and create well-or
      <optional body explaining why, not what>
 
      Addresses <TICKET-ID>
+     Co-authored-by: <AI agent name> <noreply@example.com>
      ```
    - Include the `Addresses <TICKET-ID>` trailer line only if a ticket ID was detected in step 1; omit it entirely if no ticket ID was found
+   - Always include the `Co-authored-by` trailer for the agent executing the commit
    - Types: `feat`, `fix`, `refactor`, `docs`, `chore`, `test`, `style`, `ci`
    - Scope: the directory name or component affected (e.g., `commands`, `agents/claude`, `scripts`)
    - Summary: imperative mood, lowercase, no period, max 72 chars
