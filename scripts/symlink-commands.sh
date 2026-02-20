@@ -37,6 +37,6 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
 # Loop through all available agents in the list
 for AGENT in claude codex copilot; do
-    echo "Creating symlinks for agent skills: $AGENT"
+    echo "Creating symlinks for agent commands: $AGENT"
     create_symlink "$ROOT_DIR/commands" "$HOME/.${AGENT}/commands"
 done
