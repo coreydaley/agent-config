@@ -159,6 +159,10 @@ Reference the individual README files in each directory for specific usage instr
 4. Begin using agents with access to skills, commands, and subagents
 5. Add new skills, commands, prompts, or subagents as needed
 
+## Compatibility
+
+Not everything in this repository is supported by all AI agents. Features, skills, commands, and configurations may work with one agent but not another. Always verify compatibility with your specific agent before relying on any resource.
+
 ## Contributing
 
 When adding new resources:
@@ -167,6 +171,8 @@ When adding new resources:
 - Follow the naming conventions established in each directory
 - Update the relevant README files with documentation
 - Test that symlinks and configurations work correctly
+
+If you encounter a problem, please [open an issue](https://github.com/coreydaley/artificial-intelligence/issues). If you'd like to fix an issue or add new functionality, feel free to fork this repository and [submit a pull request](https://github.com/coreydaley/artificial-intelligence/pulls).
 
 ## Disclaimer
 
