@@ -2,31 +2,46 @@
 
 This directory contains configuration files for three AI agents: Claude, Codex, and Copilot.
 
+The agent config that gets symlinked is generated from two source files:
+
+1. `_GLOBAL.md` (shared instructions)
+2. `_<AGENT_NAME>.md` (agent-specific instructions)
+
+These are concatenated to produce `<AGENT_NAME>.md`, which is the file used by symlinks.
+
 ## Directory Contents
 
-```
+```text
 agents/
 ├── README.md           # This file
-├── GLOBAL.md           # Shared configuration available to all agents
+├── _GLOBAL.md          # Shared source content for all agents
 ├── claude/
-│   └── CLAUDE.md       # Claude-specific configuration and instructions
+│   ├── _CLAUDE.md      # Claude-specific source content
+│   └── CLAUDE.md       # Generated merged file (_GLOBAL + _CLAUDE)
 ├── codex/
-│   └── CODEX.md        # Codex-specific configuration and instructions
+│   ├── _CODEX.md       # Codex-specific source content
+│   └── CODEX.md        # Generated merged file (_GLOBAL + _CODEX)
 └── copilot/
-    └── COPILOT.md      # Copilot-specific configuration and instructions
+    ├── _COPILOT.md     # Copilot-specific source content
+    └── COPILOT.md      # Generated merged file (_GLOBAL + _COPILOT)
 ```
 
 ## Files
 
-### GLOBAL.md
+### _GLOBAL.md
 
-Contains shared configuration, instructions, and context that are available to all agents. During setup, this content is automatically merged into each agent's specific configuration file.
+Contains shared configuration, instructions, and context that are included in every generated agent file.
 
 ### Agent-Specific Configuration Files
 
-- **CLAUDE.md** - Configuration, instructions, and context specific to Claude
-- **CODEX.md** - Configuration, instructions, and context specific to Codex
-- **COPILOT.md** - Configuration, instructions, and context specific to Copilot
+- **_<AGENT_NAME>.md** (for example `_CLAUDE.md`) contains agent-specific source content.
+- **<AGENT_NAME>.md** (for example `CLAUDE.md`) is the generated output used by symlinks.
+
+Generation pattern:
+
+- `_GLOBAL.md` + `claude/_CLAUDE.md` → `claude/CLAUDE.md`
+- `_GLOBAL.md` + `codex/_CODEX.md` → `codex/CODEX.md`
+- `_GLOBAL.md` + `copilot/_COPILOT.md` → `copilot/COPILOT.md`
 
 Each agent file contains:
 
@@ -48,9 +63,8 @@ make symlink-agents
 The `make symlink-agents` command:
 
 1. Converts agent names to uppercase (claude → CLAUDE, etc.)
-2. Checks if GLOBAL.md contents already exist in each agent's markdown file
-3. Prepends GLOBAL.md contents to agent markdown files if not already present
-4. Creates symlinks as follows:
+2. Rebuilds each generated agent file by concatenating `_GLOBAL.md` with the corresponding `_<AGENT_NAME>.md`
+3. Creates symlinks as follows:
    - `~/.claude/CLAUDE.md` → `agents/claude/CLAUDE.md`
    - `~/.codex/CODEX.md` → `agents/codex/CODEX.md`
    - `~/.copilot/copilot-instructions.md` → `agents/copilot/COPILOT.md`
@@ -68,8 +82,8 @@ make help                 # Show all available commands
 
 Once symlinks are configured, each agent will have access to:
 
-- Global configuration: `~/.{agent}/GLOBAL.md`
-- Agent-specific configuration: `~/.{agent}/{AGENT_NAME}.md` (or `copilot-instructions.md` for Copilot)
+- A merged agent config file built from `_GLOBAL.md` + `_<AGENT_NAME>.md`
+- Agent-specific symlink target: `~/.{agent}/{AGENT_NAME}.md` (or `copilot-instructions.md` for Copilot)
 - Shared skills directory: `~/.{agent}/skills`
 - Subagents directory: `~/.{agent}/agents`
 
