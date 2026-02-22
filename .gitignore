@@ -1,0 +1,4 @@
+# Generated agent files (built from _GLOBAL.md + _<AGENT>.md)
+agents/claude/CLAUDE.md
+agents/codex/CODEX.md
+agents/copilot/COPILOT.md

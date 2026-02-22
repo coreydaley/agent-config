@@ -1,4 +1,4 @@
-# Artificial Intelligence
+# agent-config
 
 A comprehensive repository for managing AI agent configurations, capabilities, and extensions across multiple AI platforms (Claude, Codex, and Copilot).
 
@@ -14,8 +14,8 @@ This project provides a centralized location for storing and managing:
 
 ## Directory Structure
 
-```
-artificial-intelligence/
+```text
+agent-config/
 ├── README.md                    # This file
 ├── LICENSE                      # Project license
 ├── Makefile                     # Build and setup targets
@@ -35,8 +35,9 @@ Contains configuration files for the three primary AI agents: Claude, Codex, and
 
 Each agent has:
 
-- A markdown file with agent-specific instructions and configuration
-- A `GLOBAL.md` file with shared settings available to all agents
+- A shared source file: `agents/_GLOBAL.md`
+- An agent-specific source file: `agents/<agent>/_<AGENT_NAME>.md`
+- A generated merged file: `agents/<agent>/<AGENT_NAME>.md` (used for symlinks)
 
 **Contents should include:**
 
@@ -99,7 +100,7 @@ Setup and configuration scripts for initializing the AI environment.
 
 **Available scripts:**
 
-- `symlink-agents.sh` - Creates symlinks for agent configurations (also prepends global settings)
+- `symlink-agents.sh` - Rebuilds merged agent config files and creates agent symlinks
 - `symlink-skills.sh` - Creates symlinks for shared skills
 - `symlink-commands.sh` - Creates symlinks for custom commands
 - `symlink-subagents.sh` - Creates symlinks for custom subagents
@@ -139,8 +140,7 @@ make help                 # Show all available commands
 
 After running `make symlinks`, each agent will have access to:
 
-- Global configuration
-- Agent-specific configuration
+- A merged agent configuration generated from `agents/_GLOBAL.md` + `agents/<agent>/_<AGENT_NAME>.md`
 - Shared skills
 - Available commands
 - Subagents for delegation
@@ -172,7 +172,7 @@ When adding new resources:
 - Update the relevant README files with documentation
 - Test that symlinks and configurations work correctly
 
-If you encounter a problem, please [open an issue](https://github.com/coreydaley/artificial-intelligence/issues). If you'd like to fix an issue or add new functionality, feel free to fork this repository and [submit a pull request](https://github.com/coreydaley/artificial-intelligence/pulls).
+If you encounter a problem, please [open an issue](https://github.com/coreydaley/agent-config/issues). If you'd like to fix an issue or add new functionality, feel free to fork this repository and [submit a pull request](https://github.com/coreydaley/agent-config/pulls).
 
 ## Disclaimer
 
