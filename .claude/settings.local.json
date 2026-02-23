@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(echo:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(head:*)",
+      "Bash(python3:*)",
+      "Bash(bash:*)",
+      "Bash(echo === YAML Files ===:*)",
+      "Bash(make help:*)",
+      "Bash(make generate-agent-files:*)"
+    ]
+  }
+}
