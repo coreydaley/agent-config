@@ -29,8 +29,8 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Source shared symlink utilities
-# shellcheck source=./_symlink-utils.sh
-source "${SCRIPT_DIR}/_symlink-utils.sh"
+# shellcheck source=./utils.sh
+source "${SCRIPT_DIR}/utils.sh"
 
 # Get the root directory of the project
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"

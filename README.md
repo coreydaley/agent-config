@@ -105,7 +105,7 @@ Setup and configuration scripts for initializing the AI environment.
 - `symlink-commands.sh` - Creates symlinks for custom commands
 - `symlink-subagents.sh` - Creates symlinks for custom subagents
 
-All scripts use a shared utility module (`_symlink-utils.sh`) that provides intelligent symlink creation. The scripts automatically back up any existing files or directories at symlink destinations by renaming them with a `.old` extension before creating the new symlinks.
+All scripts use a shared utility module (`utils.sh`) that provides intelligent symlink creation. The scripts automatically back up any existing files or directories at symlink destinations by renaming them with a `.old` extension before creating the new symlinks.
 
 ## Setup
 
