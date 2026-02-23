@@ -1,10 +1,12 @@
-## Agent Files
+## Generate Targets
+generate: generate-agent-files ## Run all generate targets
+.PHONY: generate
 
 generate-agent-files: ## Build merged AI agent instruction files
 	@bash scripts/generate-agent-files.sh
 .PHONY: generate-agent-files
 
-## Symlink Setup
+## Symlink Targets
 symlinks: symlink-agents symlink-skills symlink-subagents symlink-commands ## Run all symlink configuration targets
 .PHONY: symlinks
 
@@ -26,7 +28,7 @@ symlink-commands: ## Create symlinks for AI commands configuration files
 
 ## General
 
-all: generate-agent-files symlinks ## Runs all setup tasks to prepare agent configuration files and symlinks
+all: generate symlinks ## Runs all target groups (generate and symlinks)
 .PHONY: all
 
 help: ## Shows this help message
