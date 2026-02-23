@@ -34,7 +34,8 @@ Analyze all uncommitted changes in the current git repository and create well-or
      - ChatGPT / Codex → `Co-authored-by: ChatGPT <noreply@openai.com>`
      - GitHub Copilot → `Co-authored-by: GitHub Copilot <noreply@github.com>`
    - Write a commit message following this format:
-     ```
+
+     ```text
      <type>(<scope>): <short summary>
 
      <optional body explaining why, not what>
@@ -42,6 +43,7 @@ Analyze all uncommitted changes in the current git repository and create well-or
      Addresses <TICKET-ID>
      Co-authored-by: <AI agent name> <noreply@example.com>
      ```
+
    - Include the `Addresses <TICKET-ID>` trailer line only if a ticket ID was detected in step 1; omit it entirely if no ticket ID was found
    - Always include the `Co-authored-by` trailer for the agent executing the commit
    - Types: `feat`, `fix`, `refactor`, `docs`, `chore`, `test`, `style`, `ci`
