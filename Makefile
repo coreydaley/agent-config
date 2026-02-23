@@ -1,3 +1,9 @@
+## Agent Files
+
+generate-agent-files: ## Build merged AI agent instruction files
+	@bash scripts/generate-agent-files.sh
+.PHONY: generate-agent-files
+
 ## Symlink Setup
 symlinks: symlink-agents symlink-skills symlink-subagents symlink-commands ## Run all symlink configuration targets
 .PHONY: symlinks
@@ -19,12 +25,16 @@ symlink-commands: ## Create symlinks for AI commands configuration files
 .PHONY: symlink-commands
 
 ## General
+
+all: generate-agent-files symlinks ## Runs all setup tasks to prepare agent configuration files and symlinks
+.PHONY: all
+
 help: ## Shows this help message
-	@awk 'BEGIN     { FS = ":.*##"; target="";printf "\nUsage:\n  make $(BLUE)<target>\033[33m\n\nTargets:$(END)" } \
-		/^[.a-zA-Z_0-9-]+:.*?##/ { if(target=="")print ""; target=$$1; printf "  $(BLUE)%-$(TARGETLEN)s$(END) %s\n\n", $$1, $$2 } \
-		/^([.a-zA-Z_0-9-]+):/ {if(target=="")print "";match($$0, "(.*):"); target=substr($$0,RSTART,RLENGTH) } \
-		/^\t## (.*)/ { match($$0, "[^\t#:\\\\]+"); txt=substr($$0,RSTART,RLENGTH);printf "  $(BLUE)%-$(TARGETLEN)s$(END)", target; printf " %s\n", txt ; target=""} \
-		/^## (.*)/ {match($$0, "[^\t#\\\\]+"); txt=substr($$0,RSTART,RLENGTH);printf "\n$(YELLOW)%-$(TARGETLEN)s$(END)\n", txt ; target=""} \
+	@awk 'BEGIN     { FS = ":.*##"; target="";printf "\nUsage:\n  make $(BLUE)<target>\033[33m\n\nTargets:$(END)\n" } \
+		/^[.a-zA-Z_0-9-]+:.*?##/ { target=$$1; printf "  $(BLUE)%-$(TARGETLEN)s$(END) %s\n", $$1, $$2 } \
+		/^([.a-zA-Z_0-9-]+):/ { match($$0, "(.*):"); target=substr($$0,RSTART,RLENGTH) } \
+		/^\t## (.*)/ { match($$0, "[^\t#:\\\\]+"); txt=substr($$0,RSTART,RLENGTH); printf "  $(BLUE)%-$(TARGETLEN)s$(END) %s\n", target, txt; target="" } \
+		/^## (.*)/ { match($$0, "[^\t#\\\\]+"); txt=substr($$0,RSTART,RLENGTH); printf "\n$(YELLOW)%-$(TARGETLEN)s$(END)\n", txt; target="" } \
 	' $(MAKEFILE_LIST)
 	@# https://gist.github.com/gfranxman/73b5dc6369dc684db6848198290330c7#file-makefile 05/09/2024
 
