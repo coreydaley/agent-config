@@ -26,11 +26,11 @@ symlink-commands: ## Create symlinks for AI commands configuration files
 	@bash scripts/symlink-commands.sh
 .PHONY: symlink-commands
 
-## General
-
+## All
 all: generate symlinks ## Runs all target groups (generate and symlinks)
 .PHONY: all
 
+## General
 help: ## Shows this help message
 	@awk 'BEGIN     { FS = ":.*##"; target="";printf "\nUsage:\n  make $(BLUE)<target>\033[33m\n\nTargets:$(END)\n" } \
 		/^[.a-zA-Z_0-9-]+:.*?##/ { target=$$1; printf "  $(BLUE)%-$(TARGETLEN)s$(END) %s\n", $$1, $$2 } \
