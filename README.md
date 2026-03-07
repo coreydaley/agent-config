@@ -142,6 +142,17 @@ Codex does not support a global skills directory. To register skills from this r
 make configure-codex-skills
 ```
 
+### Optional: YOLO mode aliases
+
+Each agent has a flag to skip permission prompts and run fully autonomously. If you want this behavior by default, add these aliases to your shell config (`~/.zshrc`, `~/.bashrc`, etc.):
+
+```bash
+alias claude='claude --dangerously-skip-permissions'
+alias gemini='gemini --yolo'
+```
+
+> **Warning:** These aliases disable all permission prompts. The agent will execute file writes, shell commands, and other actions without asking first. Only use this if you trust the agent configuration in this repo and understand the risks.
+
 ### Backup behavior
 
 Existing regular files or directories at symlink destinations are renamed to `.old` before the symlink is created. Existing symlinks are replaced directly.
