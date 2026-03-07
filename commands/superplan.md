@@ -12,13 +12,15 @@ $ARGUMENTS
 
 ## Workflow Overview
 
-This is a **6-phase workflow**:
+This is an **8-phase workflow**:
 1. **Orient** - Review project and recent sprints
 2. **Intent** - Write concentrated intent document
 3. **Draft** - Create your draft plan
 4. **Interview** - Clarify with the human planner
 5. **Compete** - Codex creates competing draft + critiques yours
 6. **Merge** - Synthesize best ideas into final sprint document
+7. **Devil's Advocate** - Codex tears apart the merged plan as a skeptical critic
+8. **Security Review** - Claude audits the final plan for security risks
 
 Use TodoWrite to track progress through each phase.
 
@@ -30,10 +32,7 @@ Use TodoWrite to track progress through each phase.
 
 ### Steps:
 1. Read `CLAUDE.md` for project conventions
-2. Check sprint ledger status:
-   ```bash
-   python3 docs/sprints/ledger.py stats
-   ```
+2. Check sprint ledger status using the `/ledger stats` skill.
 3. Read the **3 highest-numbered sprint documents** to understand recent work:
    - Use `ls docs/sprints/SPRINT-*.md | tail -3` to find them
    - Read each one to understand recent trajectory
@@ -125,8 +124,6 @@ Questions that the drafts should attempt to answer.
 **Goal**: Create your comprehensive draft plan.
 
 ### Write to: `docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT.md`
-
-Follow the standard sprint template from `docs/sprints/README.md`:
 
 ```markdown
 # Sprint NNN: [Title]
@@ -259,32 +256,7 @@ AskUserQuestion with options:
 3. Otherwise, incorporate the answer and ask the next question
 4. Repeat until questions exhausted or user skips
 
-**Example for high-uncertainty sprint (reference implementation):**
-
-Round 1 (Verification):
-> "You mentioned using the Rust implementation for correctness. How should we verify conformance?"
-> - Generate shared test vectors from Rust tests
-> - Differential testing: run both implementations, compare outputs
-> - Manual edge case enumeration from the spec
-> - Skip - proceed to next phase
-
-Round 2 (Verification follow-up, if not skipped):
-> "For type resolution edge cases (forward references, qualified names, recursive types), should the DoD require explicit test coverage for each?"
-> - Yes, enumerate and test each edge case explicitly
-> - Cover the major ones, trust the differential testing for the rest
-> - Skip - proceed to next phase
-
-Round 3 (Scope):
-> "I've scoped this to [X]. Does that match your intent?"
-> - ...
-
-### Step 4: Document Interview Results
-
-Record:
-- Uncertainty level assessed
-- Questions asked and answers received
-- Point at which user chose to proceed (if early exit)
-- Refinements to incorporate in merge phase
+After the interview, note any refinements to carry into the merge phase.
 
 ---
 
@@ -300,17 +272,9 @@ Run this command (substitute the actual sprint number for NNN):
 codex --model gpt-5.2 --full-auto exec "Please read docs/sprints/drafts/SPRINT-NNN-INTENT.md - this is a concentrated intent for our next sprint. Fully familiarize yourself with our sprint planning style (see docs/sprints/README.md) and project structure (see CLAUDE.md) and project goals. Then I want you to draft docs/sprints/drafts/SPRINT-NNN-CODEX-DRAFT.md. Only AFTER your draft is complete, I want you to read Claude's draft at docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT.md and write docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md"
 ```
 
-### Wait for Codex to complete.
-
-Codex will produce:
-- `docs/sprints/drafts/SPRINT-NNN-CODEX-DRAFT.md` - Its independent draft
-- `docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md` - Its critique of your draft
-
-### Read the outputs:
-
-Once Codex completes, read both files:
-1. `docs/sprints/drafts/SPRINT-NNN-CODEX-DRAFT.md`
-2. `docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md`
+Once Codex completes, read both output files:
+- `docs/sprints/drafts/SPRINT-NNN-CODEX-DRAFT.md`
+- `docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md`
 
 ---
 
@@ -356,19 +320,59 @@ Once Codex completes, read both files:
    - ...
    ```
 
-4. **Write the final sprint document**:
+4. **Write the initial sprint document**:
 
    Create `docs/sprints/SPRINT-NNN.md` incorporating:
    - Best ideas from both drafts
    - Responses to valid critiques
    - Interview refinements
 
-5. **Update the ledger**:
-   ```bash
-   python3 docs/sprints/ledger.py sync
-   ```
+---
 
-6. **Show the user** the final document and ask for approval.
+## Phase 7: Devil's Advocate
+
+**Goal**: Have Codex act as a skeptical critic of the final merged plan, stress-testing assumptions and surfacing weak spots before execution begins.
+
+### Execute Codex:
+
+Run this command (substitute the actual sprint number for NNN):
+
+```bash
+codex --model gpt-5.2 --full-auto exec "Read docs/sprints/SPRINT-NNN.md. This is a finalized sprint plan. Your job is NOT to improve it — your job is to attack it. Act as a senior skeptic who must approve this plan before a single line of code is written. Write docs/sprints/drafts/SPRINT-NNN-DEVILS-ADVOCATE.md with your critique. Cover: (1) flawed assumptions — what is this plan taking for granted that could be wrong? (2) scope risks — what could balloon, be underestimated, or have hidden dependencies? (3) design weaknesses — what architectural choices might we regret? (4) gaps in the Definition of Done — what's missing that could let a bad implementation 'pass'? (5) what's the most likely way this sprint fails? Be specific and harsh. Every concern should cite the relevant section of the plan."
+```
+
+Once Codex completes, read `docs/sprints/drafts/SPRINT-NNN-DEVILS-ADVOCATE.md` and respond:
+
+1. Read `docs/sprints/drafts/SPRINT-NNN-DEVILS-ADVOCATE.md`
+2. Evaluate each critique: is it valid? If so, patch it in the sprint document now.
+3. If a critique is invalid, note why in the document (brief inline comment or a "Critiques Addressed" section).
+4. Update `docs/sprints/SPRINT-NNN.md` with any revisions.
+
+---
+
+## Phase 8: Security Review
+
+**Goal**: You (Claude) perform a thorough security audit of the final plan before it goes to the user for approval.
+
+### Steps:
+
+Review `docs/sprints/SPRINT-NNN.md` with a security-focused lens. Write your audit to `docs/sprints/drafts/SPRINT-NNN-SECURITY-REVIEW.md` covering:
+
+1. **Attack surface** — what new inputs, APIs, or trust boundaries does this plan introduce?
+2. **Data handling** — any risks around sensitive data, secrets, or PII?
+3. **Injection and parsing risks** — new parsers, template engines, query builders, or eval-adjacent code?
+4. **Authentication/authorization** — does this plan touch auth flows or permission checks? Any gaps?
+5. **Dependency risks** — new libraries or external services, and their known risk profile
+6. **Threat model** — given the project context in `CLAUDE.md`, what's a realistic adversarial scenario for this sprint's changes?
+
+Rate each finding: **Critical / High / Medium / Low**, and suggest a concrete mitigation or DoD addition.
+
+### Incorporate findings and finalize:
+
+1. For Critical or High findings: update `docs/sprints/SPRINT-NNN.md` to add mitigations to the relevant tasks or Definition of Done.
+2. For Medium/Low findings: use your judgment; add to the Security Considerations section if relevant.
+3. Update the ledger using the `/ledger sync` skill.
+4. Show the user a summary of security findings and what was incorporated, then ask for approval of the final document.
 
 ---
 
@@ -379,12 +383,14 @@ After megaplan completes, you'll have:
 ```
 docs/sprints/
 ├── drafts/
-│   ├── SPRINT-NNN-INTENT.md                    # Concentrated intent (Phase 2)
-│   ├── SPRINT-NNN-CLAUDE-DRAFT.md              # Your draft (Phase 3)
-│   ├── SPRINT-NNN-CODEX-DRAFT.md               # Codex draft (Phase 5)
+│   ├── SPRINT-NNN-INTENT.md                       # Concentrated intent (Phase 2)
+│   ├── SPRINT-NNN-CLAUDE-DRAFT.md                 # Your draft (Phase 3)
+│   ├── SPRINT-NNN-CODEX-DRAFT.md                  # Codex draft (Phase 5)
 │   ├── SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md  # Codex critique (Phase 5)
-│   └── SPRINT-NNN-MERGE-NOTES.md               # Synthesis notes (Phase 6)
-└── SPRINT-NNN.md                               # Final merged sprint
+│   ├── SPRINT-NNN-MERGE-NOTES.md                  # Synthesis notes (Phase 6)
+│   ├── SPRINT-NNN-DEVILS-ADVOCATE.md              # Skeptical critique (Phase 7)
+│   └── SPRINT-NNN-SECURITY-REVIEW.md              # Security audit (Phase 8)
+└── SPRINT-NNN.md                                  # Final sprint document
 ```
 
 ---
@@ -400,7 +406,11 @@ At the end of this workflow, you should have:
 - [ ] Codex draft received (`drafts/SPRINT-NNN-CODEX-DRAFT.md`)
 - [ ] Codex critique received (`drafts/SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md`)
 - [ ] Merge notes written (`drafts/SPRINT-NNN-MERGE-NOTES.md`)
-- [ ] Final sprint document written (`SPRINT-NNN.md`)
+- [ ] Initial merged sprint document written (`SPRINT-NNN.md`)
+- [ ] Devil's advocate critique received (`drafts/SPRINT-NNN-DEVILS-ADVOCATE.md`)
+- [ ] Valid critiques incorporated into `SPRINT-NNN.md`
+- [ ] Security review received (`drafts/SPRINT-NNN-SECURITY-REVIEW.md`)
+- [ ] Critical/High security findings incorporated into `SPRINT-NNN.md`
 - [ ] Ledger updated via `python3 docs/sprints/ledger.py sync`
 - [ ] User approved the final document
 
