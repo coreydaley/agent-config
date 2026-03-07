@@ -1,6 +1,6 @@
 # Agents Configuration
 
-This directory contains configuration files for three AI agents: Claude, Codex, and Copilot.
+This directory contains configuration files for four AI agents: Claude, Codex, Copilot, and Gemini.
 
 The agent config that gets symlinked is generated from two source files:
 
@@ -21,9 +21,12 @@ agents/
 ├── codex/
 │   ├── _CODEX.md       # Codex-specific source content
 │   └── CODEX.md        # Generated merged file (_GLOBAL + _CODEX)
-└── copilot/
-    ├── _COPILOT.md     # Copilot-specific source content
-    └── COPILOT.md      # Generated merged file (_GLOBAL + _COPILOT)
+├── copilot/
+│   ├── _COPILOT.md     # Copilot-specific source content
+│   └── COPILOT.md      # Generated merged file (_GLOBAL + _COPILOT)
+└── gemini/
+    ├── _GEMINI.md      # Gemini-specific source content
+    └── GEMINI.md       # Generated merged file (_GLOBAL + _GEMINI)
 ```
 
 ## Files
@@ -42,6 +45,7 @@ Generation pattern:
 - `_GLOBAL.md` + `claude/_CLAUDE.md` → `claude/CLAUDE.md`
 - `_GLOBAL.md` + `codex/_CODEX.md` → `codex/CODEX.md`
 - `_GLOBAL.md` + `copilot/_COPILOT.md` → `copilot/COPILOT.md`
+- `_GLOBAL.md` + `gemini/_GEMINI.md` → `gemini/GEMINI.md`
 
 Each agent file contains:
 
@@ -66,8 +70,9 @@ The `make symlink-agents` command:
 2. Rebuilds each generated agent file by concatenating `_GLOBAL.md` with the corresponding `_<AGENT_NAME>.md`
 3. Creates symlinks as follows:
    - `~/.claude/CLAUDE.md` → `agents/claude/CLAUDE.md`
-   - `~/.codex/CODEX.md` → `agents/codex/CODEX.md`
+   - `~/.codex/AGENTS.md` → `agents/codex/CODEX.md`
    - `~/.copilot/copilot-instructions.md` → `agents/copilot/COPILOT.md`
+   - `~/.gemini/GEMINI.md` → `agents/gemini/GEMINI.md`
 
 ## Other Make Commands
 
@@ -80,12 +85,14 @@ make help                 # Show all available commands
 
 ## After Setup
 
-Once symlinks are configured, each agent will have access to:
+Once symlinks are configured, each agent has:
 
-- A merged agent config file built from `_GLOBAL.md` + `_<AGENT_NAME>.md`
-- Agent-specific symlink target: `~/.{agent}/{AGENT_NAME}.md` (or `copilot-instructions.md` for Copilot)
-- Shared skills directory: `~/.{agent}/skills`
-- Subagents directory: `~/.{agent}/agents`
+| | Claude | Codex | Copilot | Gemini |
+|---|---|---|---|---|
+| **Config** | `~/.claude/CLAUDE.md` | `~/.codex/AGENTS.md` | `~/.copilot/copilot-instructions.md` | `~/.gemini/GEMINI.md` |
+| **Skills** | `~/.claude/skills/` | ❌ skipped | `~/.copilot/skills/` | ❌ skipped |
+| **Commands** | `~/.claude/commands/` | `~/.codex/prompts/` | ❌ skipped | `~/.gemini/commands/` (.toml) |
+| **Subagents** | `~/.claude/agents/` | ❌ skipped | ⚠️ P1 | `~/.gemini/agents/` |
 
 ## For More Information
 

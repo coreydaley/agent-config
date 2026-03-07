@@ -1,16 +1,36 @@
 # agent-config
 
-A comprehensive repository for managing AI agent configurations, capabilities, and extensions across multiple AI platforms (Claude, Codex, and Copilot).
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![GitHub issues](https://img.shields.io/github/issues/coreydaley/agent-config)](https://github.com/coreydaley/agent-config/issues)
+[![GitHub stars](https://img.shields.io/github/stars/coreydaley/agent-config)](https://github.com/coreydaley/agent-config/stargazers)
+[![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+A centralized repository for managing AI agent configurations, skills, commands, and subagents across multiple AI CLI platforms: Claude, Codex, Copilot, and Gemini.
+
+> **Security notice:** The contents of this repository flow directly into each agent's system prompt. Review all files — especially `agents/_GLOBAL.md` and agent-specific stubs — before use. Anyone with write access to this repo can influence the behavior of all configured agents.
 
 ## Overview
 
 This project provides a centralized location for storing and managing:
 
-- **Agent Configurations** - Settings and instructions for different AI agents
+- **Agent Configurations** - Per-agent instruction files (merged from shared + agent-specific source)
 - **Reusable Skills** - Specialized capabilities that agents can leverage
-- **Custom Commands** - Tools and operations available to agents
+- **Custom Commands** - Slash commands available to agents (Markdown source; auto-converted to TOML for Gemini)
 - **Subagents** - Specialized AI agents that primary agents can delegate work to
-- **Custom Prompts** - Task-specific prompts that enhance agent performance
+
+## Agent Capability Matrix
+
+Not all features are supported by every agent. The table below shows what each agent supports and where each resource is installed on disk.
+
+| Feature | Claude | Codex | Copilot | Gemini |
+|---|---|---|---|---|
+| **Config file** | `~/.claude/CLAUDE.md` | `~/.codex/AGENTS.md` | `~/.copilot/copilot-instructions.md` | `~/.gemini/GEMINI.md` |
+| **Skills directory** | `~/.claude/skills/` | ❌ no standard path | `~/.copilot/skills/` | ❌ no convention |
+| **Commands directory** | `~/.claude/commands/` (.md) | `~/.codex/prompts/` (.md) | ❌ not supported | `~/.gemini/commands/` (.toml) |
+| **Subagents directory** | `~/.claude/agents/` (.md) | ❌ not supported | ⚠️ P1: `.agent.md` ext required | `~/.gemini/agents/` (.md) |
+| **Command format** | Markdown | Markdown | — | TOML (auto-converted at build time) |
+
+Scripts emit an explicit skip message for any unsupported feature rather than silently skipping.
 
 ## Directory Structure
 
@@ -31,22 +51,17 @@ agent-config/
 
 ### agents/
 
-Contains configuration files for the three primary AI agents: Claude, Codex, and Copilot.
+Contains configuration files for four AI agents: Claude, Codex, Copilot, and Gemini.
 
 Each agent has:
 
 - A shared source file: `agents/_GLOBAL.md`
 - An agent-specific source file: `agents/<agent>/_<AGENT_NAME>.md`
-- A generated merged file: `agents/<agent>/<AGENT_NAME>.md` (used for symlinks)
+- A generated merged file: `agents/<agent>/<AGENT_NAME>.md` (gitignored; symlinked into the agent's home dir)
 
-**Contents should include:**
+Generation: `make generate-agent-files` (runs as part of `make all`)
 
-- Custom instructions and behavioral guidelines
-- Agent capabilities and limitations
-- Tool integrations and API configurations
-- Context and best practices for that agent
-
-See [agents/README.md](agents/README.md) for details.
+See [agents/README.md](agents/README.md) for symlink targets and details.
 
 ### skills/
 
@@ -61,14 +76,12 @@ Reusable skills and specialized capabilities that agents can access and leverage
 
 ### commands/
 
-Custom commands and tools that are available to agents for execution.
+Slash commands available to agents. Source files are Markdown (`.md`) with YAML frontmatter.
 
-**Contents should include:**
-
-- CLI commands and scripts
-- Utility functions agents can call
-- Operational tools and workflows
-- Integration points with external systems
+- Claude reads them directly from `~/.claude/commands/`
+- Codex reads them from `~/.codex/prompts/`
+- Gemini requires TOML format — files are auto-converted via `make generate-gemini-commands` to `build/gemini-commands/` and symlinked to `~/.gemini/commands/`
+- Copilot does not support custom commands
 
 ### subagents/
 
@@ -81,87 +94,65 @@ Configurations for custom AI agents that primary agents can delegate work to.
 - Agent instructions for delegated work
 - Subagent capabilities and limitations
 
-### prompts/
-
-Custom prompts for specific tasks that don't fit into skills or commands categories.
-
-**Contents should include:**
-
-- Task-specific guidance and instructions
-- Domain expertise prompts
-- Workflow optimization guides
-- Ad-hoc solutions and patterns
-
-See [prompts/README.md](prompts/README.md) for details.
-
 ### scripts/
 
 Setup and configuration scripts for initializing the AI environment.
 
+All scripts use `utils.sh` for shared helpers. Existing files at symlink destinations are automatically backed up with a `.old` extension before replacement.
+
 **Available scripts:**
 
-- `symlink-agents.sh` - Rebuilds merged agent config files and creates agent symlinks
-- `symlink-skills.sh` - Creates symlinks for shared skills
-- `symlink-commands.sh` - Creates symlinks for custom commands
-- `symlink-subagents.sh` - Creates symlinks for custom subagents
-
-All scripts use a shared utility module (`utils.sh`) that provides intelligent symlink creation. The scripts automatically back up any existing files or directories at symlink destinations by renaming them with a `.old` extension before creating the new symlinks.
+| Script | Purpose |
+|---|---|
+| `generate-agent-files.sh` | Merges `_GLOBAL.md` + `_<AGENT>.md` → `<AGENT>.md` for each agent |
+| `generate-gemini-commands.sh` | Converts `commands/*.md` → `build/gemini-commands/*.toml` (TOML format for Gemini) |
+| `symlink-agents.sh` | Symlinks per-agent config to the correct filename in each agent's home dir |
+| `symlink-skills.sh` | Symlinks `skills/` to Claude and Copilot (skipped for Codex and Gemini) |
+| `symlink-commands.sh` | Symlinks `commands/` to Claude and Codex; defers Gemini to `symlink-gemini-commands.sh` |
+| `symlink-gemini-commands.sh` | Symlinks `build/gemini-commands/` → `~/.gemini/commands/` |
+| `symlink-subagents.sh` | Symlinks `subagents/` to Claude and Gemini (skipped for Codex; P1 for Copilot) |
 
 ## Setup
 
-To configure your AI environment and create symlinks for all resources:
-
 ```bash
-make symlinks
+git clone https://github.com/coreydaley/agent-config.git
+cd agent-config
+make all
 ```
 
-This runs all setup scripts and makes all agent configurations, skills, commands, and subagents available to your AI agents.
+`make all` generates merged agent files, converts commands to TOML for Gemini, and creates all symlinks in one step. It is idempotent — safe to run multiple times.
 
-### Backup Behavior
-
-When running setup commands, if a file or directory already exists at a symlink destination:
-
-- **Existing regular files or directories** are backed up with a `.old` extension (e.g., `~/.claude/CLAUDE.md` → `~/.claude/CLAUDE.md.old`)
-- **Existing symlinks** are removed and replaced with the new symlink
-
-This ensures you never lose data while maintaining clean symlink management.
-
-### Individual Setup Commands
+### Individual targets
 
 ```bash
-make symlink-agents       # Setup agent configurations
-make symlink-skills       # Setup skills
-make symlink-commands     # Setup commands
-make symlink-subagents    # Setup subagents
-make help                 # Show all available commands
+make generate             # Generate all artifacts (agent files + Gemini TOML)
+make symlinks             # Create all symlinks
+make symlink-agents       # Agent config symlinks only
+make symlink-skills       # Skills symlinks only (Claude + Copilot)
+make symlink-commands     # Command symlinks only (Claude + Codex + Gemini)
+make symlink-subagents    # Subagent symlinks only (Claude + Gemini)
+make help                 # Show all available targets
 ```
+
+### Optional: Codex skills registration
+
+Codex does not support a global skills directory. To register skills from this repo with Codex via `~/.codex/config.toml`, run this separately (not part of `make all`):
+
+```bash
+make configure-codex-skills
+```
+
+### Backup behavior
+
+Existing regular files or directories at symlink destinations are renamed to `.old` before the symlink is created. Existing symlinks are replaced directly.
 
 ## Usage
 
-After running `make symlinks`, each agent will have access to:
+After running `make all`, each agent will load its merged config file automatically. The capability matrix above shows what each agent can access.
 
-- A merged agent configuration generated from `agents/_GLOBAL.md` + `agents/<agent>/_<AGENT_NAME>.md`
-- Shared skills
-- Available commands
-- Subagents for delegation
-- Custom prompts
+Reference the individual README files for details:
 
-Reference the individual README files in each directory for specific usage instructions:
-
-- [agents/README.md](agents/README.md) - Agent configuration details
-- [prompts/README.md](prompts/README.md) - Custom prompt guidelines
-
-## Getting Started
-
-1. Clone this repository
-2. Review the folder contents and README files
-3. Run `make symlinks` to set up all configurations
-4. Begin using agents with access to skills, commands, and subagents
-5. Add new skills, commands, prompts, or subagents as needed
-
-## Compatibility
-
-Not everything in this repository is supported by all AI agents. Features, skills, commands, and configurations may work with one agent but not another. Always verify compatibility with your specific agent before relying on any resource.
+- [agents/README.md](agents/README.md) - Agent configuration and symlink targets
 
 ## Contributing
 
