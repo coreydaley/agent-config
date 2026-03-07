@@ -7,9 +7,14 @@
 # artificial-intelligence repository to the user's home directory.
 #
 # Description:
-#   This script sets up symlinks for subagents data for three AI agents
-#   (Claude, Codex, Copilot) by linking the agents directory to each
-#   agent's home folder (~/.claude/agents, ~/.codex/agents, ~/.copilot/agents).
+#   This script sets up symlinks for subagents data for supported AI agents.
+#   Source: subagents/ directory (superset frontmatter format)
+#   Supported agents and targets:
+#     - Claude:  ~/.claude/agents/  (.md format, directly compatible)
+#     - Gemini:  ~/.gemini/agents/  (.md with YAML frontmatter; requires tools: field)
+#   Skipped agents:
+#     - Codex:   no native subagents support
+#     - Copilot: requires .agent.md extension (P1: generate-copilot-subagents.sh)
 #   This allows the agents to access subagents and related data from a centralized location.
 #
 # Usage: ./scripts/symlink-subagents.sh
@@ -36,7 +41,18 @@ source "${SCRIPT_DIR}/utils.sh"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
 # Loop through all available agents in the list
-for AGENT in claude codex copilot; do
-    echo "Creating symlinks for agent subagents: $AGENT"
-    create_symlink "$ROOT_DIR/agents" "$HOME/.${AGENT}/agents"
-done
+# Claude: fully compatible with subagents/ format
+echo "Creating symlinks for agent subagents: claude"
+ensure_dir "$HOME/.claude"
+create_symlink "$ROOT_DIR/subagents" "$HOME/.claude/agents"
+
+# Gemini: compatible with subagents/ format; subagent files must include a 'tools:' frontmatter field
+echo "Creating symlinks for agent subagents: gemini"
+ensure_dir "$HOME/.gemini"
+create_symlink "$ROOT_DIR/subagents" "$HOME/.gemini/agents"
+
+# Codex: no native subagents support
+echo "Skipping subagents for codex: no native subagents support"
+
+# Copilot: requires .agent.md extension — use make generate-copilot-subagents (P1)
+echo "Skipping subagents for copilot: requires .agent.md extension (P1: generate-copilot-subagents.sh)"
