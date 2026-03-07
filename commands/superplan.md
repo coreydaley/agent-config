@@ -269,7 +269,7 @@ After the interview, note any refinements to carry into the merge phase.
 Run this command (substitute the actual sprint number for NNN):
 
 ```bash
-codex --model gpt-5.2 --full-auto exec "Please read docs/sprints/drafts/SPRINT-NNN-INTENT.md - this is a concentrated intent for our next sprint. Fully familiarize yourself with our sprint planning style (see docs/sprints/README.md) and project structure (see CLAUDE.md) and project goals. Then I want you to draft docs/sprints/drafts/SPRINT-NNN-CODEX-DRAFT.md. Only AFTER your draft is complete, I want you to read Claude's draft at docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT.md and write docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md"
+codex exec "Please read docs/sprints/drafts/SPRINT-NNN-INTENT.md - this is a concentrated intent for our next sprint. Fully familiarize yourself with our sprint planning style (see docs/sprints/README.md) and project structure (see CLAUDE.md) and project goals. Then I want you to draft docs/sprints/drafts/SPRINT-NNN-CODEX-DRAFT.md. Only AFTER your draft is complete, I want you to read Claude's draft at docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT.md and write docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md"
 ```
 
 Once Codex completes, read both output files:
@@ -338,7 +338,7 @@ Once Codex completes, read both output files:
 Run this command (substitute the actual sprint number for NNN):
 
 ```bash
-codex --model gpt-5.2 --full-auto exec "Read docs/sprints/SPRINT-NNN.md. This is a finalized sprint plan. Your job is NOT to improve it — your job is to attack it. Act as a senior skeptic who must approve this plan before a single line of code is written. Write docs/sprints/drafts/SPRINT-NNN-DEVILS-ADVOCATE.md with your critique. Cover: (1) flawed assumptions — what is this plan taking for granted that could be wrong? (2) scope risks — what could balloon, be underestimated, or have hidden dependencies? (3) design weaknesses — what architectural choices might we regret? (4) gaps in the Definition of Done — what's missing that could let a bad implementation 'pass'? (5) what's the most likely way this sprint fails? Be specific and harsh. Every concern should cite the relevant section of the plan."
+codex exec "Read docs/sprints/SPRINT-NNN.md. This is a finalized sprint plan. Your job is NOT to improve it — your job is to attack it. Act as a senior skeptic who must approve this plan before a single line of code is written. Write docs/sprints/drafts/SPRINT-NNN-DEVILS-ADVOCATE.md with your critique. Cover: (1) flawed assumptions — what is this plan taking for granted that could be wrong? (2) scope risks — what could balloon, be underestimated, or have hidden dependencies? (3) design weaknesses — what architectural choices might we regret? (4) gaps in the Definition of Done — what's missing that could let a bad implementation 'pass'? (5) what's the most likely way this sprint fails? Be specific and harsh. Every concern should cite the relevant section of the plan."
 ```
 
 Once Codex completes, read `docs/sprints/drafts/SPRINT-NNN-DEVILS-ADVOCATE.md` and respond:
