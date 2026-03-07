@@ -7,10 +7,11 @@
 # artificial-intelligence repository to the user's home directory.
 #
 # Description:
-#   This script sets up symlinks for skills data for three AI agents
-#   (Claude, Codex, Copilot) by linking the skills directory to each
-#   agent's home folder (~/.claude/skills, ~/.codex/skills, ~/.copilot/skills).
-#   This allows the agents to access shared skills from a centralized location.
+#   This script sets up symlinks for skills data for supported AI agents.
+#   Only agents with a standard global skills directory convention are supported:
+#     - Claude:  ~/.claude/skills/
+#     - Copilot: ~/.copilot/skills/
+#   Codex and Gemini are explicitly skipped (no supported global skills directory).
 #
 # Usage: ./scripts/symlink-skills.sh
 #
@@ -35,8 +36,15 @@ source "${SCRIPT_DIR}/utils.sh"
 # Get the root directory of the project
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
-# Loop through all available agents in the list
-for AGENT in claude codex copilot; do
+# Claude and Copilot: both support a standard ~/.agent/skills/ directory
+for AGENT in claude copilot; do
     echo "Creating symlinks for agent skills: $AGENT"
+    ensure_dir "$HOME/.${AGENT}"
     create_symlink "$ROOT_DIR/skills" "$HOME/.${AGENT}/skills"
 done
+
+# Codex: no standard global skills directory — registered via ~/.codex/config.toml by configure-codex-skills.sh
+echo "Skipping skills for codex: no standard global skills directory (handled by configure-codex-skills)"
+
+# Gemini: no skills/ directory convention — reference skills via @imports in GEMINI.md
+echo "Skipping skills for gemini: no skills/ directory convention (use @file.md imports in GEMINI.md)"
