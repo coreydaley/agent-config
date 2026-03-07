@@ -86,6 +86,7 @@ for SKILL_DIR in "$SKILLS_DIR"/*/; do
         printf '\n[[skills.config]]\n'
         printf 'name = "%s"\n' "$SKILL_NAME"
         printf 'path = "%s"\n' "$SKILL_PATH"
+        printf 'enabled = true\n'
     } >> "$CONFIG_FILE"
     ADDED=$((ADDED + 1))
 done
