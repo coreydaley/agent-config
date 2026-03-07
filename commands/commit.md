@@ -1,6 +1,13 @@
+---
+description: Analyze uncommitted changes and create well-organized, logically grouped commits with conventional commit messages.
+disable-model-invocation: true
+---
+
 # Commit
 
 Analyze all uncommitted changes in the current git repository and create well-organized commits grouped by related file paths.
+
+If `$ARGUMENTS` is provided, treat it as additional context or scoping instructions (e.g., a subdirectory to limit commits to, or a description of the work done).
 
 ## Instructions
 
@@ -49,7 +56,13 @@ Analyze all uncommitted changes in the current git repository and create well-or
    - Types: `feat`, `fix`, `refactor`, `docs`, `chore`, `test`, `style`, `ci`
    - Scope: the directory name or component affected (e.g., `commands`, `agents/claude`, `scripts`)
    - Summary: imperative mood, lowercase, no period, max 72 chars
-   - Commit using: `git commit -m "$(cat <<'EOF'\n<message>\nEOF\n)"`
+   - Commit using a heredoc to preserve newlines:
+     ```bash
+     git commit -m "$(cat <<'EOF'
+     <message>
+     EOF
+     )"
+     ```
 
 6. **Order commits** from most foundational to most dependent (e.g., config changes before feature code, shared utilities before callers).
 
@@ -62,4 +75,3 @@ Analyze all uncommitted changes in the current git repository and create well-or
 - Never force push
 - Never commit files that likely contain secrets (`.env`, credentials, tokens)
 - If a file's purpose is unclear, read it before deciding how to group or describe it
-- If $ARGUMENTS is provided, treat it as additional context or scoping instructions (e.g., a subdirectory to limit commits to, or a description of the work done)
