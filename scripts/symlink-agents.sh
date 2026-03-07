@@ -7,11 +7,12 @@
 # directory.
 #
 # Description:
-#   This script sets up symlinks for three AI agents (Claude, Codex, Copilot)
+#   This script sets up symlinks for four AI agents (Claude, Codex, Copilot, Gemini)
 #   by linking each agent's final markdown file to its expected destination:
 #     - Claude:  ~/.claude/CLAUDE.md
-#     - Codex:   ~/.codex/CODEX.md
+#     - Codex:   ~/.codex/AGENTS.md
 #     - Copilot: ~/.copilot/copilot-instructions.md
+#     - Gemini:  ~/.gemini/GEMINI.md
 #   It does not generate merged files; use generate-agent-files.sh first.
 #
 # Usage: ./scripts/symlink-agents.sh
@@ -20,8 +21,9 @@
 #   - Converts agent names to uppercase using tr for cross-shell compatibility
 #   - Backs up existing files/folders at symlink destinations by renaming to .old
 #   - Creates symlinks for Claude to ~/.claude/CLAUDE.md
-#   - Creates symlinks for Codex to ~/.codex/CODEX.md
+#   - Creates symlinks for Codex to ~/.codex/AGENTS.md
 #   - Creates symlinks for Copilot to ~/.copilot/copilot-instructions.md
+#   - Creates symlinks for Gemini to ~/.gemini/GEMINI.md
 #
 # Requirements:
 #   - Bash 3.2+ (for [[ ]] support)
@@ -45,16 +47,22 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 AGENTS_DIR="$ROOT_DIR/agents"
 
 # Loop through all available agents in the list
-for AGENT in claude codex copilot; do
+for AGENT in claude codex copilot gemini; do
     # Convert agent name to uppercase using tr for compatibility
     AGENT_UPPER=$(echo "$AGENT" | tr '[:lower:]' '[:upper:]')
     # Create a symlink for the agent's markdown file
     echo "Creating symlinks for agent: $AGENT"
     if [[ "$AGENT" == "claude" ]]; then
+        ensure_dir "$HOME/.${AGENT}"
         create_symlink "$AGENTS_DIR/${AGENT}/${AGENT_UPPER}.md" "$HOME/.${AGENT}/CLAUDE.md"
     elif [[ "$AGENT" == "codex" ]]; then
-        create_symlink "$AGENTS_DIR/${AGENT}/${AGENT_UPPER}.md" "$HOME/.${AGENT}/CODEX.md"
+        ensure_dir "$HOME/.${AGENT}"
+        create_symlink "$AGENTS_DIR/${AGENT}/${AGENT_UPPER}.md" "$HOME/.${AGENT}/AGENTS.md"
     elif [[ "$AGENT" == "copilot" ]]; then
+        ensure_dir "$HOME/.${AGENT}"
         create_symlink "$AGENTS_DIR/${AGENT}/${AGENT_UPPER}.md" "$HOME/.${AGENT}/copilot-instructions.md"
+    elif [[ "$AGENT" == "gemini" ]]; then
+        ensure_dir "$HOME/.${AGENT}"
+        create_symlink "$AGENTS_DIR/${AGENT}/${AGENT_UPPER}.md" "$HOME/.${AGENT}/GEMINI.md"
     fi
 done
