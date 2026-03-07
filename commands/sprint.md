@@ -4,15 +4,15 @@ description: Begin and complete the next incomplete sprint
 
 ## Task
 
-Begin the next sprint. Follow these steps:
+Begin the next sprint. If `$ARGUMENTS` is a sprint number (e.g. `005`), run that sprint directly. Otherwise follow these steps:
 
-1. **Find the next incomplete sprint**
-   - Run `python3 docs/sprints/ledger.py stats` to see sprint status
-   - Identify the lowest-numbered sprint that is NOT completed
+1. **Find the next sprint to run**
+   - Use the `/ledger stats` skill to see sprint status
+   - Identify the lowest-numbered sprint with status `planned`
    - Read that sprint document: `docs/sprints/SPRINT-NNN.md`
 
 2. **Mark sprint in progress**
-   - Run `python3 docs/sprints/ledger.py start NNN`
+   - Use the `/ledger start NNN` skill
 
 3. **Complete the sprint**
    - Work through ALL items in the Definition of Done
@@ -22,7 +22,7 @@ Begin the next sprint. Follow these steps:
    - Ensure all validation passes per repo standards
 
 4. **Mark sprint completed**
-   - Run `python3 docs/sprints/ledger.py complete NNN`
+   - Use the `/ledger complete NNN` skill
 
 > Do not commit, stage, or push any changes. Do not ask to commit or push.
 
@@ -31,4 +31,4 @@ Begin the next sprint. Follow these steps:
 - Sprint conventions: `docs/sprints/README.md`
 - Ledger: `docs/sprints/ledger.tsv`
 
-Use the TodoWrite tool to track progress through these steps.
+Use TaskCreate and TaskUpdate to track progress through these steps.
