@@ -148,6 +148,8 @@ Each agent has a flag to skip permission prompts and run fully autonomously. If 
 
 ```bash
 alias claude='claude --dangerously-skip-permissions'
+alias codex='codex --full-auto'
+alias copilot='copilot --allow-all'
 alias gemini='gemini --yolo'
 ```
 
