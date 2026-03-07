@@ -7,10 +7,12 @@
 # artificial-intelligence repository to the user's home directory.
 #
 # Description:
-#   This script sets up symlinks for commands data for three AI agents
-#   (Claude, Codex, Copilot) by linking the commands directory to each
-#   agent's home folder (~/.claude/commands, ~/.codex/commands, ~/.copilot/commands).
-#   This allows the agents to access shared commands from a centralized location.
+#   This script sets up symlinks for commands data for supported AI agents.
+#   Each agent uses a different directory name for user-defined prompts/commands:
+#     - Claude: ~/.claude/commands  (Markdown .md files)
+#     - Codex:  ~/.codex/prompts   (Markdown .md files, loaded as /prompts: slash commands)
+#   Note: GitHub Copilot CLI does not support custom commands.
+#   Note: Gemini CLI uses TOML format and is not compatible with this commands directory.
 #
 # Usage: ./scripts/symlink-commands.sh
 #
@@ -35,8 +37,19 @@ source "${SCRIPT_DIR}/utils.sh"
 # Get the root directory of the project
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
-# Loop through all available agents in the list
-for AGENT in claude codex copilot; do
-    echo "Creating symlinks for agent commands: $AGENT"
-    create_symlink "$ROOT_DIR/commands" "$HOME/.${AGENT}/commands"
-done
+# Claude: commands/ directory contains Markdown slash commands
+echo "Creating symlinks for agent commands: claude"
+ensure_dir "$HOME/.claude"
+create_symlink "$ROOT_DIR/commands" "$HOME/.claude/commands"
+
+# Codex: same Markdown files but loaded from the prompts/ directory
+echo "Creating symlinks for agent commands: codex"
+ensure_dir "$HOME/.codex"
+create_symlink "$ROOT_DIR/commands" "$HOME/.codex/prompts"
+
+# Gemini: TOML format — symlink is handled by symlink-gemini-commands.sh
+# (called separately as part of the symlinks target after generate-gemini-commands)
+echo "Skipping gemini commands here: handled by symlink-gemini-commands.sh after TOML conversion"
+
+# Copilot: custom commands not supported
+echo "Skipping commands for copilot: custom commands not supported by Copilot CLI"
