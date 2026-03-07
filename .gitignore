@@ -2,3 +2,7 @@
 agents/claude/CLAUDE.md
 agents/codex/CODEX.md
 agents/copilot/COPILOT.md
+agents/gemini/GEMINI.md
+
+# Build artifacts (format conversions, etc.)
+build/
