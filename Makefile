@@ -1,13 +1,22 @@
+BLUE   := \033[36m
+YELLOW := \033[33m
+END    := \033[0m
+TARGETLEN := 30
+
 ## Generate Targets
-generate: generate-agent-files ## Run all generate targets
+generate: generate-agent-files generate-gemini-commands ## Run all generate targets
 .PHONY: generate
 
 generate-agent-files: ## Build merged AI agent instruction files
 	@bash scripts/generate-agent-files.sh
 .PHONY: generate-agent-files
 
+generate-gemini-commands: ## Convert commands/*.md to Gemini CLI TOML format in build/gemini-commands/
+	@bash scripts/generate-gemini-commands.sh
+.PHONY: generate-gemini-commands
+
 ## Symlink Targets
-symlinks: symlink-agents symlink-skills symlink-subagents symlink-commands ## Run all symlink configuration targets
+symlinks: symlink-agents symlink-skills symlink-subagents symlink-commands symlink-gemini-commands ## Run all symlink configuration targets
 .PHONY: symlinks
 
 symlink-agents: ## Create symlinks for AI agent configuration files
@@ -22,12 +31,21 @@ symlink-subagents: ## Create symlinks for AI subagents configuration files
 	@bash scripts/symlink-subagents.sh
 .PHONY: symlink-subagents
 
-symlink-commands: ## Create symlinks for AI commands configuration files
+symlink-commands: ## Create symlinks for AI commands configuration files (Claude, Codex)
 	@bash scripts/symlink-commands.sh
 .PHONY: symlink-commands
 
+symlink-gemini-commands: generate-gemini-commands ## Symlink generated Gemini TOML commands to ~/.gemini/commands/
+	@bash scripts/symlink-gemini-commands.sh
+.PHONY: symlink-gemini-commands
+
+## Configure Targets
+configure-codex-skills: ## Register skills with Codex via ~/.codex/config.toml
+	@bash scripts/configure-codex-skills.sh
+.PHONY: configure-codex-skills
+
 ## All
-all: generate symlinks ## Runs all target groups (generate and symlinks)
+all: generate symlinks configure-codex-skills ## Runs all target groups (generate, symlinks, configure)
 .PHONY: all
 
 ## General
