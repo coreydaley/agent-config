@@ -6,8 +6,8 @@
 # Purpose: Builds merged agent instruction files for each AI agent.
 #
 # Description:
-#   This script generates merged markdown files for three AI agents
-#   (Claude, Codex, Copilot). For each agent, it creates/overwrites a merged
+#   This script generates merged markdown files for four AI agents
+#   (Claude, Codex, Copilot, Gemini). For each agent, it creates/overwrites a merged
 #   file by concatenating:
 #     1) agents/_GLOBAL.md
 #     2) agents/<agent>/_<AGENT>.md
@@ -41,9 +41,19 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 AGENTS_DIR="$ROOT_DIR/agents"
 
 # Loop through all available agents in the list
-for AGENT in claude codex copilot; do
+for AGENT in claude codex copilot gemini; do
     # Convert agent name to uppercase using tr for compatibility
     AGENT_UPPER=$(echo "$AGENT" | tr '[:lower:]' '[:upper:]')
+
+    # Fail explicitly if source files are missing
+    if [[ ! -f "${AGENTS_DIR}/_GLOBAL.md" ]]; then
+        echo "ERROR: Missing required source file: ${AGENTS_DIR}/_GLOBAL.md" >&2
+        exit 1
+    fi
+    if [[ ! -f "${AGENTS_DIR}/${AGENT}/_${AGENT_UPPER}.md" ]]; then
+        echo "ERROR: Missing required source file: ${AGENTS_DIR}/${AGENT}/_${AGENT_UPPER}.md" >&2
+        exit 1
+    fi
 
     # Concatenate _GLOBAL.md and the _agent-specific markdown file into a new file
     echo "Combining global settings with agent-specific settings for: $AGENT"
