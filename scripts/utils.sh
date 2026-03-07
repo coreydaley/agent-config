@@ -10,6 +10,15 @@
 #
 ################################################################################
 
+# Creates a directory if it does not already exist.
+ensure_dir() {
+    local dir="$1"
+    if [[ ! -d "$dir" ]]; then
+        echo "Creating directory: $dir"
+        mkdir -p "$dir"
+    fi
+}
+
 # Creates a symlink while safely handling existing targets.
 create_symlink() {
     local source="$1"
