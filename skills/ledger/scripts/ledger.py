@@ -71,7 +71,7 @@ class SprintLedger:
     def load(self) -> "SprintLedger":
         if not self.path.exists():
             return self
-        with open(self.path, "r") as f:
+        with open(self.path, "r", encoding="utf-8") as f:
             lines = f.readlines()
         for line in lines[1:]:  # Skip header
             line = line.strip()
@@ -83,7 +83,7 @@ class SprintLedger:
 
     def save(self) -> None:
         sorted_entries = sorted(self.entries.values(), key=lambda e: e.sprint_number)
-        with open(self.path, "w") as f:
+        with open(self.path, "w", encoding="utf-8") as f:
             f.write(self.HEADER + "\n")
             for entry in sorted_entries:
                 f.write(entry.to_tsv() + "\n")
@@ -104,6 +104,8 @@ class SprintLedger:
         sprint_id = str(int(sprint_id)).zfill(3)
         if sprint_id not in self.entries:
             raise ValueError(f"Sprint {sprint_id} not found")
+        if status not in SprintEntry.VALID_STATUSES:
+            raise ValueError(f"Invalid status: {status}. Must be one of {SprintEntry.VALID_STATUSES}")
         entry = self.entries[sprint_id]
         entry.status = status
         entry.updated_at = self._now()
@@ -118,6 +120,8 @@ class SprintLedger:
         return in_progress[0] if in_progress else None
 
     def get_by_status(self, status: str) -> list[SprintEntry]:
+        if status not in SprintEntry.VALID_STATUSES:
+            raise ValueError(f"Invalid status: {status}. Must be one of {SprintEntry.VALID_STATUSES}")
         return sorted([e for e in self.entries.values() if e.status == status], key=lambda e: e.sprint_number)
 
     def count_by_status(self) -> dict[str, int]:
@@ -129,12 +133,13 @@ class SprintLedger:
     def sync_from_docs(self) -> list[str]:
         changes = []
         pattern = re.compile(r"^# Sprint (\d+): (.+)$", re.MULTILINE)
+        filename_pattern = re.compile(r"SPRINT-(\d+)\.md")
         for md_file in self.path.parent.glob("SPRINT-*.md"):
-            match = re.match(r"SPRINT-(\d+)\.md", md_file.name)
+            match = filename_pattern.match(md_file.name)
             if not match:
                 continue
             sprint_id = match.group(1).zfill(3)
-            content = md_file.read_text()
+            content = md_file.read_text(encoding="utf-8")
             title_match = pattern.search(content)
             title = title_match.group(2).strip() if title_match else f"Sprint {sprint_id}"
             if sprint_id not in self.entries:

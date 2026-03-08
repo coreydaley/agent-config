@@ -2,7 +2,6 @@
 name: ledger
 description: Sprint ledger manager for tracking sprint progress. Use when checking sprint status, syncing the ledger, adding sprints, or updating sprint state.
 argument-hint: <subcommand> [args]
-disable-model-invocation: true
 allowed-tools: Bash(python3 *)
 ---
 
@@ -15,6 +14,8 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/ledger.py $ARGUMENTS
 ```
 
 The script resolves `ledger.tsv` relative to the current working directory at `docs/sprints/ledger.tsv`, so it must be run from the project root.
+
+> **Model invocation note**: Model invocation of this skill is intentional and expected. The `/sprint` command calls this skill via the Skill tool to update ledger state as part of its workflow. The `allowed-tools: Bash(python3 *)` constraint remains as the execution guardrail.
 
 ## Subcommands
 
