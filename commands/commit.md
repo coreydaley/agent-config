@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 Analyze all uncommitted changes in the current git repository and create well-organized commits grouped by related file paths.
 
-If `$ARGUMENTS` is provided, treat it as additional context or scoping instructions (e.g., a subdirectory to limit commits to, or a description of the work done).
+If `$ARGUMENTS` is provided, treat it as additional context or scoping instructions (e.g., a subdirectory to limit commits to, or a description of the work done). If `$ARGUMENTS` scopes the commit to a subdirectory and other changes exist outside that scope, inform the user about the out-of-scope changes and leave them uncommitted.
 
 ## Instructions
 
@@ -20,7 +20,8 @@ If `$ARGUMENTS` is provided, treat it as additional context or scoping instructi
    - `git status` to see all modified, added, deleted, and untracked files
    - `git diff` to see unstaged changes
    - `git diff --staged` to see already-staged changes
-   - For untracked files, read each file to understand its content
+   - If `git diff --staged` shows pre-staged changes, treat those files as their own group and commit them first before processing any other changes
+   - For untracked files: skip any that match patterns in `.gitignore`; for the rest, read each file to understand its content
 
 3. **Group files logically** by examining their paths and content. Use these grouping principles:
    - Files in the same directory that serve a common purpose belong together
@@ -56,17 +57,21 @@ If `$ARGUMENTS` is provided, treat it as additional context or scoping instructi
    - Types: `feat`, `fix`, `refactor`, `docs`, `chore`, `test`, `style`, `ci`
    - Scope: the directory name or component affected (e.g., `commands`, `agents/claude`, `scripts`)
    - Summary: imperative mood, lowercase, no period, max 72 chars
-   - Commit using a heredoc to preserve newlines:
+   - Commit using a heredoc to preserve newlines — the message body and closing `EOF` must be at column 0:
      ```bash
      git commit -m "$(cat <<'EOF'
-     <message>
-     EOF
-     )"
+<type>(<scope>): <short summary>
+
+<optional body>
+
+Co-authored-by: <AI agent> <email>
+EOF
+)"
      ```
 
 6. **Order commits** from most foundational to most dependent (e.g., config changes before feature code, shared utilities before callers).
 
-7. **After all commits**, run `git log --oneline -20` and display the result so the user can review what was created.
+7. **After all commits**, run `git log --oneline -50` and display the result so the user can review what was created.
 
 ## Constraints
 
