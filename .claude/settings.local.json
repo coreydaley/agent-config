@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx markdownlint-cli commands/superplan.md)",
+      "Bash(npx markdownlint-cli commands/commit.md)",
+      "Bash(npx markdownlint-cli commands/tag.md)"
+    ]
+  }
+}
