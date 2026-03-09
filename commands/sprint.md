@@ -2,7 +2,7 @@
 description: Begin and complete the next incomplete sprint
 ---
 
-## Task
+# Task
 
 Begin the next sprint. If `$ARGUMENTS` is a sprint number (e.g. `005`), run that sprint directly. Otherwise follow these steps:
 
