@@ -1,10 +1,14 @@
 ---
-description: Multi-agent collaborative planning - draft, interview, compete with Codex, merge
+description: >-
+  Multi-agent collaborative planning - draft, interview,
+  compete with Codex, merge
 ---
 
 # Superplan: Collaborative Multi-Agent Planning
 
-You are orchestrating a sophisticated planning workflow that produces high-quality sprint documents through competitive ideation and synthesis with Codex.
+You are orchestrating a sophisticated planning workflow that
+produces high-quality sprint documents through competitive
+ideation and synthesis with Codex.
 
 ## Seed Prompt
 
@@ -13,14 +17,23 @@ $ARGUMENTS
 ## Workflow Overview
 
 This is an **8-phase workflow**:
-1. **Orient** - Review project state, git history, in-progress sprints, and lessons from recent sprints
-2. **Intent** - Write concentrated intent document including alternative approaches considered
-3. **Draft** - Create your draft plan with P0/P1 tiering, observability, and rollback sections
+
+1. **Orient** - Review project state, git history,
+   in-progress sprints, and lessons from recent sprints
+2. **Intent** - Write concentrated intent document including
+   alternative approaches considered
+3. **Draft** - Create your draft plan with P0/P1 tiering,
+   observability, and rollback sections
 4. **Interview** - Clarify with the human planner
-5. **Compete** - Codex creates competing draft + critiques yours; Claude formally critiques Codex's draft
-6. **Merge** - Synthesize best ideas, apply simplest viable filter, and run sprint sizing gate
-7. **Devil's Advocate** - Codex tears apart the merged plan as a skeptical critic
-8. **Security Review** - Claude audits the final plan for security risks; Definition of Ready pre-flight before approval
+5. **Compete** - Codex creates competing draft + critiques
+   yours; Claude formally critiques Codex's draft
+6. **Merge** - Synthesize best ideas, apply simplest viable
+   filter, and run sprint sizing gate
+7. **Devil's Advocate** - Codex tears apart the merged plan
+   as a skeptical critic
+8. **Security Review** - Claude audits the final plan for
+   security risks; Definition of Ready pre-flight before
+   approval
 
 Use TodoWrite to track progress through each phase.
 
@@ -28,28 +41,46 @@ Use TodoWrite to track progress through each phase.
 
 ## Phase 1: Orient
 
-**Goal**: Understand current project state and recent direction.
+**Goal**: Understand current project state and recent
+direction.
 
-### Steps:
+### Orient Steps
+
 1. Read `CLAUDE.md` for project conventions
-2. Check sprint ledger status using the `/ledger stats` skill.
-   - Note any **in-progress** sprints and their relationship to the seed prompt — a sprint already in flight is critical context
-3. Review recent git activity to see what was actually shipped vs. what was planned:
+2. Check sprint ledger status using the `/ledger stats`
+   skill.
+   - Note any **in-progress** sprints and their relationship
+     to the seed prompt — a sprint already in flight is
+     critical context
+3. Review recent git activity to see what was actually
+   shipped vs. what was planned:
+
    ```bash
    git log --oneline -20
    ```
-4. Read the **3 highest-numbered sprint documents** to understand recent work:
-   - Use `ls docs/sprints/SPRINT-*.md | tail -3` to find them
-   - Focus especially on what was **deferred, underestimated, or left incomplete** — not just what was planned
+
+4. Read the **3 highest-numbered sprint documents** to
+   understand recent work:
+   - Use `ls docs/sprints/SPRINT-*.md | tail -3` to find
+     them
+   - Focus especially on what was **deferred,
+     underestimated, or left incomplete** — not just what
+     was planned
 5. Identify relevant code areas for the seed prompt:
    - Search for related modules, types, or patterns
-   - Note existing implementations that this plan might extend
+   - Note existing implementations that this plan might
+     extend
 
-### Deliverable:
-Write a brief **Orientation Summary** (3-5 bullet points) covering:
+### Orient Deliverable
+
+Write a brief **Orientation Summary** (3-5 bullet points)
+covering:
+
 - Current project state relevant to the seed
-- Recent sprint themes/direction, including any recurring underestimates or deferred items
-- Any in-progress sprints and how they interact with the seed
+- Recent sprint themes/direction, including any recurring
+  underestimates or deferred items
+- Any in-progress sprints and how they interact with the
+  seed
 - Key modules/files likely involved
 - Constraints or patterns to respect
 
@@ -57,22 +88,28 @@ Write a brief **Orientation Summary** (3-5 bullet points) covering:
 
 ## Phase 2: Intent
 
-**Goal**: Create a concentrated intent document that both agents will use.
+**Goal**: Create a concentrated intent document that both
+agents will use.
 
-### Steps:
+### Intent Steps
 
 1. Determine the next sprint number:
+
    ```bash
    ls docs/sprints/SPRINT-*.md | tail -1
    ```
-   Extract NNN and increment. If no sprint files exist yet, start at SPRINT-001.
+
+   Extract NNN and increment. If no sprint files exist yet,
+   start at SPRINT-001.
 
 2. Create the drafts directory if needed:
+
    ```bash
    mkdir -p docs/sprints/drafts
    ```
 
-3. Write the intent document to `docs/sprints/drafts/SPRINT-NNN-INTENT.md`:
+3. Write the intent document to
+   `docs/sprints/drafts/SPRINT-NNN-INTENT.md`:
 
 ```markdown
 # Sprint NNN Intent: [Title]
@@ -107,10 +144,13 @@ What would make this sprint successful?
 
 How will we know the implementation is correct?
 
-- Reference implementation: [if any, how will we verify conformance?]
+- Reference implementation: [if any, how will we verify
+  conformance?]
 - Spec/documentation: [what defines correct behavior?]
-- Edge cases identified: [list known edge cases that must be handled]
-- Testing approach: [unit tests, differential testing, conformance suite, etc.]
+- Edge cases identified: [list known edge cases that must
+  be handled]
+- Testing approach: [unit tests, differential testing,
+  conformance suite, etc.]
 
 ## Uncertainty Assessment
 
@@ -120,10 +160,11 @@ How will we know the implementation is correct?
 
 ## Approaches Considered
 
-Enumerate 2-3 distinct implementation approaches before committing to a direction:
+Enumerate 2-3 distinct implementation approaches before
+committing to a direction:
 
 | Approach | Pros | Cons | Verdict |
-|----------|------|------|---------|
+| --- | --- | --- | --- |
 | [Approach A] | ... | ... | **Selected** — [reason] |
 | [Approach B] | ... | ... | Rejected — [reason] |
 | [Approach C] | ... | ... | Rejected — [reason] |
@@ -133,7 +174,12 @@ Enumerate 2-3 distinct implementation approaches before committing to a directio
 Questions that the drafts should attempt to answer.
 ```
 
-4. Before moving to Phase 3, ensure the intent document's **Approaches Considered** table is complete. The selected approach should be clear; rejected approaches should have explicit reasons. Both agents will see this document — the approaches table prevents Codex from rediscovering an approach you already evaluated and discarded.
+1. Before moving to Phase 3, ensure the intent document's
+   **Approaches Considered** table is complete. The selected
+   approach should be clear; rejected approaches should have
+   explicit reasons. Both agents will see this document —
+   the approaches table prevents Codex from rediscovering an
+   approach you already evaluated and discarded.
 
 ---
 
@@ -141,9 +187,14 @@ Questions that the drafts should attempt to answer.
 
 **Goal**: Create your comprehensive draft plan.
 
-Before writing, apply the **simplest viable filter**: for every proposed task or feature, ask "is this strictly necessary for the sprint's stated goal, or can it be deferred?" Move anything non-essential to a Deferred section. A plan that ships is better than a plan that's complete.
+Before writing, apply the **simplest viable filter**: for
+every proposed task or feature, ask "is this strictly
+necessary for the sprint's stated goal, or can it be
+deferred?" Move anything non-essential to a Deferred
+section. A plan that ships is better than a plan that's
+complete.
 
-### Write to: `docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT.md`
+### Write to `docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT.md`
 
 ```markdown
 # Sprint NNN: [Title]
@@ -206,9 +257,11 @@ Diagrams (ASCII art), component descriptions, data flow.
 
 ## Observability & Rollback
 
-- How will we verify the implementation is working correctly post-ship?
+- How will we verify the implementation is working
+  correctly post-ship?
 - What logs, metrics, or output changes prove correctness?
-- Rollback plan if something breaks: [describe revert steps or fallback]
+- Rollback plan if something breaks: [describe revert
+  steps or fallback]
 
 ## Documentation
 
@@ -229,37 +282,49 @@ Uncertainties needing resolution.
 
 ## Phase 4: Interview
 
-**Goal**: Refine understanding through human dialogue, with depth proportional to uncertainty.
+**Goal**: Refine understanding through human dialogue, with
+depth proportional to uncertainty.
 
-### Step 1: Assess Uncertainty
+### Step 1 - Assess Uncertainty
 
-Before asking questions, evaluate the uncertainty level of this sprint:
+Before asking questions, evaluate the uncertainty level of
+this sprint:
 
 | Factor | Low Uncertainty | High Uncertainty |
-|--------|-----------------|------------------|
-| **Correctness** | Well-understood domain, simple logic | Reference impl, spec compliance, edge cases |
+| --- | --- | --- |
+| **Correctness** | Well-understood domain | Reference impl, spec compliance |
 | **Scope** | Seed is specific and bounded | Seed is vague or ambitious |
 | **Architecture** | Extends existing patterns | New patterns, integration points |
-| **Verification** | Standard testing sufficient | Needs conformance/differential testing |
+| **Verification** | Standard testing sufficient | Conformance/differential testing |
 
 Assign an uncertainty level:
-- **Low**: 1-2 questions (routine feature, clear requirements)
-- **Medium**: 3-4 questions (some ambiguity, moderate complexity)
-- **High**: 5-7 questions (reference implementations, specs, novel architecture)
 
-### Step 2: Prioritize Questions by Impact
+- **Low**: 1-2 questions (routine feature, clear
+  requirements)
+- **Medium**: 3-4 questions (some ambiguity, moderate
+  complexity)
+- **High**: 5-7 questions (reference implementations,
+  specs, novel architecture)
 
-Order questions by their impact on sprint success. Always include an escape hatch.
+### Step 2 - Prioritize Questions by Impact
+
+Order questions by their impact on sprint success. Always
+include an escape hatch.
 
 **Question categories** (ask in this priority order):
 
-1. **Verification Strategy** (HIGH impact when correctness matters)
-   - "Your verification strategy is [X]. Given [domain complexity], is this sufficient?"
-   - "The reference implementation handles [edge cases]. Should DoD require conformance tests for each?"
-   - "How will we know the implementation matches the spec for [specific behavior]?"
+1. **Verification Strategy** (HIGH impact when correctness
+   matters)
+   - "Your verification strategy is [X]. Given [domain
+     complexity], is this sufficient?"
+   - "The reference implementation handles [edge cases].
+     Should DoD require conformance tests for each?"
+   - "How will we know the implementation matches the spec
+     for [specific behavior]?"
 
 2. **Scope Validation** (HIGH impact when seed is ambiguous)
-   - "Does this scope match your intent, or should we expand/narrow?"
+   - "Does this scope match your intent, or should we
+     expand/narrow?"
    - "I've included [X] but excluded [Y]. Is that right?"
 
 3. **Priority/Trade-offs** (MEDIUM impact)
@@ -270,16 +335,18 @@ Order questions by their impact on sprint success. Always include an escape hatc
    - "Any strong opinions on [specific technical choice]?"
    - "I'm planning to use [approach]. Any concerns?"
 
-5. **Sequencing/Dependencies** (LOW impact unless external factors)
+5. **Sequencing/Dependencies** (LOW impact unless external
+   factors)
    - "Any external dependencies or ordering constraints?"
 
-### Step 3: Conduct Adaptive Interview
+### Step 3 - Conduct Adaptive Interview
 
-Use AskUserQuestion iteratively. **Every question must include an option to end the interview.**
+Use AskUserQuestion iteratively. **Every question must
+include an option to end the interview.**
 
 Structure each question round like this:
 
-```
+```text
 AskUserQuestion with options:
 - [Substantive answer option 1]
 - [Substantive answer option 2]
@@ -288,49 +355,75 @@ AskUserQuestion with options:
 
 **Interview flow:**
 
-1. Ask the highest-impact question for this sprint's uncertainty profile
-2. If user selects "Skip - proceed to next phase", immediately end interview and move to Phase 5
-3. Otherwise, incorporate the answer and ask the next question
+1. Ask the highest-impact question for this sprint's
+   uncertainty profile
+2. If user selects "Skip - proceed to next phase",
+   immediately end interview and move to Phase 5
+3. Otherwise, incorporate the answer and ask the next
+   question
 4. Repeat until questions exhausted or user skips
 
-After the interview, note any refinements to carry into the merge phase.
+After the interview, note any refinements to carry into the
+merge phase.
 
 ---
 
 ## Phase 5: Compete (Codex)
 
-**Goal**: Get Codex's independent draft and critique of your draft.
+**Goal**: Get Codex's independent draft and critique of your
+draft.
 
-### Execute Codex:
+### Launch Codex for Competition
 
-Run this command (substitute the actual sprint number for NNN):
+Run this command (substitute the actual sprint number for
+NNN):
 
 ```bash
-codex exec "Please read docs/sprints/drafts/SPRINT-NNN-INTENT.md - this is a concentrated intent for our next sprint. Fully familiarize yourself with our sprint planning style (see docs/sprints/README.md) and project structure (see CLAUDE.md) and project goals. Then I want you to draft docs/sprints/drafts/SPRINT-NNN-CODEX-DRAFT.md. Only AFTER your draft is complete, I want you to read Claude's draft at docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT.md and write docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md"
+codex exec "Please read docs/sprints/drafts/SPRINT-NNN-INTENT.md \
+  - this is a concentrated intent for our next sprint. \
+  Fully familiarize yourself with our sprint planning style \
+  (see docs/sprints/README.md) and project structure \
+  (see CLAUDE.md) and project goals. Then I want you to \
+  draft docs/sprints/drafts/SPRINT-NNN-CODEX-DRAFT.md. \
+  Only AFTER your draft is complete, I want you to read \
+  Claude's draft at \
+  docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT.md and write \
+  docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md"
 ```
 
 Once Codex completes, read both output files:
+
 - `docs/sprints/drafts/SPRINT-NNN-CODEX-DRAFT.md`
 - `docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md`
 
-Then write your own formal critique of Codex's draft to `docs/sprints/drafts/SPRINT-NNN-CODEX-DRAFT-CLAUDE-CRITIQUE.md`. Cover:
-- What did Codex get right that your draft missed?
-- What gaps, weaknesses, or over-engineering does Codex's draft have?
-- Which of your own draft's choices would you defend against Codex's approach, and why?
+Then write your own formal critique of Codex's draft to
+`docs/sprints/drafts/SPRINT-NNN-CODEX-DRAFT-CLAUDE-CRITIQUE.md`.
+Cover:
 
-This makes the critique symmetric: both drafts are attacked before the merge begins.
+- What did Codex get right that your draft missed?
+- What gaps, weaknesses, or over-engineering does Codex's
+  draft have?
+- Which of your own draft's choices would you defend
+  against Codex's approach, and why?
+
+This makes the critique symmetric: both drafts are attacked
+before the merge begins.
 
 ---
 
 ## Phase 6: Merge
 
-**Goal**: Synthesize the best ideas into a final sprint document.
+**Goal**: Synthesize the best ideas into a final sprint
+document.
 
-### Merge process:
+### Merge Process
 
 1. **Analyze both critiques**:
-   - From Codex's critique of your draft: which criticisms are valid? What did you miss? What should you defend?
-   - From your critique of Codex's draft: what weaknesses did you identify? Which of your own choices does that reinforce?
+   - From Codex's critique of your draft: which criticisms
+     are valid? What did you miss? What should you defend?
+   - From your critique of Codex's draft: what weaknesses
+     did you identify? Which of your own choices does that
+     reinforce?
 
 2. **Compare the two drafts**:
    - Architecture approach differences
@@ -340,7 +433,9 @@ This makes the critique symmetric: both drafts are attacked before the merge beg
 
 3. **Document the synthesis**:
 
-   Write to `docs/sprints/drafts/SPRINT-NNN-MERGE-NOTES.md`:
+   Write to
+   `docs/sprints/drafts/SPRINT-NNN-MERGE-NOTES.md`:
+
    ```markdown
    # Sprint NNN Merge Notes
 
@@ -369,12 +464,23 @@ This makes the critique symmetric: both drafts are attacked before the merge beg
    - ...
    ```
 
-4. **Apply the simplest viable filter**: Before writing the final document, review every proposed task across both drafts. Ask: "Is this strictly necessary for the sprint's stated goal, or can it be deferred?" Move non-essential items to the Deferred section. Prefer the implementation that ships over the implementation that's comprehensive.
+4. **Apply the simplest viable filter**: Before writing the
+   final document, review every proposed task across both
+   drafts. Ask: "Is this strictly necessary for the
+   sprint's stated goal, or can it be deferred?" Move
+   non-essential items to the Deferred section. Prefer the
+   implementation that ships over the implementation that's
+   comprehensive.
 
-5. **Sprint sizing gate**: Assess whether the merged plan is appropriately scoped for a single sprint:
-   - Does the plan have more than one natural delivery milestone?
-   - Would a reasonable team realistically complete all P0 tasks in one sprint?
-   - If the plan is oversized, propose splitting it now (before hardening phases), confirm with the user, and adjust scope before proceeding to Phase 7.
+5. **Sprint sizing gate**: Assess whether the merged plan
+   is appropriately scoped for a single sprint:
+   - Does the plan have more than one natural delivery
+     milestone?
+   - Would a reasonable team realistically complete all P0
+     tasks in one sprint?
+   - If the plan is oversized, propose splitting it now
+     (before hardening phases), confirm with the user, and
+     adjust scope before proceeding to Phase 7.
 
 6. **Write the initial sprint document**:
 
@@ -389,63 +495,114 @@ This makes the critique symmetric: both drafts are attacked before the merge beg
 
 ## Phase 7: Devil's Advocate
 
-**Goal**: Have Codex act as a skeptical critic of the final merged plan, stress-testing assumptions and surfacing weak spots before execution begins.
+**Goal**: Have Codex act as a skeptical critic of the final
+merged plan, stress-testing assumptions and surfacing weak
+spots before execution begins.
 
-### Execute Codex:
+### Launch Codex for Devil's Advocate
 
-Run this command (substitute the actual sprint number for NNN):
+Run this command (substitute the actual sprint number for
+NNN):
 
 ```bash
-codex exec "Read docs/sprints/SPRINT-NNN.md. This is a finalized sprint plan. Your job is NOT to improve it — your job is to attack it. Act as a senior skeptic who must approve this plan before a single line of code is written. Write docs/sprints/drafts/SPRINT-NNN-DEVILS-ADVOCATE.md with your critique. Cover: (1) flawed assumptions — what is this plan taking for granted that could be wrong? (2) scope risks — what could balloon, be underestimated, or have hidden dependencies? (3) design weaknesses — what architectural choices might we regret? (4) gaps in the Definition of Done — what's missing that could let a bad implementation 'pass'? (5) what's the most likely way this sprint fails? Be specific and harsh. Every concern should cite the relevant section of the plan."
+codex exec "Read docs/sprints/SPRINT-NNN.md. This is a \
+  finalized sprint plan. Your job is NOT to improve it — \
+  your job is to attack it. Act as a senior skeptic who \
+  must approve this plan before a single line of code is \
+  written. Write \
+  docs/sprints/drafts/SPRINT-NNN-DEVILS-ADVOCATE.md with \
+  your critique. Cover: (1) flawed assumptions — what is \
+  this plan taking for granted that could be wrong? \
+  (2) scope risks — what could balloon, be underestimated, \
+  or have hidden dependencies? (3) design weaknesses — \
+  what architectural choices might we regret? (4) gaps in \
+  the Definition of Done — what's missing that could let \
+  a bad implementation 'pass'? (5) what's the most likely \
+  way this sprint fails? Be specific and harsh. Every \
+  concern should cite the relevant section of the plan."
 ```
 
-Once Codex completes, read `docs/sprints/drafts/SPRINT-NNN-DEVILS-ADVOCATE.md` and respond:
+Once Codex completes, read
+`docs/sprints/drafts/SPRINT-NNN-DEVILS-ADVOCATE.md` and
+respond:
 
-1. Read `docs/sprints/drafts/SPRINT-NNN-DEVILS-ADVOCATE.md`
-2. Evaluate each critique: is it valid? If so, patch it in the sprint document now.
-3. If a critique is invalid, note why in the document (brief inline comment or a "Critiques Addressed" section).
+1. Read
+   `docs/sprints/drafts/SPRINT-NNN-DEVILS-ADVOCATE.md`
+2. Evaluate each critique: is it valid? If so, patch it in
+   the sprint document now.
+3. If a critique is invalid, note why in the document
+   (brief inline comment or a "Critiques Addressed"
+   section).
 4. Update `docs/sprints/SPRINT-NNN.md` with any revisions.
 
-Show the user a brief summary (in your own words) of the devil's advocate findings and what you addressed vs. rejected, then ask for their input before proceeding to Phase 8.
+Show the user a brief summary (in your own words) of the
+devil's advocate findings and what you addressed vs.
+rejected, then ask for their input before proceeding to
+Phase 8.
 
 ---
 
 ## Phase 8: Security Review
 
-**Goal**: You (Claude) perform a thorough security audit of the final plan before it goes to the user for approval.
+**Goal**: You (Claude) perform a thorough security audit of
+the final plan before it goes to the user for approval.
 
-### Steps:
+### Security Review Steps
 
-Review `docs/sprints/SPRINT-NNN.md` with a security-focused lens. Write your audit to `docs/sprints/drafts/SPRINT-NNN-SECURITY-REVIEW.md` covering:
+Review `docs/sprints/SPRINT-NNN.md` with a security-focused
+lens. Write your audit to
+`docs/sprints/drafts/SPRINT-NNN-SECURITY-REVIEW.md`
+covering:
 
-1. **Attack surface** — what new inputs, APIs, or trust boundaries does this plan introduce?
-2. **Data handling** — any risks around sensitive data, secrets, or PII?
-3. **Injection and parsing risks** — new parsers, template engines, query builders, or eval-adjacent code?
-4. **Authentication/authorization** — does this plan touch auth flows or permission checks? Any gaps?
-5. **Dependency risks** — new libraries or external services, and their known risk profile
-6. **Threat model** — given the project context in `CLAUDE.md`, what's a realistic adversarial scenario for this sprint's changes?
+1. **Attack surface** — what new inputs, APIs, or trust
+   boundaries does this plan introduce?
+2. **Data handling** — any risks around sensitive data,
+   secrets, or PII?
+3. **Injection and parsing risks** — new parsers, template
+   engines, query builders, or eval-adjacent code?
+4. **Authentication/authorization** — does this plan touch
+   auth flows or permission checks? Any gaps?
+5. **Dependency risks** — new libraries or external
+   services, and their known risk profile
+6. **Threat model** — given the project context in
+   `CLAUDE.md`, what's a realistic adversarial scenario
+   for this sprint's changes?
 
-Rate each finding: **Critical / High / Medium / Low**, and suggest a concrete mitigation or DoD addition.
+Rate each finding: **Critical / High / Medium / Low**, and
+suggest a concrete mitigation or DoD addition.
 
-### Incorporate findings and finalize:
+### Incorporate Findings and Finalize
 
-1. For Critical or High findings: update `docs/sprints/SPRINT-NNN.md` to add mitigations to the relevant tasks or Definition of Done.
-2. For Medium/Low findings: use your judgment; add to the Security Considerations section if relevant.
+1. For Critical or High findings: update
+   `docs/sprints/SPRINT-NNN.md` to add mitigations to the
+   relevant tasks or Definition of Done.
+2. For Medium/Low findings: use your judgment; add to the
+   Security Considerations section if relevant.
 3. Update the ledger using the `/ledger sync` skill.
 
-### Pre-Flight: Definition of Ready
+### Pre-Flight - Definition of Ready
 
-Before presenting to the user, verify every item below. If any fails, address it first.
+Before presenting to the user, verify every item below. If
+any fails, address it first.
 
-- [ ] All **blocking open questions** are resolved — no unresolved items in the Open Questions section
-- [ ] All **dependencies** are identified and either complete or explicitly tracked with a plan
-- [ ] **Sprint sizing gate passed** in Phase 6 — plan is scoped for a single delivery
-- [ ] **Critical/High security findings** from Phase 8 are incorporated into tasks or Definition of Done
-- [ ] **P0 tasks are clearly distinguished** from P1 and Deferred — nothing P1 or Deferred is blocking the sprint
-- [ ] **Rollback plan** is documented for any changes to shared infrastructure or agent configs
-- [ ] **Documentation tasks** are listed for anything that introduces new behavior or changes existing behavior
+- [ ] All **blocking open questions** are resolved — no
+  unresolved items in the Open Questions section
+- [ ] All **dependencies** are identified and either
+  complete or explicitly tracked with a plan
+- [ ] **Sprint sizing gate passed** in Phase 6 — plan is
+  scoped for a single delivery
+- [ ] **Critical/High security findings** from Phase 8 are
+  incorporated into tasks or Definition of Done
+- [ ] **P0 tasks are clearly distinguished** from P1 and
+  Deferred — nothing P1 or Deferred is blocking the sprint
+- [ ] **Rollback plan** is documented for any changes to
+  shared infrastructure or agent configs
+- [ ] **Documentation tasks** are listed for anything that
+  introduces new behavior or changes existing behavior
 
-Once all items pass, show the user a summary of security findings and what was incorporated, then ask for approval of the final document.
+Once all items pass, show the user a summary of security
+findings and what was incorporated, then ask for approval
+of the final document.
 
 ---
 
@@ -453,18 +610,18 @@ Once all items pass, show the user a summary of security findings and what was i
 
 After superplan completes, you'll have:
 
-```
+```text
 docs/sprints/
 ├── drafts/
-│   ├── SPRINT-NNN-INTENT.md                        # Concentrated intent (Phase 2)
-│   ├── SPRINT-NNN-CLAUDE-DRAFT.md                  # Your draft (Phase 3)
-│   ├── SPRINT-NNN-CODEX-DRAFT.md                   # Codex draft (Phase 5)
-│   ├── SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md   # Codex critiques Claude (Phase 5)
-│   ├── SPRINT-NNN-CODEX-DRAFT-CLAUDE-CRITIQUE.md   # Claude critiques Codex (Phase 5)
-│   ├── SPRINT-NNN-MERGE-NOTES.md                   # Synthesis notes (Phase 6)
-│   ├── SPRINT-NNN-DEVILS-ADVOCATE.md               # Skeptical critique (Phase 7)
-│   └── SPRINT-NNN-SECURITY-REVIEW.md               # Security audit (Phase 8)
-└── SPRINT-NNN.md                                   # Final sprint document
+│   ├── SPRINT-NNN-INTENT.md
+│   ├── SPRINT-NNN-CLAUDE-DRAFT.md
+│   ├── SPRINT-NNN-CODEX-DRAFT.md
+│   ├── SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md
+│   ├── SPRINT-NNN-CODEX-DRAFT-CLAUDE-CRITIQUE.md
+│   ├── SPRINT-NNN-MERGE-NOTES.md
+│   ├── SPRINT-NNN-DEVILS-ADVOCATE.md
+│   └── SPRINT-NNN-SECURITY-REVIEW.md
+└── SPRINT-NNN.md
 ```
 
 ---
@@ -472,23 +629,42 @@ docs/sprints/
 ## Output Checklist
 
 At the end of this workflow, you should have:
-- [ ] Orientation summary complete (includes in-progress sprints + git log review)
-- [ ] Intent document written (`drafts/SPRINT-NNN-INTENT.md`) with Approaches Considered table
-- [ ] Alternative approaches enumerated; one selected with rejections documented
-- [ ] Claude draft written (`drafts/SPRINT-NNN-CLAUDE-DRAFT.md`) with P0/P1/Deferred tiering, Observability & Rollback, and Documentation sections
-- [ ] Interview conducted (adaptive to uncertainty, user may exit early)
-- [ ] Codex draft received (`drafts/SPRINT-NNN-CODEX-DRAFT.md`)
-- [ ] Codex critique received (`drafts/SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md`)
-- [ ] Claude critique of Codex draft written (`drafts/SPRINT-NNN-CODEX-DRAFT-CLAUDE-CRITIQUE.md`)
+
+- [ ] Orientation summary complete (includes in-progress
+  sprints + git log review)
+- [ ] Intent document written
+  (`drafts/SPRINT-NNN-INTENT.md`) with Approaches
+  Considered table
+- [ ] Alternative approaches enumerated; one selected with
+  rejections documented
+- [ ] Claude draft written
+  (`drafts/SPRINT-NNN-CLAUDE-DRAFT.md`) with P0/P1/Deferred
+  tiering, Observability & Rollback, and Documentation
+  sections
+- [ ] Interview conducted (adaptive to uncertainty, user
+  may exit early)
+- [ ] Codex draft received
+  (`drafts/SPRINT-NNN-CODEX-DRAFT.md`)
+- [ ] Codex critique received
+  (`drafts/SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md`)
+- [ ] Claude critique of Codex draft written
+  (`drafts/SPRINT-NNN-CODEX-DRAFT-CLAUDE-CRITIQUE.md`)
 - [ ] Simplest viable filter applied to merged plan
-- [ ] Sprint sizing gate passed (plan is scoped for a single sprint)
-- [ ] Merge notes written (`drafts/SPRINT-NNN-MERGE-NOTES.md`)
-- [ ] Initial merged sprint document written (`SPRINT-NNN.md`)
-- [ ] Devil's advocate critique received (`drafts/SPRINT-NNN-DEVILS-ADVOCATE.md`)
+- [ ] Sprint sizing gate passed (plan is scoped for a
+  single sprint)
+- [ ] Merge notes written
+  (`drafts/SPRINT-NNN-MERGE-NOTES.md`)
+- [ ] Initial merged sprint document written
+  (`SPRINT-NNN.md`)
+- [ ] Devil's advocate critique received
+  (`drafts/SPRINT-NNN-DEVILS-ADVOCATE.md`)
 - [ ] Valid critiques incorporated into `SPRINT-NNN.md`
-- [ ] Security review received (`drafts/SPRINT-NNN-SECURITY-REVIEW.md`)
-- [ ] Critical/High security findings incorporated into `SPRINT-NNN.md`
-- [ ] Definition of Ready pre-flight passed (all 7 items checked)
+- [ ] Security review received
+  (`drafts/SPRINT-NNN-SECURITY-REVIEW.md`)
+- [ ] Critical/High security findings incorporated into
+  `SPRINT-NNN.md`
+- [ ] Definition of Ready pre-flight passed (all 7 items
+  checked)
 - [ ] Ledger updated via the `/ledger sync` skill
 - [ ] User approved the final document
 
@@ -498,4 +674,5 @@ At the end of this workflow, you should have:
 
 - Sprint conventions: `docs/sprints/README.md`
 - Project overview: `CLAUDE.md`
-- Recent sprints: `docs/sprints/SPRINT-*.md` (highest numbers)
+- Recent sprints: `docs/sprints/SPRINT-*.md` (highest
+  numbers)
