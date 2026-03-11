@@ -36,7 +36,7 @@ after the tool name as the seed prompt.
 
 ## Workflow Overview
 
-This is a **9-phase workflow**:
+This is an **8-phase workflow**:
 
 1. **Orient** - Review project state, git history,
    in-progress sprints, and lessons from recent sprints
@@ -45,16 +45,16 @@ This is a **9-phase workflow**:
 3. **Draft** - Create your draft plan with P0/P1 tiering,
    observability, and rollback sections
 4. **Interview** - Clarify with the human planner
-5. **Compete** - Codex creates competing draft + critiques
-   yours; Claude formally critiques Codex's draft
+5. **Compete** - Codex writes competing draft; then both
+   critiques run in parallel (Codex critiques Claude's
+   draft while Claude critiques Codex's draft)
 6. **Merge** - Synthesize best ideas, apply simplest viable
    filter, and run sprint sizing gate
-7. **Devil's Advocate** - Codex tears apart the merged plan
-   as a skeptical critic
-8. **Security Review** - Claude audits the final plan for
-   security risks; Definition of Ready pre-flight before
-   approval
-9. **Tool Sync** - If a supported tool name was provided,
+7. **Devil's Advocate + Security Review** - Codex attacks
+   the merged plan while Claude audits it for security
+   risks; both run in parallel; Definition of Ready
+   pre-flight before approval
+8. **Tool Sync** - If a supported tool name was provided,
    create or update the sprint in that external system,
    including stories and implementation tasks if needed
 
@@ -393,10 +393,10 @@ merge phase.
 
 ## Phase 5: Compete (Codex)
 
-**Goal**: Get Codex's independent draft and critique of your
-draft.
+**Goal**: Get Codex's independent draft and symmetric
+critiques of both drafts — run in two parallel steps.
 
-### Launch Codex for Competition
+### Step 1 — Codex Draft Only
 
 Run this command (substitute the actual sprint number for
 NNN):
@@ -406,20 +406,31 @@ codex exec "Please read docs/sprints/drafts/SPRINT-NNN-INTENT.md \
   - this is a concentrated intent for our next sprint. \
   Fully familiarize yourself with our sprint planning style \
   (see docs/sprints/README.md) and project structure \
-  (see CLAUDE.md) and project goals. Then I want you to \
-  draft docs/sprints/drafts/SPRINT-NNN-CODEX-DRAFT.md. \
-  Only AFTER your draft is complete, I want you to read \
-  Claude's draft at \
-  docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT.md and write \
-  docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md"
+  (see CLAUDE.md) and project goals. Then draft \
+  docs/sprints/drafts/SPRINT-NNN-CODEX-DRAFT.md only. \
+  Do not read or critique Claude's draft yet."
 ```
 
-Once Codex completes, read both output files:
+Wait for Codex to finish writing its draft before
+proceeding.
 
-- `docs/sprints/drafts/SPRINT-NNN-CODEX-DRAFT.md`
-- `docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md`
+### Step 2 — Parallel Critiques
 
-Then write your own formal critique of Codex's draft to
+Once `SPRINT-NNN-CODEX-DRAFT.md` exists, both critiques
+can run at the same time:
+
+**Launch Codex** (in background):
+
+```bash
+codex exec "Read docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT.md \
+  and write a formal critique to \
+  docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md. \
+  Cover: what Claude got right, what it missed, what you \
+  would do differently, and any over-engineering or gaps."
+```
+
+**Simultaneously, write your own critique of Codex's
+draft** to
 `docs/sprints/drafts/SPRINT-NNN-CODEX-DRAFT-CLAUDE-CRITIQUE.md`.
 Cover:
 
@@ -428,6 +439,10 @@ Cover:
   draft have?
 - Which of your own draft's choices would you defend
   against Codex's approach, and why?
+
+Wait for Codex to finish its critique, then read:
+
+- `docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md`
 
 This makes the critique symmetric: both drafts are attacked
 before the merge begins.
@@ -516,16 +531,19 @@ document.
 
 ---
 
-## Phase 7: Devil's Advocate
+## Phase 7+8: Devil's Advocate & Security Review
 
-**Goal**: Have Codex act as a skeptical critic of the final
-merged plan, stress-testing assumptions and surfacing weak
-spots before execution begins.
+**Goal**: Stress-test and security-audit the merged plan in
+parallel — Codex attacks the plan while Claude audits it
+for security risks.
 
-### Launch Codex for Devil's Advocate
+### Run Both in Parallel
 
-Run this command (substitute the actual sprint number for
-NNN):
+Both reviews operate independently on the same
+`docs/sprints/SPRINT-NNN.md` document, so launch them at
+the same time.
+
+**Launch Codex** (in background) for Devil's Advocate:
 
 ```bash
 codex exec "Read docs/sprints/SPRINT-NNN.md. This is a \
@@ -545,32 +563,7 @@ codex exec "Read docs/sprints/SPRINT-NNN.md. This is a \
   concern should cite the relevant section of the plan."
 ```
 
-Once Codex completes, read
-`docs/sprints/drafts/SPRINT-NNN-DEVILS-ADVOCATE.md` and
-respond:
-
-1. Read
-   `docs/sprints/drafts/SPRINT-NNN-DEVILS-ADVOCATE.md`
-2. Evaluate each critique: is it valid? If so, patch it in
-   the sprint document now.
-3. If a critique is invalid, note why in the document
-   (brief inline comment or a "Critiques Addressed"
-   section).
-4. Update `docs/sprints/SPRINT-NNN.md` with any revisions.
-
-Show the user a brief summary (in your own words) of the
-devil's advocate findings and what you addressed vs.
-rejected, then ask for their input before proceeding to
-Phase 8.
-
----
-
-## Phase 8: Security Review
-
-**Goal**: You (Claude) perform a thorough security audit of
-the final plan before it goes to the user for approval.
-
-### Security Review Steps
+**Simultaneously, perform the Security Review** (Claude).
 
 Review `docs/sprints/SPRINT-NNN.md` with a security-focused
 lens. Write your audit to
@@ -594,7 +587,18 @@ covering:
 Rate each finding: **Critical / High / Medium / Low**, and
 suggest a concrete mitigation or DoD addition.
 
-### Incorporate Findings and Finalize
+### Incorporate Both Sets of Findings
+
+Once Codex completes its devil's advocate critique, read
+`docs/sprints/drafts/SPRINT-NNN-DEVILS-ADVOCATE.md` and:
+
+1. Evaluate each critique: is it valid? If so, patch it in
+   the sprint document now.
+2. If a critique is invalid, note why in the document
+   (brief inline comment or a "Critiques Addressed"
+   section).
+
+Then incorporate security findings:
 
 1. For Critical or High findings: update
    `docs/sprints/SPRINT-NNN.md` to add mitigations to the
@@ -614,7 +618,7 @@ any fails, address it first.
   complete or explicitly tracked with a plan
 - [ ] **Sprint sizing gate passed** in Phase 6 — plan is
   scoped for a single delivery
-- [ ] **Critical/High security findings** from Phase 8 are
+- [ ] **Critical/High security findings** from Phase 7 are
   incorporated into tasks or Definition of Done
 - [ ] **P0 tasks are clearly distinguished** from P1 and
   Deferred — nothing P1 or Deferred is blocking the sprint
@@ -623,14 +627,15 @@ any fails, address it first.
 - [ ] **Documentation tasks** are listed for anything that
   introduces new behavior or changes existing behavior
 
-Once all items pass, show the user a summary of security
-findings and what was incorporated, then ask for approval
+Once all items pass, show the user a combined summary of
+devil's advocate and security findings — what was
+incorporated and what was rejected — then ask for approval
 of the final document. After approval, direct the user to
 run `/sprint-work` to execute the sprint.
 
 ---
 
-## Phase 9: Tool Sync
+## Phase 8: Tool Sync
 
 **Goal**: If the command was invoked with a supported tool
 name, create the sprint in that external planning system so
@@ -638,21 +643,18 @@ execution can later be driven from that tool.
 
 ### Tool Sync Steps
 
-1. Parse `$ARGUMENTS`:
-   - If the first token is a supported tool name, store it
-     as `TOOL_NAME`
-   - Treat the remainder as the actual seed prompt
-2. If no `TOOL_NAME` was provided, skip this phase.
-3. If `TOOL_NAME` was provided, verify the agent has usable
-   access to that tool in the current environment.
+1. If no `TOOL_NAME` was provided in `$ARGUMENTS`, skip
+   this phase.
+2. Verify the agent has usable access to that tool in the
+   current environment.
    - Prefer the corresponding MCP/tool integration if one
      exists
    - If access is missing, stop and tell the user exactly
      what is unavailable
-4. Using the final approved sprint document
+3. Using the final approved sprint document
    `docs/sprints/SPRINT-NNN.md`, create the sprint in the
    external tool.
-5. Translate the sprint plan into tool-native structure:
+4. Translate the sprint plan into tool-native structure:
    - Create the sprint/cycle/iteration container if needed
    - Create stories/issues for the major P0 workstreams
    - Create subtasks/tasks for implementation and validation
@@ -660,12 +662,12 @@ execution can later be driven from that tool.
      needed to preserve the sprint's Definition of Done
    - Carry over priority, ordering, and any dependencies
      that materially affect execution
-6. Keep the external tool representation faithful to the
+5. Keep the external tool representation faithful to the
    sprint document.
    - Do not invent scope not present in the approved plan
    - Prefer P0 items first; P1/Deferred should be clearly
      labeled or omitted based on the tool's structure
-7. At the end, report:
+6. At the end, report:
    - Which tool was used
    - What sprint/cycle was created or updated
    - Which stories/tasks were created
@@ -731,10 +733,13 @@ At the end of this workflow, you should have:
 - [ ] Initial merged sprint document written
   (`SPRINT-NNN.md`)
 - [ ] Devil's advocate critique received
-  (`drafts/SPRINT-NNN-DEVILS-ADVOCATE.md`)
-- [ ] Valid critiques incorporated into `SPRINT-NNN.md`
+  (`drafts/SPRINT-NNN-DEVILS-ADVOCATE.md`) — ran in
+  parallel with security review
 - [ ] Security review received
-  (`drafts/SPRINT-NNN-SECURITY-REVIEW.md`)
+  (`drafts/SPRINT-NNN-SECURITY-REVIEW.md`) — ran in
+  parallel with devil's advocate
+- [ ] Valid devil's advocate critiques incorporated into
+  `SPRINT-NNN.md`
 - [ ] Critical/High security findings incorporated into
   `SPRINT-NNN.md`
 - [ ] Definition of Ready pre-flight passed (all 7 items

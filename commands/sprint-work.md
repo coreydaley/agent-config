@@ -116,11 +116,11 @@ ledger flow:
 7. **Mark sprint completed in the tool**
    - Close or complete the sprint in the external tool when
      the sprint's required work is done
-   - If the repo also keeps a matching local ledger/doc and
-     it is appropriate to update it, do so only when that
-     sync is part of the documented workflow
+   - If the repo has a matching local sprint doc and a
+     ledger entry, also run `/ledger complete NNN` to keep
+     the local ledger in sync
 
-> Do not commit, stage, or push any changes. Do not ask to commit or push.
+> Do not push changes. Do not ask to push.
 
 ## Reference
 
