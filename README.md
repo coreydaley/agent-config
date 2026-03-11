@@ -57,7 +57,7 @@ Each agent has:
 
 - A shared source file: `agents/_GLOBAL.md`
 - An agent-specific source file: `agents/<agent>/_<AGENT_NAME>.md`
-- A generated merged file: `agents/<agent>/<AGENT_NAME>.md` (gitignored; symlinked into the agent's home dir)
+- A generated merged file: `agents/<agent>/<AGENT_NAME>.md` (generated, gitignored, and symlinked into the agent's home dir)
 
 Generation: `make generate-agent-files` (runs as part of `make all`)
 
@@ -83,19 +83,68 @@ Slash commands available to agents. Source files are Markdown (`.md`) with YAML 
 - Gemini requires TOML format — files are auto-converted via `make generate-gemini-commands` to `build/gemini-commands/` and symlinked to `~/.gemini/commands/`
 - Copilot does not support custom commands
 
+The source of truth is still `commands/*.md`, but the way you invoke a command depends on the agent:
+
+| Agent | `commit` | `tag` | `sprint-plan` | `sprint-work` |
+|---|---|---|---|---|
+| Claude | `/commit` | `/tag` | `/sprint-plan improve release rollback safety` | `/sprint-work` |
+| Codex | `/prompts:commit` | `/prompts:tag` | `/prompts:sprint-plan improve release rollback safety` | `/prompts:sprint-work` |
+| Gemini | `/commit` | `/tag` | `/sprint-plan improve release rollback safety` | `/sprint-work` |
+| Copilot | Not supported | Not supported | Not supported | Not supported |
+
 Current command workflows include:
 
+- `commit` for analyzing uncommitted changes and creating grouped conventional commits
+- `tag` for analyzing commits since the last tag and proposing the next semantic version tag
 - `sprint-plan` for creating a sprint plan in local docs and ledger
 - `sprint-work` for executing the next local sprint from the repo's sprint docs
 
-Both commands also support an optional external planning tool name as the first argument, for example `linear` or `jira`, when the agent has a matching integration available.
+The sprint commands also support an optional external planning tool name as the first argument, for example `linear` or `jira`, when the agent has a matching integration available.
 
 Examples:
 
+- `/commit`
+- `/commit commands`
+- `/tag`
+- `/tag patch`
 - `/sprint-plan improve release rollback safety`
 - `/sprint-plan linear improve release rollback safety`
 - `/sprint-work`
 - `/sprint-work linear`
+
+Agent-specific examples:
+
+```bash
+# Claude
+/commit
+/commit commands
+/tag
+/tag patch
+/sprint-plan improve release rollback safety
+/sprint-plan linear improve release rollback safety
+/sprint-work
+/sprint-work linear
+
+# Codex
+/prompts:commit
+/prompts:commit commands
+/prompts:tag
+/prompts:tag patch
+/prompts:sprint-plan improve release rollback safety
+/prompts:sprint-plan linear improve release rollback safety
+/prompts:sprint-work
+/prompts:sprint-work linear
+
+# Gemini
+/commit
+/commit commands
+/tag
+/tag patch
+/sprint-plan improve release rollback safety
+/sprint-plan linear improve release rollback safety
+/sprint-work
+/sprint-work linear
+```
 
 Tool-backed behavior:
 
@@ -104,11 +153,13 @@ Tool-backed behavior:
 - `sprint-work TOOL_NAME` should pull the active or next planned sprint from that tool and execute against the stories and tasks defined there
 - If the named tool is not actually available to the agent in the current environment, the command should stop and report the missing integration rather than pretending the sync worked
 
-See [commands/sprint-plan.md](commands/sprint-plan.md) and [commands/sprint-work.md](commands/sprint-work.md) for the detailed command behavior.
+See [commands/commit.md](commands/commit.md), [commands/tag.md](commands/tag.md), [commands/sprint-plan.md](commands/sprint-plan.md), and [commands/sprint-work.md](commands/sprint-work.md) for the detailed command behavior.
 
 ### subagents/
 
 Configurations for custom AI agents that primary agents can delegate work to.
+
+This repository supports subagents, but `subagents/` is currently empty.
 
 **Contents should include:**
 
@@ -143,7 +194,7 @@ cd agent-config
 make all
 ```
 
-`make all` generates merged agent files, converts commands to TOML for Gemini, and creates all symlinks in one step. It is idempotent — safe to run multiple times.
+`make all` generates merged agent files, converts commands to TOML for Gemini, creates all symlinks, and registers Codex skills in `~/.codex/config.toml`. It is idempotent — safe to run multiple times.
 
 ### Individual targets
 
@@ -152,14 +203,16 @@ make generate             # Generate all artifacts (agent files + Gemini TOML)
 make symlinks             # Create all symlinks
 make symlink-agents       # Agent config symlinks only
 make symlink-skills       # Skills symlinks only (Claude + Copilot)
-make symlink-commands     # Command symlinks only (Claude + Codex + Gemini)
+make symlink-commands     # Command symlinks only (Claude + Codex)
+make symlink-gemini-commands # Gemini command symlinks only
 make symlink-subagents    # Subagent symlinks only (Claude + Gemini)
+make configure-codex-skills # Register Codex skills in ~/.codex/config.toml
 make help                 # Show all available targets
 ```
 
 ### Optional: Codex skills registration
 
-Codex does not support a global skills directory. To register skills from this repo with Codex via `~/.codex/config.toml`, run this separately (not part of `make all`):
+Codex does not support a global skills directory. This repo registers skills from `skills/` in `~/.codex/config.toml` as part of `make all`. If you want to run that step by itself:
 
 ```bash
 make configure-codex-skills
@@ -184,7 +237,7 @@ Existing regular files or directories at symlink destinations are renamed to `.o
 
 ## Usage
 
-After running `make all`, each agent will load its merged config file automatically. The capability matrix above shows what each agent can access.
+After running `make all`, each agent will load its merged config file automatically. Codex will also have skills from this repo registered in `~/.codex/config.toml`. The capability matrix above shows what each agent can access.
 
 Reference the individual README files for details:
 
