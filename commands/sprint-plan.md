@@ -4,19 +4,39 @@ description: >-
   compete with Codex, merge
 ---
 
-# Superplan: Collaborative Multi-Agent Planning
+# Sprint Plan: Collaborative Multi-Agent Planning
 
 You are orchestrating a sophisticated planning workflow that
 produces high-quality sprint documents through competitive
 ideation and synthesis with Codex.
 
+## Arguments
+
+`$ARGUMENTS` may include an optional tool name followed by
+the planning seed.
+
+- Example: `linear improve sprint planning workflow`
+- Example: `jira add deployment rollback guardrails`
+- If the first argument is a recognized tool name, treat it
+  as the sprint system to sync with after planning.
+- Supported tool names are tools the agent can actually use
+  in the current environment, such as `linear` or `jira`.
+- If a tool name is provided but no matching tool or MCP
+  integration is available, stop after explaining the gap
+  and what integration is missing. Do not pretend the sync
+  succeeded.
+- If no tool name is provided, use the normal local sprint
+  planning flow only.
+
 ## Seed Prompt
 
-$ARGUMENTS
+Use `$ARGUMENTS` as the seed prompt unless the first token
+is a supported tool name. In that case, use the remainder
+after the tool name as the seed prompt.
 
 ## Workflow Overview
 
-This is an **8-phase workflow**:
+This is a **9-phase workflow**:
 
 1. **Orient** - Review project state, git history,
    in-progress sprints, and lessons from recent sprints
@@ -34,6 +54,9 @@ This is an **8-phase workflow**:
 8. **Security Review** - Claude audits the final plan for
    security risks; Definition of Ready pre-flight before
    approval
+9. **Tool Sync** - If a supported tool name was provided,
+   create or update the sprint in that external system,
+   including stories and implementation tasks if needed
 
 Use TodoWrite to track progress through each phase.
 
@@ -602,13 +625,64 @@ any fails, address it first.
 
 Once all items pass, show the user a summary of security
 findings and what was incorporated, then ask for approval
-of the final document.
+of the final document. After approval, direct the user to
+run `/sprint-work` to execute the sprint.
+
+---
+
+## Phase 9: Tool Sync
+
+**Goal**: If the command was invoked with a supported tool
+name, create the sprint in that external planning system so
+execution can later be driven from that tool.
+
+### Tool Sync Steps
+
+1. Parse `$ARGUMENTS`:
+   - If the first token is a supported tool name, store it
+     as `TOOL_NAME`
+   - Treat the remainder as the actual seed prompt
+2. If no `TOOL_NAME` was provided, skip this phase.
+3. If `TOOL_NAME` was provided, verify the agent has usable
+   access to that tool in the current environment.
+   - Prefer the corresponding MCP/tool integration if one
+     exists
+   - If access is missing, stop and tell the user exactly
+     what is unavailable
+4. Using the final approved sprint document
+   `docs/sprints/SPRINT-NNN.md`, create the sprint in the
+   external tool.
+5. Translate the sprint plan into tool-native structure:
+   - Create the sprint/cycle/iteration container if needed
+   - Create stories/issues for the major P0 workstreams
+   - Create subtasks/tasks for implementation and validation
+     work when the tool supports them or when they are
+     needed to preserve the sprint's Definition of Done
+   - Carry over priority, ordering, and any dependencies
+     that materially affect execution
+6. Keep the external tool representation faithful to the
+   sprint document.
+   - Do not invent scope not present in the approved plan
+   - Prefer P0 items first; P1/Deferred should be clearly
+     labeled or omitted based on the tool's structure
+7. At the end, report:
+   - Which tool was used
+   - What sprint/cycle was created or updated
+   - Which stories/tasks were created
+   - Any plan details that could not be represented exactly
+
+### Tool Sync Output
+
+If a tool name was provided and the sync succeeded, the
+final response should include enough detail for `/sprint-work
+TOOL_NAME` to locate and execute the same sprint from that
+system.
 
 ---
 
 ## File Structure
 
-After superplan completes, you'll have:
+After `/sprint-plan` completes, you'll have:
 
 ```text
 docs/sprints/
@@ -667,6 +741,8 @@ At the end of this workflow, you should have:
   checked)
 - [ ] Ledger updated via the `/ledger sync` skill
 - [ ] User approved the final document
+- [ ] If a tool name was provided, sprint created or
+  updated in that tool with stories/tasks as needed
 
 ---
 
