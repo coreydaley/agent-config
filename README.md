@@ -83,6 +83,29 @@ Slash commands available to agents. Source files are Markdown (`.md`) with YAML 
 - Gemini requires TOML format — files are auto-converted via `make generate-gemini-commands` to `build/gemini-commands/` and symlinked to `~/.gemini/commands/`
 - Copilot does not support custom commands
 
+Current command workflows include:
+
+- `sprint-plan` for creating a sprint plan in local docs and ledger
+- `sprint-work` for executing the next local sprint from the repo's sprint docs
+
+Both commands also support an optional external planning tool name as the first argument, for example `linear` or `jira`, when the agent has a matching integration available.
+
+Examples:
+
+- `/sprint-plan improve release rollback safety`
+- `/sprint-plan linear improve release rollback safety`
+- `/sprint-work`
+- `/sprint-work linear`
+
+Tool-backed behavior:
+
+- `sprint-plan TOOL_NAME ...` uses `TOOL_NAME` as the external sprint system and the remaining arguments as the planning seed
+- After planning approval, `sprint-plan TOOL_NAME ...` should create or update the sprint in that external tool, including stories and tasks/subtasks when needed
+- `sprint-work TOOL_NAME` should pull the active or next planned sprint from that tool and execute against the stories and tasks defined there
+- If the named tool is not actually available to the agent in the current environment, the command should stop and report the missing integration rather than pretending the sync worked
+
+See [commands/sprint-plan.md](commands/sprint-plan.md) and [commands/sprint-work.md](commands/sprint-work.md) for the detailed command behavior.
+
 ### subagents/
 
 Configurations for custom AI agents that primary agents can delegate work to.
