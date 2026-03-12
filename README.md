@@ -85,12 +85,12 @@ Slash commands available to agents. Source files are Markdown (`.md`) with YAML 
 
 The source of truth is still `commands/*.md`, but the way you invoke a command depends on the agent:
 
-| Agent | `commit` | `tag` | `sprint-plan` | `sprint-work` |
-|---|---|---|---|---|
-| Claude | `/commit` | `/tag` | `/sprint-plan improve release rollback safety` | `/sprint-work` |
-| Codex | `/prompts:commit` | `/prompts:tag` | `/prompts:sprint-plan improve release rollback safety` | `/prompts:sprint-work` |
-| Gemini | `/commit` | `/tag` | `/sprint-plan improve release rollback safety` | `/sprint-work` |
-| Copilot | Not supported | Not supported | Not supported | Not supported |
+| Agent | `commit` | `tag` | `sprint-plan` | `sprint-work` | `audit-security` | `audit-design` | `audit-accessibility` | `audit-architecture` |
+|---|---|---|---|---|---|---|---|---|
+| Claude | `/commit` | `/tag` | `/sprint-plan improve release rollback safety` | `/sprint-work` | `/audit-security` | `/audit-design` | `/audit-accessibility` | `/audit-architecture` |
+| Codex | `/prompts:commit` | `/prompts:tag` | `/prompts:sprint-plan improve release rollback safety` | `/prompts:sprint-work` | `/prompts:audit-security` | `/prompts:audit-design` | `/prompts:audit-accessibility` | `/prompts:audit-architecture` |
+| Gemini | `/commit` | `/tag` | `/sprint-plan improve release rollback safety` | `/sprint-work` | `/audit-security` | `/audit-design` | `/audit-accessibility` | `/audit-architecture` |
+| Copilot | Not supported | Not supported | Not supported | Not supported | Not supported | Not supported | Not supported | Not supported |
 
 Current command workflows include:
 
@@ -98,6 +98,10 @@ Current command workflows include:
 - `tag` for analyzing commits since the last tag and proposing the next semantic version tag
 - `sprint-plan` for creating a sprint plan in local docs and ledger
 - `sprint-work` for executing the next local sprint from the repo's sprint docs
+- `audit-security` for running a dual-agent security review (Claude + Codex independently, then synthesized) and producing an executable sprint of remediation tasks; the first in the `audit-*` command family
+- `audit-design` for running a dual-agent UI/UX design review covering layout, typography, color, component consistency, navigation patterns, design system adherence, and responsive design; produces an executable sprint of design remediation tasks
+- `audit-accessibility` for running a dual-agent WCAG 2.1/2.2 accessibility review covering semantic HTML, ARIA, keyboard navigation, focus management, color contrast, screen reader support, motion sensitivity, and cognitive load; produces an executable sprint of accessibility tasks each tied to a WCAG success criterion. **Note:** static code review cannot fully validate dynamic behavior, screen reader output, or focus management — findings marked `runtime` require browser and assistive technology testing to confirm
+- `audit-architecture` for running a dual-agent architectural review covering module boundaries, coupling, naming conventions, data flow, extensibility, DRY, YAGNI, and — for agent-config repos — command/skill/agent boundary clarity; produces an executable sprint of architecture improvement tasks each anchored to a named principle or observable trade-off. **Note:** architecture findings are LLM hypotheses, not mandates to refactor — validate each finding against team knowledge and project constraints before executing tasks
 
 The sprint commands also support an optional external planning tool name as the first argument, for example `linear` or `jira`, when the agent has a matching integration available.
 
@@ -111,6 +115,14 @@ Examples:
 - `/sprint-plan linear improve release rollback safety`
 - `/sprint-work`
 - `/sprint-work linear`
+- `/audit-security`
+- `/audit-security src/auth`
+- `/audit-design`
+- `/audit-design src/components`
+- `/audit-accessibility`
+- `/audit-accessibility src/components src/pages`
+- `/audit-architecture`
+- `/audit-architecture commands/ skills/`
 
 Agent-specific examples:
 
@@ -124,6 +136,14 @@ Agent-specific examples:
 /sprint-plan linear improve release rollback safety
 /sprint-work
 /sprint-work linear
+/audit-security
+/audit-security src/auth
+/audit-design
+/audit-design src/components
+/audit-accessibility
+/audit-accessibility src/components src/pages
+/audit-architecture
+/audit-architecture commands/ skills/
 
 # Codex
 /prompts:commit
@@ -134,6 +154,14 @@ Agent-specific examples:
 /prompts:sprint-plan linear improve release rollback safety
 /prompts:sprint-work
 /prompts:sprint-work linear
+/prompts:audit-security
+/prompts:audit-security src/auth
+/prompts:audit-design
+/prompts:audit-design src/components
+/prompts:audit-accessibility
+/prompts:audit-accessibility src/components src/pages
+/prompts:audit-architecture
+/prompts:audit-architecture commands/ skills/
 
 # Gemini
 /commit
@@ -144,6 +172,14 @@ Agent-specific examples:
 /sprint-plan linear improve release rollback safety
 /sprint-work
 /sprint-work linear
+/audit-security
+/audit-security src/auth
+/audit-design
+/audit-design src/components
+/audit-accessibility
+/audit-accessibility src/components src/pages
+/audit-architecture
+/audit-architecture commands/ skills/
 ```
 
 Tool-backed behavior:
@@ -153,7 +189,9 @@ Tool-backed behavior:
 - `sprint-work TOOL_NAME` should pull the active or next planned sprint from that tool and execute against the stories and tasks defined there
 - If the named tool is not actually available to the agent in the current environment, the command should stop and report the missing integration rather than pretending the sync worked
 
-See [commands/commit.md](commands/commit.md), [commands/tag.md](commands/tag.md), [commands/sprint-plan.md](commands/sprint-plan.md), and [commands/sprint-work.md](commands/sprint-work.md) for the detailed command behavior.
+See [commands/commit.md](commands/commit.md), [commands/tag.md](commands/tag.md), [commands/sprint-plan.md](commands/sprint-plan.md), [commands/sprint-work.md](commands/sprint-work.md), [commands/audit-security.md](commands/audit-security.md), [commands/audit-design.md](commands/audit-design.md), [commands/audit-accessibility.md](commands/audit-accessibility.md), and [commands/audit-architecture.md](commands/audit-architecture.md) for the detailed command behavior.
+
+All `audit-*` commands produce a sprint document that can be executed with `/sprint-work`. The output is a standard `SPRINT-NNN.md` — no separate remediation command is needed. Each command in the family uses the same 5-phase dual-agent workflow (Orient → Independent Reviews → Synthesis → Devil's Advocate → Sprint Output) and extends the core finding schema with domain-specific columns.
 
 ### subagents/
 
