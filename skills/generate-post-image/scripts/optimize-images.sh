@@ -34,6 +34,12 @@ THUMB_WIDTH_AVATARS=300  # 150px display (desktop default) × 2x DPR
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Allow BLOG_REPO_ROOT env var to override the project root when the script
+# is invoked from outside the repo (e.g., from a Claude Code skill directory).
+if [ -n "${BLOG_REPO_ROOT:-}" ]; then
+    PROJECT_ROOT="$BLOG_REPO_ROOT"
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'

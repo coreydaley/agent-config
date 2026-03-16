@@ -12,14 +12,23 @@ description: >-
 
 Automatically generate and insert a hero image for a Hugo blog post (leaf bundle layout).
 
+## Scripts
+
+All scripts live alongside this file in `~/.claude/skills/generate-post-image/scripts/`:
+
+- `generate-post-image.py` — main pipeline: concept → DALL-E 3 → download → optimize → alt text → insert
+- `optimize-images.sh` — converts PNG/JPG to WebP, resizes oversized images, generates `thumbs/`
+
+Both scripts accept a `BLOG_REPO_ROOT` environment variable so they can be invoked from outside
+the blog repo. Always set this when running from the skill directory.
+
 ## Prerequisites
 
-- `.env` file at the repo root with `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` set
-- `.venv/` virtualenv at the repo root with required packages:
+- `.env` file at the blog repo root with `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` set
+- `.venv/` virtualenv at the blog repo root with required packages:
   ```bash
   python3 -m venv .venv && .venv/bin/pip install anthropic openai requests
   ```
-- `scripts/optimize-images.sh` present (handles WebP conversion and thumbnails)
 - `cwebp` or `imagemagick` installed for WebP conversion:
   ```bash
   brew install webp       # macOS (preferred)
@@ -28,18 +37,21 @@ Automatically generate and insert a hero image for a Hugo blog post (leaf bundle
 
 ## Usage
 
+Run from the blog repo root (`pwd` becomes `BLOG_REPO_ROOT`):
+
 ```bash
-python3 scripts/generate-post-image.py content/posts/YYYY/MM/$SLUG/index.md
+BLOG_REPO_ROOT=$(pwd) python3 ~/.claude/skills/generate-post-image/scripts/generate-post-image.py \
+  content/posts/YYYY/MM/$SLUG/index.md
 ```
 
-The script self-re-execs with `.venv/bin/python3` automatically — no manual activation needed.
+The script self-re-execs with the blog repo's `.venv/bin/python3` automatically — no manual activation needed.
 
 ## What the script does
 
 1. **Reads the post** and calls Claude API (`claude-sonnet-4-6`) to derive a 2-3 sentence concrete visual concept from the content
 2. **Calls DALL-E 3** to generate a 1792×1024 HD image using the concept plus the blog's house style
 3. **Downloads the PNG** to the post's bundle directory as `$SLUG.png`
-4. **Runs `./scripts/optimize-images.sh`** to convert the PNG to WebP and generate a thumbnail in `thumbs/`
+4. **Runs `optimize-images.sh`** (from this skill's scripts dir) to convert the PNG to WebP and generate a thumbnail in `thumbs/`
 5. **Calls Claude vision** on the resulting WebP to generate accurate alt text (10-15 words)
 6. **Inserts into the post**:
    - `image = "$SLUG.webp"` frontmatter field after `categories`
@@ -69,30 +81,6 @@ If the script fails (missing API keys, network error, or missing tools), fall ba
 1. Output an image generation prompt using the post's central visual metaphor and the house style above
 2. Remind the user to:
    - Place the downloaded image in `content/posts/YYYY/MM/$SLUG/`
-   - Run `./scripts/optimize-images.sh` from the repo root
+   - Run `BLOG_REPO_ROOT=$BLOG_ROOT ~/.claude/skills/generate-post-image/scripts/optimize-images.sh`
    - Manually insert `{{< figure-float src="$SLUG.webp" alt="..." >}}` after closing `+++` in `index.md`
    - Manually add `image = "$SLUG.webp"` to the frontmatter
-
-## optimize-images.sh
-
-Handles all image optimization for the blog:
-- PNG/JPG/GIF → creates optimized `.webp` alongside original (original preserved)
-- WebP → resizes in-place if wider than 1600px
-- Generates thumbnails in `thumbs/` subdirectories:
-  - `content/posts/**` → 400px thumbs
-  - `static/images/avatars/` → 300px thumbs
-- Skips browser icons (favicon*, apple-touch-icon*, android-chrome*)
-
-```bash
-# Run from repo root
-./scripts/optimize-images.sh
-```
-
-## check-image-resize.sh
-
-Pre-commit hook that runs `make optimize-images` and blocks the commit if it produces unstaged changes. Used to enforce that all images are optimized before committing.
-
-```bash
-# Typically invoked as a pre-commit hook, not directly
-./scripts/check-image-resize.sh
-```

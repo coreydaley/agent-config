@@ -6,7 +6,7 @@ Steps:
   1. Read the post and derive a visual concept via Claude API
   2. Generate the image with DALL-E 3
   3. Download the PNG to the post's bundle directory (alongside index.md)
-  4. Optimize to WebP via ./scripts/optimize-images.sh
+  4. Optimize to WebP via optimize-images.sh (from this skill's scripts dir)
   5. Generate accurate alt text by reading the WebP via Claude vision
   6. Insert figure-float shortcode and image frontmatter field into the post
 
@@ -14,14 +14,18 @@ Requirements:
   pip install anthropic openai requests
 
 Environment:
-  Copy .env.example to .env and fill in your keys. The script loads .env
-  automatically. Keys can also be set as shell environment variables.
+  Copy .env.example to .env in the blog repo root and fill in your keys.
+  The script loads .env automatically. Keys can also be set as shell environment variables.
 
   ANTHROPIC_API_KEY  — Anthropic API key (for concept + alt text)
   OPENAI_API_KEY     — OpenAI API key (for DALL-E 3 image generation)
+  BLOG_REPO_ROOT     — absolute path to the Hugo blog repo root (required when
+                       running this script from outside the blog repo)
 
 Usage:
-  python3 scripts/generate-post-image.py content/posts/2026/03/my-post/index.md
+  BLOG_REPO_ROOT=/path/to/blog python3 generate-post-image.py content/posts/2026/03/my-post/index.md
+  # or with an absolute post path:
+  BLOG_REPO_ROOT=/path/to/blog python3 generate-post-image.py /path/to/blog/content/posts/2026/03/my-post/index.md
 """
 
 import base64
@@ -31,10 +35,19 @@ import subprocess
 import sys
 from pathlib import Path
 
+# BLOG_REPO_ROOT env var lets this script run from outside the blog repo
+# (e.g., when invoked from a Claude Code skill directory).
+# When absent, fall back to the original behaviour: parent.parent of this file.
+_BLOG_REPO_ROOT = os.environ.get('BLOG_REPO_ROOT')
+
 # Re-exec with the project's venv Python if not already using it.
 # This means the script works correctly however it's invoked —
 # directly, from Claude Code commands, or from a shell without activation.
-_VENV_PYTHON = Path(__file__).parent.parent / ".venv" / "bin" / "python3"
+_VENV_PYTHON = (
+    Path(_BLOG_REPO_ROOT) / ".venv" / "bin" / "python3"
+    if _BLOG_REPO_ROOT
+    else Path(__file__).parent.parent / ".venv" / "bin" / "python3"
+)
 if _VENV_PYTHON.exists() and Path(sys.executable).resolve() != _VENV_PYTHON.resolve():
     os.execv(str(_VENV_PYTHON), [str(_VENV_PYTHON)] + sys.argv)
 
@@ -47,7 +60,8 @@ except ImportError as e:
     print(f"Run: {_VENV_PYTHON} -m pip install anthropic openai requests")
     sys.exit(1)
 
-REPO_ROOT = Path(__file__).parent.parent
+REPO_ROOT = Path(_BLOG_REPO_ROOT) if _BLOG_REPO_ROOT else Path(__file__).parent.parent
+SKILL_SCRIPTS_DIR = Path(__file__).parent
 
 
 def load_dotenv() -> None:
@@ -64,6 +78,7 @@ def load_dotenv() -> None:
         value = value.strip().strip('"').strip("'")
         if key and key not in os.environ:  # shell env takes precedence
             os.environ[key] = value
+
 
 IMAGE_STYLE = (
     "Flat vector illustration. Dark navy or charcoal background. "
@@ -135,11 +150,9 @@ def download_image(url: str, dest: Path) -> None:
 
 
 def optimize_images() -> None:
-    subprocess.run(
-        ["./scripts/optimize-images.sh"],
-        cwd=REPO_ROOT,
-        check=True,
-    )
+    script = SKILL_SCRIPTS_DIR / "optimize-images.sh"
+    env = {**os.environ, 'BLOG_REPO_ROOT': str(REPO_ROOT)}
+    subprocess.run([str(script)], cwd=REPO_ROOT, env=env, check=True)
 
 
 def generate_alt_text(webp_path: Path) -> str:
