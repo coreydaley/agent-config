@@ -219,21 +219,14 @@ Codex will produce:
 
 ### Invoke the generate-post-image skill:
 
-Use the `generate-post-image` skill to run the full image pipeline for the post:
+Use the Skill tool with `skill: "generate-post-image"`, passing the post path as the argument:
 
-```bash
-python3 scripts/generate-post-image.py content/posts/YYYY/MM/$SLUG/index.md
+```
+skill: generate-post-image
+args: content/posts/YYYY/MM/$SLUG/index.md
 ```
 
-The skill will:
-1. Call the Claude API to derive a visual concept from the post content
-2. Call DALL-E 3 (OpenAI API) to generate a 1792×1024 HD image
-3. Download the PNG to the **post's bundle directory** (`content/posts/YYYY/MM/$SLUG/$SLUG.png`)
-4. Optimize to WebP via `./scripts/optimize-images.sh` (creates `$SLUG.webp` and `thumbs/$SLUG.webp` in the bundle)
-5. Call Claude vision to generate accurate alt text from the actual image
-6. Insert the `figure-float` shortcode and `image` frontmatter field into `index.md`
-
-The skill handles prerequisite checks, fallback instructions, and all file placement details. Refer to the `generate-post-image` skill for full documentation.
+The skill handles the full pipeline, prerequisite checks, and fallback instructions.
 
 ### After the image pipeline completes (success or fallback):
 
@@ -294,5 +287,5 @@ content/posts/
 - [ ] Codex editorial review completed (`$SLUG-synthesized-draft-editorial-critique.md`)
 - [ ] Final post written to `content/posts/YYYY/MM/$SLUG/index.md` with `draft = false`
 - [ ] `aliases = ["/posts/$SLUG/"]` added to frontmatter
-- [ ] Hero image generated and inserted via `generate-post-image` skill (`python3 scripts/generate-post-image.py content/posts/YYYY/MM/$SLUG/index.md`)
+- [ ] Hero image generated and inserted via `generate-post-image` skill
 - [ ] Post URL and social caption output for copy/paste
