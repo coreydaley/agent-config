@@ -42,6 +42,11 @@ If `$ARGUMENTS` is a sprint number (e.g. `005`), run that sprint directly. Other
      - If one exists: surface its number and title, then ask the user whether to continue it or abort. Default: continue the existing in-progress sprint. Do not auto-continue without surfacing the sprint identity.
    - If no `in_progress` sprint: identify the lowest-numbered sprint with status `planned`.
      - If no planned sprints exist: inform the user that there are no planned sprints and suggest running `/sprint-plan` to create one. Then stop.
+     - Before proceeding, check whether the selected sprint is still being actively planned by looking for draft files:
+       ```bash
+       ls docs/sprints/drafts/SPRINT-NNN-*.md 2>/dev/null
+       ```
+       If draft files exist, the sprint may be mid-planning. Surface this to the user (sprint number + which draft files are present) and ask whether to proceed or wait for planning to finish.
    - Read the sprint document: `docs/sprints/SPRINT-NNN.md`
 
    > If sprint docs and ledger entries appear out of sync, `/ledger sync` will reconcile them.

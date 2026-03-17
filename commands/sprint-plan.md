@@ -116,22 +116,41 @@ agents will use.
 
 ### Intent Steps
 
-1. Determine the next sprint number:
+1. Determine the next sprint number using the ledger (already
+   checked in Phase 1):
 
    ```bash
-   ls docs/sprints/SPRINT-*.md | tail -1
+   python3 /Users/corey/.claude/skills/ledger/scripts/ledger.py list
    ```
 
-   Extract NNN and increment. If no sprint files exist yet,
-   start at SPRINT-001.
+   Find the highest sprint ID in the output and increment by 1
+   to get NNN. If the ledger is empty, start at SPRINT-001.
 
-2. Create the drafts directory if needed:
+   **Do not use `ls docs/sprints/SPRINT-*.md` to determine the
+   number.** Filesystem files may be ahead of the ledger (e.g.
+   an in-progress sprint's file already exists), which causes
+   the number to be incremented past already-taken IDs. The
+   ledger is the authoritative source for sprint numbering.
+
+2. **Reserve the sprint number immediately** by registering it
+   in the ledger before writing any files. This prevents
+   concurrent planning sessions from claiming the same number:
+
+   ```bash
+   python3 /Users/corey/.claude/skills/ledger/scripts/ledger.py add NNN "Draft: [seed title]"
+   ```
+
+   If this fails because the sprint already exists (another
+   planning session claimed it first), increment NNN and retry
+   until you find an available number.
+
+3. Create the drafts directory if needed:
 
    ```bash
    mkdir -p docs/sprints/drafts
    ```
 
-3. Write the intent document to
+4. Write the intent document to
    `docs/sprints/drafts/SPRINT-NNN-INTENT.md`:
 
 ```markdown
@@ -197,7 +216,7 @@ committing to a direction:
 Questions that the drafts should attempt to answer.
 ```
 
-1. Before moving to Phase 3, ensure the intent document's
+5. Before moving to Phase 3, ensure the intent document's
    **Approaches Considered** table is complete. The selected
    approach should be clear; rejected approaches should have
    explicit reasons. Both agents will see this document —
