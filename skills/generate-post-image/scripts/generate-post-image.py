@@ -272,6 +272,9 @@ def main() -> None:
 
     print("4/5  Optimizing to WebP via optimize-images.sh...")
     optimize_images()
+    if webp_dest.exists():
+        png_dest.unlink(missing_ok=True)
+        print(f"     Deleted source PNG: {png_dest.relative_to(REPO_ROOT)}")
     print()
 
     print("5/5  Generating alt text and inserting into post...")
@@ -281,7 +284,6 @@ def main() -> None:
     print()
 
     print(f"Done. Image added to {post_path}")
-    print(f"  PNG:  {png_dest.relative_to(REPO_ROOT)}")
     print(f"  WebP: {webp_dest.relative_to(REPO_ROOT)}")
 
 
