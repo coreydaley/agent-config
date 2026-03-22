@@ -20,7 +20,7 @@ $ARGUMENTS
 6. **Finalize** - Apply editorial feedback and write the final post
 7. **Image** - Generate and insert the hero image
 
-Use TodoWrite to track progress through each phase.
+Use TaskCreate and TaskUpdate to track progress through each phase.
 
 ---
 
@@ -261,7 +261,6 @@ content/posts/
     └── MM/
         └── $SLUG/               ← leaf bundle (Hugo page bundle)
             ├── index.md         ← final post (image field + shortcode inserted)
-            ├── $SLUG.png        ← original PNG (preserved locally, stripped by CI)
             ├── $SLUG.webp       ← optimized WebP (used in post body + og:image)
             └── thumbs/
                 └── $SLUG.webp   ← thumbnail used in post list

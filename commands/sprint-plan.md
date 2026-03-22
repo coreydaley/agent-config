@@ -65,7 +65,7 @@ This is a **9-phase workflow**:
    create or update the sprint in that external system,
    including stories and implementation tasks if needed
 
-Use TodoWrite to track progress through each phase.
+Use TaskCreate and TaskUpdate to track progress through each phase.
 
 ---
 
