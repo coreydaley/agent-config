@@ -36,24 +36,31 @@ after the tool name as the seed prompt.
 
 ## Workflow Overview
 
-This is an **8-phase workflow**:
+This is a **9-phase workflow**:
 
 1. **Orient** - Review project state, git history,
-   in-progress sprints, and lessons from recent sprints
+   in-progress sprints, and lessons from recent sprints;
+   then present the phase selection menu with recommendations
+   informed by what was found
 2. **Intent** - Write concentrated intent document including
    alternative approaches considered
 3. **Draft** - Create your draft plan with P0/P1 tiering,
    observability, and rollback sections
-4. **Interview** - Clarify with the human planner
-5. **Compete** - Codex writes competing draft; then both
-   critiques run in parallel (Codex critiques Claude's
-   draft while Claude critiques Codex's draft)
-6. **Merge** - Synthesize best ideas, apply simplest viable
-   filter, and run sprint sizing gate
-7. **Devil's Advocate + Security Review** - Codex attacks
-   the merged plan while Claude audits it for security
-   risks; both run in parallel; Definition of Ready
-   pre-flight before approval
+4. **Interview** - Clarify with the human planner (exit
+   early via "Skip" if you have nothing to add)
+5. **Compete** *(optional)* - Codex writes competing draft;
+   then both critiques run in parallel (Codex critiques
+   Claude's draft while Claude critiques Codex's draft)
+6. **Merge** - Synthesize best ideas (or promote Claude's
+   draft directly if Compete was skipped), apply simplest
+   viable filter, and run sprint sizing gate
+7. **Devil's Advocate** *(optional)* + **Security Review**
+   *(optional)* + **Architecture Review** *(optional)* +
+   **Test Strategy Review** *(optional)* - all four run in
+   parallel; Codex handles Devil's Advocate and Test
+   Strategy Review, Claude handles Security Review and
+   Architecture Review; Definition of Ready pre-flight
+   before approval
 8. **Tool Sync** - If a supported tool name was provided,
    create or update the sprint in that external system,
    including stories and implementation tasks if needed
@@ -106,6 +113,91 @@ covering:
   seed
 - Key modules/files likely involved
 - Constraints or patterns to respect
+
+---
+
+## Phase Selection
+
+**Goal**: Present the phase menu with Orient-informed
+recommendations so the user can confirm or adjust before
+any planning work begins.
+
+### Recommendation Heuristics
+
+Use what you learned in Orient to pre-fill the optional
+phase recommendations. Apply these signals:
+
+| Signal from Orient | Suggested action |
+|---|---|
+| Novel architecture, new patterns, or significant refactor | Recommend Compete + Architecture Review |
+| Touches auth, secrets, external APIs, or user data | Recommend Security Review |
+| High correctness risk (parsers, migrations, spec compliance) | Recommend Test Strategy Review |
+| Scope is vague, ambitious, or has prior history of underestimates | Recommend Devil's Advocate + Compete |
+| Small, well-understood change in familiar territory | Suggest Lightweight |
+| No Codex integration available or confirmed in this project | Omit all Codex phases with a note |
+
+### Present the Menu
+
+Show the phase menu with each optional phase pre-filled
+as recommended (`[✓]`) or not recommended (`[ ]`), with
+a one-line rationale for each:
+
+```
+  [✓] Phase 2   Intent                  (required)
+  [✓] Phase 3   Draft                   (required)
+  [✓] Phase 4   Interview               (required — exit early via "Skip")
+  [?] Phase 5   Compete                 (optional) Codex draft + mutual critiques
+  [✓] Phase 6   Merge / Promote         (required)
+  [?] Phase 7a  Devil's Advocate        (optional) Codex — adversarial attack on the plan
+  [?] Phase 7b  Security Review         (optional) Claude — security audit
+  [?] Phase 7c  Architecture Review     (optional) Claude — conformance to project patterns
+  [?] Phase 7d  Test Strategy Review    (optional) Codex — find gaps in DoD and test approach
+```
+
+Replace each `[?]` with `[✓]` (recommended) or `[ ]`
+(not recommended) based on the heuristics above. Add a
+brief rationale after each optional phase, for example:
+
+```
+  [✓] Phase 5   Compete          — novel architecture; second opinion valuable
+  [ ] Phase 7a  Devil's Advocate — straightforward extension, low scope risk
+  [✓] Phase 7b  Security Review  — plan touches auth flows and external API
+  [✓] Phase 7c  Architecture Review — new abstraction layer introduced
+  [ ] Phase 7d  Test Strategy Review — standard feature, existing test patterns apply
+```
+
+Then use AskUserQuestion with these options:
+
+- **Accept recommendations** — proceed with the
+  pre-filled selections above
+- **Full workflow** — enable all optional phases
+- **Lightweight** — skip all optional phases
+- **Custom** — I'll choose each phase individually
+
+If the user selects **Custom**, ask each of the following
+in sequence (one at a time via AskUserQuestion):
+
+1. **Compete** (Phase 5 — Codex draft + mutual critiques):
+   run it, or skip? *(If skipped, Phase 6 becomes a direct
+   promotion of Claude's draft rather than a merge.)*
+2. **Devil's Advocate** (Phase 7a — Codex attacks the plan):
+   run it, or skip?
+3. **Security Review** (Phase 7b — Claude security audit):
+   run it, or skip?
+4. **Architecture Review** (Phase 7c — Claude conformance
+   audit): run it, or skip?
+5. **Test Strategy Review** (Phase 7d — Codex attacks the
+   test strategy and DoD): run it, or skip?
+
+Record the selections. Reference them at the start of each
+optional phase and skip cleanly — no stub files, no partial
+output — when a phase is disabled.
+
+**Special case — Compete skipped**: If Phase 5 is disabled,
+Phase 6 ("Merge") becomes "Promote": write
+`docs/sprints/SPRINT-NNN.md` directly from the Claude draft,
+apply the simplest viable filter, and run the sprint sizing
+gate. Skip writing merge notes.
 
 ---
 
@@ -410,7 +502,10 @@ merge phase.
 
 ---
 
-## Phase 5: Compete (Codex)
+## Phase 5: Compete (Codex) *(optional)*
+
+> **Skip this phase** if Compete was disabled in Phase 0.
+> Proceed directly to Phase 6 (Promote mode).
 
 **Goal**: Get Codex's independent draft and symmetric
 critiques of both drafts — run in two parallel steps.
@@ -468,10 +563,19 @@ before the merge begins.
 
 ---
 
-## Phase 6: Merge
+## Phase 6: Merge / Promote
 
 **Goal**: Synthesize the best ideas into a final sprint
-document.
+document — or, if Compete was skipped, promote the Claude
+draft directly.
+
+> **Promote mode** (Compete skipped): Apply the simplest
+> viable filter and sprint sizing gate to the Claude draft,
+> then write it directly to `docs/sprints/SPRINT-NNN.md`.
+> Skip merge notes. Continue to Phase 7.
+>
+> **Merge mode** (Compete ran): Follow the full merge
+> process below.
 
 ### Merge Process
 
@@ -550,19 +654,33 @@ document.
 
 ---
 
-## Phase 7+8: Devil's Advocate & Security Review
+## Phase 7: Reviews
 
-**Goal**: Stress-test and security-audit the merged plan in
-parallel — Codex attacks the plan while Claude audits it
-for security risks.
+**Goal**: Run any enabled review lenses in parallel against
+the final sprint document before presenting it for approval.
 
-### Run Both in Parallel
+Up to four independent reviews are available. All operate
+on `docs/sprints/SPRINT-NNN.md` and can run simultaneously.
 
-Both reviews operate independently on the same
-`docs/sprints/SPRINT-NNN.md` document, so launch them at
-the same time.
+> If **all four** are disabled, skip this section and
+> proceed directly to the Definition of Ready pre-flight.
+>
+> Group enabled reviews by agent and launch all Codex tasks
+> together, then run all Claude tasks simultaneously:
+>
+> - **Codex tasks**: Devil's Advocate (7a), Test Strategy
+>   Review (7d)
+> - **Claude tasks**: Security Review (7b), Architecture
+>   Review (7c)
+>
+> Run whichever subset was enabled; skip the rest with no
+> stub files.
 
-**Launch Codex** (in background) for Devil's Advocate:
+### Phase 7a: Devil's Advocate *(optional — Codex)*
+
+> Skip if Devil's Advocate was disabled in Phase 0.
+
+**Launch Codex** (in background):
 
 ```bash
 codex exec "Read docs/sprints/SPRINT-NNN.md. This is a \
@@ -582,7 +700,9 @@ codex exec "Read docs/sprints/SPRINT-NNN.md. This is a \
   concern should cite the relevant section of the plan."
 ```
 
-**Simultaneously, perform the Security Review** (Claude).
+### Phase 7b: Security Review *(optional — Claude)*
+
+> Skip if Security Review was disabled in Phase 0.
 
 Review `docs/sprints/SPRINT-NNN.md` with a security-focused
 lens. Write your audit to
@@ -606,25 +726,88 @@ covering:
 Rate each finding: **Critical / High / Medium / Low**, and
 suggest a concrete mitigation or DoD addition.
 
-### Incorporate Both Sets of Findings
+### Phase 7c: Architecture Review *(optional — Claude)*
 
-Once Codex completes its devil's advocate critique, read
-`docs/sprints/drafts/SPRINT-NNN-DEVILS-ADVOCATE.md` and:
+> Skip if Architecture Review was disabled in Phase 0.
 
-1. Evaluate each critique: is it valid? If so, patch it in
-   the sprint document now.
-2. If a critique is invalid, note why in the document
-   (brief inline comment or a "Critiques Addressed"
-   section).
+Review `docs/sprints/SPRINT-NNN.md` for conformance to
+existing project patterns and structural soundness. Write
+your audit to
+`docs/sprints/drafts/SPRINT-NNN-ARCHITECTURE-REVIEW.md`
+covering:
 
-Then incorporate security findings:
+1. **Pattern conformance** — does the plan's approach
+   align with conventions in `CLAUDE.md` and patterns
+   observed during Orient? Note any deviations.
+2. **Coupling and cohesion** — does this plan introduce
+   inappropriate coupling between modules or components?
+3. **Schema and data model changes** — are migrations,
+   backwards compatibility, or rollback implications
+   addressed?
+4. **New abstractions** — are any new patterns or
+   abstractions proposed? Are they justified, or does an
+   existing pattern suffice?
+5. **Integration points** — are all touch points with
+   existing systems correctly identified and handled?
 
-1. For Critical or High findings: update
-   `docs/sprints/SPRINT-NNN.md` to add mitigations to the
-   relevant tasks or Definition of Done.
-2. For Medium/Low findings: use your judgment; add to the
-   Security Considerations section if relevant.
-3. Update the ledger using the `/ledger sync` skill.
+Rate each finding: **Critical / High / Medium / Low**, and
+suggest a concrete plan adjustment or DoD addition.
+
+### Phase 7d: Test Strategy Review *(optional — Codex)*
+
+> Skip if Test Strategy Review was disabled in Phase 0.
+
+**Launch Codex** (in background):
+
+```bash
+codex exec "Read docs/sprints/SPRINT-NNN.md. Your job is \
+  to attack the test strategy and Definition of Done. Act \
+  as a senior engineer who must sign off on the testing \
+  approach before implementation begins. Write \
+  docs/sprints/drafts/SPRINT-NNN-TEST-STRATEGY-REVIEW.md. \
+  Cover: (1) DoD gaps — which criteria are vague, \
+  unverifiable, or could be gamed by a bad implementation? \
+  (2) missing edge cases — what scenarios does the test \
+  plan fail to cover? (3) test approach weaknesses — is \
+  the testing strategy proportionate to the correctness \
+  risk? (4) verification blindspots — what could go wrong \
+  in production that the tests would not catch? Be \
+  specific. Every concern should cite the relevant section \
+  of the plan."
+```
+
+### Incorporate All Findings
+
+Wait for all enabled Codex tasks to finish, then process
+each enabled review:
+
+**Devil's Advocate** — read
+`docs/sprints/drafts/SPRINT-NNN-DEVILS-ADVOCATE.md`:
+
+1. Evaluate each critique: valid? Patch it into the sprint
+   document now.
+2. If invalid, note why (brief inline comment or a
+   "Critiques Addressed" section).
+
+**Security Review** — for Critical or High findings: update
+`docs/sprints/SPRINT-NNN.md` to add mitigations to the
+relevant tasks or Definition of Done. For Medium/Low: use
+judgment; add to the Security Considerations section if
+relevant.
+
+**Architecture Review** — for Critical or High findings:
+update `docs/sprints/SPRINT-NNN.md` to adjust the
+implementation plan or add DoD criteria. For Medium/Low:
+add to the Architecture section or note as a known
+trade-off.
+
+**Test Strategy Review** — read
+`docs/sprints/drafts/SPRINT-NNN-TEST-STRATEGY-REVIEW.md`:
+for each valid gap, strengthen the corresponding DoD
+criterion or add a missing test case to the plan.
+
+Once all findings are incorporated, update the ledger using
+the `/ledger sync` skill.
 
 ### Pre-Flight - Definition of Ready
 
@@ -637,8 +820,8 @@ any fails, address it first.
   complete or explicitly tracked with a plan
 - [ ] **Sprint sizing gate passed** in Phase 6 — plan is
   scoped for a single delivery
-- [ ] **Critical/High security findings** from Phase 7 are
-  incorporated into tasks or Definition of Done
+- [ ] **Critical/High findings** from any enabled Phase 7
+  reviews are incorporated into tasks or Definition of Done
 - [ ] **P0 tasks are clearly distinguished** from P1 and
   Deferred — nothing P1 or Deferred is blocking the sprint
 - [ ] **Rollback plan** is documented for any changes to
@@ -647,10 +830,10 @@ any fails, address it first.
   introduces new behavior or changes existing behavior
 
 Once all items pass, show the user a combined summary of
-devil's advocate and security findings — what was
-incorporated and what was rejected — then ask for approval
-of the final document. After approval, direct the user to
-run `/sprint-work` to execute the sprint.
+all enabled review findings — what was incorporated and
+what was rejected — then ask for approval of the final
+document. After approval, direct the user to run
+`/sprint-work` to execute the sprint.
 
 ---
 
@@ -703,19 +886,23 @@ system.
 
 ## File Structure
 
-After `/sprint-plan` completes, you'll have:
+After `/sprint-plan` completes, you'll have (files marked
+`*` are only created when the corresponding optional phase
+ran):
 
 ```text
 docs/sprints/
 ├── drafts/
 │   ├── SPRINT-NNN-INTENT.md
 │   ├── SPRINT-NNN-CLAUDE-DRAFT.md
-│   ├── SPRINT-NNN-CODEX-DRAFT.md
-│   ├── SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md
-│   ├── SPRINT-NNN-CODEX-DRAFT-CLAUDE-CRITIQUE.md
-│   ├── SPRINT-NNN-MERGE-NOTES.md
-│   ├── SPRINT-NNN-DEVILS-ADVOCATE.md
-│   └── SPRINT-NNN-SECURITY-REVIEW.md
+│   ├── SPRINT-NNN-CODEX-DRAFT.md            * (Compete)
+│   ├── SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md  * (Compete)
+│   ├── SPRINT-NNN-CODEX-DRAFT-CLAUDE-CRITIQUE.md  * (Compete)
+│   ├── SPRINT-NNN-MERGE-NOTES.md            * (Compete)
+│   ├── SPRINT-NNN-DEVILS-ADVOCATE.md        * (Devil's Advocate)
+│   ├── SPRINT-NNN-SECURITY-REVIEW.md        * (Security Review)
+│   ├── SPRINT-NNN-ARCHITECTURE-REVIEW.md    * (Architecture Review)
+│   └── SPRINT-NNN-TEST-STRATEGY-REVIEW.md   * (Test Strategy Review)
 └── SPRINT-NNN.md
 ```
 
@@ -737,30 +924,30 @@ At the end of this workflow, you should have:
   tiering, Observability & Rollback, and Documentation
   sections
 - [ ] Interview conducted (adaptive to uncertainty, user
-  may exit early)
-- [ ] Codex draft received
+  may exit early via "Skip")
+- [ ] *(optional)* Codex draft received
   (`drafts/SPRINT-NNN-CODEX-DRAFT.md`)
-- [ ] Codex critique received
+- [ ] *(optional)* Codex critique received
   (`drafts/SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md`)
-- [ ] Claude critique of Codex draft written
+- [ ] *(optional)* Claude critique of Codex draft written
   (`drafts/SPRINT-NNN-CODEX-DRAFT-CLAUDE-CRITIQUE.md`)
-- [ ] Simplest viable filter applied to merged plan
+- [ ] Simplest viable filter applied to merged/promoted plan
 - [ ] Sprint sizing gate passed (plan is scoped for a
   single sprint)
-- [ ] Merge notes written
-  (`drafts/SPRINT-NNN-MERGE-NOTES.md`)
-- [ ] Initial merged sprint document written
-  (`SPRINT-NNN.md`)
-- [ ] Devil's advocate critique received
-  (`drafts/SPRINT-NNN-DEVILS-ADVOCATE.md`) — ran in
-  parallel with security review
-- [ ] Security review received
-  (`drafts/SPRINT-NNN-SECURITY-REVIEW.md`) — ran in
-  parallel with devil's advocate
-- [ ] Valid devil's advocate critiques incorporated into
-  `SPRINT-NNN.md`
-- [ ] Critical/High security findings incorporated into
-  `SPRINT-NNN.md`
+- [ ] *(optional)* Merge notes written
+  (`drafts/SPRINT-NNN-MERGE-NOTES.md`) — skipped in
+  Promote mode
+- [ ] Sprint document written (`SPRINT-NNN.md`)
+- [ ] *(optional)* Devil's advocate critique received
+  (`drafts/SPRINT-NNN-DEVILS-ADVOCATE.md`)
+- [ ] *(optional)* Security review received
+  (`drafts/SPRINT-NNN-SECURITY-REVIEW.md`)
+- [ ] *(optional)* Architecture review received
+  (`drafts/SPRINT-NNN-ARCHITECTURE-REVIEW.md`)
+- [ ] *(optional)* Test strategy review received
+  (`drafts/SPRINT-NNN-TEST-STRATEGY-REVIEW.md`)
+- [ ] *(optional)* All enabled review findings incorporated
+  or explicitly rejected in `SPRINT-NNN.md`
 - [ ] Definition of Ready pre-flight passed (all 7 items
   checked)
 - [ ] Ledger updated via the `/ledger sync` skill
