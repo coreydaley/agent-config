@@ -51,7 +51,7 @@ The script self-re-execs with the blog repo's `.venv/bin/python3` automatically 
 1. **Reads the post** and calls Claude API (`claude-sonnet-4-6`) to derive a 2-3 sentence concrete visual concept from the content
 2. **Calls DALL-E 3** to generate a 1792×1024 HD image using the concept plus the blog's house style
 3. **Downloads the PNG** to the post's bundle directory as `$SLUG.png`
-4. **Runs `optimize-images.sh`** (from this skill's scripts dir) to convert the PNG to WebP and generate a thumbnail in `thumbs/`, then deletes the source PNG
+4. **Runs `optimize-images.sh`** (from this skill's scripts dir) to convert the PNG to WebP and generate a thumbnail in `thumbs/`; then deletes the source PNG (done by `generate-post-image.py` after confirming the WebP exists)
 5. **Calls Claude vision** on the resulting WebP to generate accurate alt text (10-15 words)
 6. **Inserts into the post**:
    - `image = "$SLUG.webp"` frontmatter field after `categories`

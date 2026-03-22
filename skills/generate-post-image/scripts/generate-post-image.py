@@ -152,7 +152,12 @@ def download_image(url: str, dest: Path) -> None:
 def optimize_images() -> None:
     script = SKILL_SCRIPTS_DIR / "optimize-images.sh"
     env = {**os.environ, 'BLOG_REPO_ROOT': str(REPO_ROOT)}
-    subprocess.run([str(script)], cwd=REPO_ROOT, env=env, check=True)
+    try:
+        subprocess.run([str(script)], cwd=REPO_ROOT, env=env, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error: optimize-images.sh failed (exit {e.returncode})")
+        print("Check that cwebp or imagemagick is installed and the blog repo is accessible.")
+        sys.exit(1)
 
 
 def generate_alt_text(webp_path: Path) -> str:
@@ -198,13 +203,20 @@ def insert_into_post(post_path: Path, slug: str, alt_text: str) -> None:
     shortcode = f'{{{{< figure-float src="{webp_ref}" alt="{safe_alt}" >}}}}'
     image_field = f'image = "{webp_ref}"'
 
-    # Insert image field into frontmatter after the categories line
-    content = re.sub(
-        r"(categories = \[.*?\])",
-        rf"\1\n{image_field}",
-        content,
-        count=1,
-    )
+    # Insert image field into frontmatter after the categories line.
+    # Fall back to appending before the closing +++ if categories is absent.
+    if re.search(r"categories = \[.*?\]", content):
+        content = re.sub(
+            r"(categories = \[.*?\])",
+            rf"\1\n{image_field}",
+            content,
+            count=1,
+        )
+    else:
+        print("Warning: no 'categories' field found; appending image field to frontmatter")
+        fm_parts = content.split("+++\n", 2)
+        if len(fm_parts) == 3:
+            content = f"+++\n{fm_parts[1]}{image_field}\n+++\n{fm_parts[2]}"
 
     # Split on +++ delimiters to insert shortcode after closing +++
     # TOML frontmatter: +++\n<fields>\n+++\n<body>
@@ -272,9 +284,12 @@ def main() -> None:
 
     print("4/5  Optimizing to WebP via optimize-images.sh...")
     optimize_images()
-    if webp_dest.exists():
-        png_dest.unlink(missing_ok=True)
-        print(f"     Deleted source PNG: {png_dest.relative_to(REPO_ROOT)}")
+    if not webp_dest.exists():
+        print(f"Error: WebP not found at {webp_dest.relative_to(REPO_ROOT)} after optimization.")
+        print("optimize-images.sh ran without error but produced no output — check tool availability.")
+        sys.exit(1)
+    png_dest.unlink(missing_ok=True)
+    print(f"     Deleted source PNG: {png_dest.relative_to(REPO_ROOT)}")
     print()
 
     print("5/5  Generating alt text and inserting into post...")

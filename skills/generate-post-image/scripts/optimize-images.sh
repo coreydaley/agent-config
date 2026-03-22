@@ -88,9 +88,12 @@ fi
 
 cd "$PROJECT_ROOT"
 
-if [ ! -d "$IMAGE_DIR" ]; then
-    echo -e "${RED}Error: Directory $IMAGE_DIR does not exist.${NC}"
+if [ ! -d "$IMAGE_DIR" ] && [ ! -d "$CONTENT_POSTS_DIR" ]; then
+    echo -e "${RED}Error: Neither $IMAGE_DIR nor $CONTENT_POSTS_DIR exists.${NC}"
+    echo "Run this script from a Hugo blog repo root, or set BLOG_REPO_ROOT."
     exit 1
+elif [ ! -d "$IMAGE_DIR" ]; then
+    echo -e "${YELLOW}Note: $IMAGE_DIR does not exist — skipping static images, processing content bundles only.${NC}"
 fi
 
 echo -e "${BLUE}==================================${NC}"
@@ -357,7 +360,11 @@ while IFS= read -r -d '' image_file; do
         fi
     fi
 
-done < <(find "$IMAGE_DIR" "$CONTENT_POSTS_DIR" -type f -not -path "*/thumbs/*" \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.gif" -o -iname "*.webp" \) -print0 2>/dev/null)
+FIND_DIRS=()
+[ -d "$IMAGE_DIR" ] && FIND_DIRS+=("$IMAGE_DIR")
+[ -d "$CONTENT_POSTS_DIR" ] && FIND_DIRS+=("$CONTENT_POSTS_DIR")
+
+done < <(find "${FIND_DIRS[@]}" -type f -not -path "*/thumbs/*" \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.gif" -o -iname "*.webp" \) -print0 2>/dev/null)
 
 # --- Summary ---
 echo ""
