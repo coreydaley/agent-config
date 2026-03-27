@@ -29,6 +29,7 @@ WEBP_QUALITY=82      # Full-size quality; imperceptibly different from 85, ~10-1
 THUMB_QUALITY=75     # Thumbnail quality; artifacts invisible at small display sizes
 IMAGE_DIR="static/images"
 CONTENT_POSTS_DIR="content/posts"  # leaf bundle post directories (YYYY/MM/slug/)
+CONTENT_BLOG_DIR="content/blog"    # alternative leaf bundle location used by some Hugo sites
 THUMB_WIDTH_POSTS=400    # 180px display × 2x DPR, rounded up
 THUMB_WIDTH_AVATARS=300  # 150px display (desktop default) × 2x DPR
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -88,8 +89,8 @@ fi
 
 cd "$PROJECT_ROOT"
 
-if [ ! -d "$IMAGE_DIR" ] && [ ! -d "$CONTENT_POSTS_DIR" ]; then
-    echo -e "${RED}Error: Neither $IMAGE_DIR nor $CONTENT_POSTS_DIR exists.${NC}"
+if [ ! -d "$IMAGE_DIR" ] && [ ! -d "$CONTENT_POSTS_DIR" ] && [ ! -d "$CONTENT_BLOG_DIR" ]; then
+    echo -e "${RED}Error: Neither $IMAGE_DIR, $CONTENT_POSTS_DIR, nor $CONTENT_BLOG_DIR exists.${NC}"
     echo "Run this script from a Hugo blog repo root, or set BLOG_REPO_ROOT."
     exit 1
 elif [ ! -d "$IMAGE_DIR" ]; then
@@ -232,6 +233,11 @@ generate_thumb() {
 
 # --- Main loop ---
 
+FIND_DIRS=()
+[ -d "$IMAGE_DIR" ] && FIND_DIRS+=("$IMAGE_DIR")
+[ -d "$CONTENT_POSTS_DIR" ] && FIND_DIRS+=("$CONTENT_POSTS_DIR")
+[ -d "$CONTENT_BLOG_DIR" ] && FIND_DIRS+=("$CONTENT_BLOG_DIR")
+
 while IFS= read -r -d '' image_file; do
     total_images=$((total_images + 1))
     relative_path="${image_file#$PROJECT_ROOT/}"
@@ -346,7 +352,7 @@ while IFS= read -r -d '' image_file; do
         thumb_width="$THUMB_WIDTH_POSTS"
     elif [ "$dir_relative" = "static/images/avatars" ]; then
         thumb_width="$THUMB_WIDTH_AVATARS"
-    elif [[ "$dir_relative" == content/posts/* ]]; then
+    elif [[ "$dir_relative" == content/posts/* ]] || [[ "$dir_relative" == content/blog/* ]]; then
         # Leaf bundle post directory — generate post-sized thumbnail
         thumb_width="$THUMB_WIDTH_POSTS"
     fi
@@ -359,10 +365,6 @@ while IFS= read -r -d '' image_file; do
             fi
         fi
     fi
-
-FIND_DIRS=()
-[ -d "$IMAGE_DIR" ] && FIND_DIRS+=("$IMAGE_DIR")
-[ -d "$CONTENT_POSTS_DIR" ] && FIND_DIRS+=("$CONTENT_POSTS_DIR")
 
 done < <(find "${FIND_DIRS[@]}" -type f -not -path "*/thumbs/*" \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.gif" -o -iname "*.webp" \) -print0 2>/dev/null)
 
