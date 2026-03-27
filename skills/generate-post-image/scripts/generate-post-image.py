@@ -90,8 +90,11 @@ IMAGE_STYLE = (
 )
 
 
-def check_env() -> None:
-    missing = [k for k in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY") if not os.environ.get(k)]
+def check_env(need_anthropic: bool = True) -> None:
+    keys = ["OPENAI_API_KEY"]
+    if need_anthropic:
+        keys.insert(0, "ANTHROPIC_API_KEY")
+    missing = [k for k in keys if not os.environ.get(k)]
     if missing:
         for k in missing:
             print(f"Error: {k} environment variable is not set")
@@ -235,18 +238,22 @@ def insert_into_post(post_path: Path, slug: str, alt_text: str) -> None:
 
 
 def main() -> None:
+    import argparse
     load_dotenv()
 
-    if len(sys.argv) != 2:
-        print(f"Usage: {sys.argv[0]} <path-to-post.md>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Generate a hero image for a Hugo blog post.")
+    parser.add_argument("post", help="Path to the post's index.md")
+    parser.add_argument("--concept", help="Skip Claude concept step; use this description instead")
+    parser.add_argument("--alt-text", dest="alt_text", help="Skip Claude alt-text step; use this text instead")
+    args = parser.parse_args()
 
-    post_path = Path(sys.argv[1]).resolve()
+    post_path = Path(args.post).resolve()
     if not post_path.exists():
         print(f"Error: {post_path} does not exist")
         sys.exit(1)
 
-    check_env()
+    need_anthropic = not (args.concept and args.alt_text)
+    check_env(need_anthropic=need_anthropic)
 
     # For leaf bundles (index.md), derive slug from parent directory name.
     # For legacy flat posts (slug.md), use the file stem.
@@ -269,8 +276,12 @@ def main() -> None:
     print(f"Generating hero image for: {post_path.name}")
     print()
 
-    print("1/5  Deriving visual concept from post content...")
-    concept = generate_image_concept(content)
+    if args.concept:
+        print("1/5  Using provided visual concept (skipping Claude)...")
+        concept = args.concept
+    else:
+        print("1/5  Deriving visual concept from post content...")
+        concept = generate_image_concept(content)
     print(f"     {concept[:120]}{'...' if len(concept) > 120 else ''}")
     print()
 
@@ -292,8 +303,12 @@ def main() -> None:
     print(f"     Deleted source PNG: {png_dest.relative_to(REPO_ROOT)}")
     print()
 
-    print("5/5  Generating alt text and inserting into post...")
-    alt_text = generate_alt_text(webp_dest)
+    if args.alt_text:
+        print("5/5  Using provided alt text (skipping Claude vision)...")
+        alt_text = args.alt_text
+    else:
+        print("5/5  Generating alt text and inserting into post...")
+        alt_text = generate_alt_text(webp_dest)
     print(f"     Alt: {alt_text}")
     insert_into_post(post_path, slug, alt_text)
     print()
