@@ -54,76 +54,13 @@ Subagent definitions in `~/.claude/agents/` can be delegated work via the Agent 
 
 ## Obsidian Vault
 
-The vault lives at `~/Vault/` (symlinked from iCloud for backup). It is an Obsidian vault. Refer to it as "the vault."
-
-### Structure
-
-| Path | Purpose |
-|---|---|
-| `~/Vault/Tasks/` | Task notes — one note per task, organized by project subfolder |
-| `~/Vault/Tasks.base` | Obsidian Base with table and board views for tasks |
-| `~/Vault/Knowledge/` | Knowledge base notes, organized by topic subfolder |
-| `~/Vault/Knowledge.base` | Obsidian Base with table and board views for knowledge |
-| `~/Vault/Templates/Task.md` | Template for new task notes |
-| `~/Vault/Templates/Knowledge.md` | Template for new knowledge notes |
-| `~/Vault/Drafts/` | Draft notes — ideas, LinkedIn posts, blog posts, etc. |
-| `~/Vault/Drafts.base` | Obsidian Base with table and board views for drafts |
-| `~/Vault/Templates/Draft.md` | Template for new draft notes |
-
-### Task properties
-
-| Property | Type | Values |
-|---|---|---|
-| `status` | text | `todo`, `in-progress`, `done`, `blocked` |
-| `priority` | text | `low`, `medium`, `high`, `urgent` |
-| `due` | date | ISO date |
-| `project` | text | free text |
-| `tags` | list | free text |
-| `created` | date | ISO date |
-| `url` | text | URL associated with the task |
-
-Task title = note filename. When creating tasks, use the template at `~/Vault/Templates/Task.md`.
-
-### Knowledge properties
-
-| Property | Type | Values |
-|---|---|---|
-| `type` | text | `concept`, `reference`, `how-to`, `decision`, `tool`, `person` |
-| `status` | text | `draft`, `review`, `stable`, `archived` |
-| `source` | text | URL, book, person, etc. |
-| `tags` | list | free text |
-| `created` | date | ISO date |
-| `summary` | text | one-liner description |
-
-Knowledge title = note filename. When creating knowledge notes, use the template at `~/Vault/Templates/Knowledge.md`.
-
-### Draft properties
-
-| Property | Type | Values |
-|---|---|---|
-| `type` | text | `idea`, `linkedin-post`, `blog-post`, `email`, `note` |
-| `status` | text | `raw`, `in-progress`, `ready`, `published`, `abandoned` |
-| `tags` | list | free text |
-| `created` | date | ISO date |
-| `summary` | text | one-liner description |
-
-Draft title = note filename. When creating drafts, use the template at `~/Vault/Templates/Draft.md`.
+The vault lives at `~/Vault/` (symlinked from iCloud for backup). Refer to it as "the vault." Use the `obsidian` skill for all vault operations.
 
 ## Sandbox
 
-The sandbox lives at `~/Code/sandbox/` (private GitHub repo: `coreydaley/sandbox`). It is for quick experiments, scripts, and prototypes.
-
-| Path | Purpose |
-|---|---|
-| `~/Code/sandbox/scripts/` | Quick standalone scripts |
-| `~/Code/sandbox/projects/` | Larger experiments, POCs, and prototypes |
-
-When asked to build a proof of concept, prototype, or experiment, create an appropriately named subfolder in `projects/` and work there.
+The sandbox lives at `~/Code/sandbox/` (private GitHub repo: `coreydaley/sandbox`). Scripts go in `scripts/`, experiments and POCs go in `projects/<name>/`.
 
 ## Git
 
 **NEVER commit or push git changes unless explicitly instructed to do so.** This is an absolute rule with no exceptions — do not commit "just to save progress", do not push after committing, do not assume that completing a task implies permission to commit. Always wait for an explicit instruction like "commit this" or "go ahead and push".
 
-## Disclaimer
-
-This repository contains AI-generated content. Review all configurations, scripts, and instructions before use in production or sensitive environments. See SECURITY.md for details.
