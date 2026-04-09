@@ -1,7 +1,0 @@
-sprint_id	title	status	created_at	updated_at
-001	Agent-Config Repository Revamp	completed	2026-03-07T19:29:48Z	2026-03-07T19:43:33Z
-002	superplan.md Command Improvements	completed	2026-03-08T15:32:57Z	2026-03-08T19:36:35Z
-003	sprint.md + ledger Skill Integration Fix	completed	2026-03-08T19:54:26Z	2026-03-08T19:58:35Z
-004	`audit-security` Command	completed	2026-03-12T21:58:53Z	2026-03-12T22:04:59Z
-005	`audit-design` and `audit-accessibility` Commands	completed	2026-03-12T22:23:01Z	2026-03-12T22:43:00Z
-006	`audit-architecture` Command	completed	2026-03-12T22:43:00Z	2026-03-12T23:04:31Z
