@@ -56,6 +56,12 @@ Invoke with `/command-name` in Claude Code.
 |---|---|
 | `/commit` | Analyze uncommitted changes and create grouped conventional commits |
 | `/tag` | Analyze commits since last tag and propose the next semantic version |
+| `/create-task` | Create a new task note in the Obsidian vault |
+| `/create-knowledge` | Create a new knowledge note in the Obsidian vault |
+| `/create-draft` | Create a new draft note in the Obsidian vault |
+| `/create-read-later` | Add a URL to the Read Later list in the Obsidian vault |
+| `/sandbox-script` | Create a new standalone script in the sandbox |
+| `/sandbox-project` | Create a new project directory in the sandbox |
 | `/sprint-plan` | Multi-agent collaborative sprint planning |
 | `/sprint-work` | Execute the next sprint from local docs |
 | `/audit-security` | Dual-agent security review → executable sprint |
@@ -71,6 +77,7 @@ Skills are auto-discovered from `~/.claude/skills/`. Each skill has a `SKILL.md`
 | Skill | Description |
 |---|---|
 | `github` | `gh` CLI operations — issues, PRs, releases, branches |
+| `obsidian` | Obsidian vault operations via the `obsidian` CLI |
 | `frontend-design` | Production-grade UI component creation |
 | `mcp-builder` | MCP server creation guidance |
 | `ledger` | Sprint ledger tracking |
