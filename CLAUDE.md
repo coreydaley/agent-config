@@ -1,5 +1,17 @@
 # Claude Code Instructions
 
+## About the User
+
+- **Languages**: Go (primary), Python (secondary)
+- **Stack**: Kubernetes, cloud-native infrastructure, containerization (Docker Desktop)
+- **Databases**: SQLite for small/POC projects, PostgreSQL for production-grade work
+- **Background**: 20+ years; deep OpenShift/Red Hat platform engineering experience; ISC2 CC certified; security-first mindset — flag security implications proactively
+- **Testing**: Unit, integration, and e2e tests are a priority — always include appropriate test coverage
+- **AI focus**: Agentic workflows and AI-assisted development — treat as a peer, not a beginner
+- **Tooling preferences**: Skills over MCP; free/open source always preferred over proprietary; small focused tools over monolithic platforms; local-first where applicable
+- **Design philosophy**: Declarative and explicit over hidden logic; iteration over perfection — propose and refine rather than over-engineering upfront
+- **Approach**: Open source contributor; values understanding *why* not just *what*
+
 ## Commit Style
 
 Use Conventional Commits for all git commits:
@@ -68,6 +80,7 @@ The vault lives at `~/Vault/` (symlinked from iCloud for backup). It is an Obsid
 | `project` | text | free text |
 | `tags` | list | free text |
 | `created` | date | ISO date |
+| `url` | text | URL associated with the task |
 
 Task title = note filename. When creating tasks, use the template at `~/Vault/Templates/Task.md`.
 
