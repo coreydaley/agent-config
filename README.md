@@ -2,306 +2,81 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![GitHub issues](https://img.shields.io/github/issues/coreydaley/agent-config)](https://github.com/coreydaley/agent-config/issues)
-[![GitHub stars](https://img.shields.io/github/stars/coreydaley/agent-config)](https://github.com/coreydaley/agent-config/stargazers)
-[![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-A centralized repository for managing AI agent configurations, skills, commands, and subagents across multiple AI CLI platforms: Claude, Codex, Copilot, and Gemini.
+A personal configuration repository for [Claude Code](https://claude.ai/code) — managing instructions, skills, commands, and subagents in one place, version-controlled and symlinked into `~/.claude/`.
 
-> **Security notice:** The contents of this repository flow directly into each agent's system prompt. Review all files — especially `agents/_GLOBAL.md` and agent-specific stubs — before use. Anyone with write access to this repo can influence the behavior of all configured agents.
+> **Security notice:** The contents of this repository flow directly into Claude's system prompt. Review all files before use, and never commit secrets or credentials. A `gitleaks` pre-commit hook is included to help catch leaks before they happen.
 
-## Overview
+## What's in here
 
-This project provides a centralized location for storing and managing:
-
-- **Agent Configurations** - Per-agent instruction files (merged from shared + agent-specific source)
-- **Reusable Skills** - Specialized capabilities that agents can leverage
-- **Custom Commands** - Slash commands available to agents (Markdown source; auto-converted to TOML for Gemini)
-- **Subagents** - Specialized AI agents that primary agents can delegate work to
-
-## Agent Capability Matrix
-
-Not all features are supported by every agent. The table below shows what each agent supports and where each resource is installed on disk.
-
-| Feature | Claude | Codex | Copilot | Gemini |
-|---|---|---|---|---|
-| **Config file** | `~/.claude/CLAUDE.md` | `~/.codex/AGENTS.md` | `~/.copilot/copilot-instructions.md` | `~/.gemini/GEMINI.md` |
-| **Skills directory** | `~/.claude/skills/` | ❌ no standard path | `~/.copilot/skills/` | ❌ no convention |
-| **Commands directory** | `~/.claude/commands/` (.md) | `~/.codex/prompts/` (.md) | ❌ not supported | `~/.gemini/commands/` (.toml) |
-| **Subagents directory** | `~/.claude/agents/` (.md) | ❌ not supported | ⚠️ P1: `.agent.md` ext required | `~/.gemini/agents/` (.md) |
-| **Command format** | Markdown | Markdown | — | TOML (auto-converted at build time) |
-
-Scripts emit an explicit skip message for any unsupported feature rather than silently skipping.
-
-## Directory Structure
-
-```text
-agent-config/
-├── README.md                    # This file
-├── LICENSE                      # Project license
-├── Makefile                     # Build and setup targets
-├── agents/                      # Agent configurations
-├── skills/                      # Reusable skills for agents
-├── commands/                    # Custom commands available to agents
-├── subagents/                   # Custom agents for delegation
-├── prompts/                     # Custom prompts for specific tasks
-└── scripts/                     # Setup and installation scripts
-```
-
-## Folders
-
-### agents/
-
-Contains configuration files for four AI agents: Claude, Codex, Copilot, and Gemini.
-
-Each agent has:
-
-- A shared source file: `agents/_GLOBAL.md`
-- An agent-specific source file: `agents/<agent>/_<AGENT_NAME>.md`
-- A generated merged file: `agents/<agent>/<AGENT_NAME>.md` (generated, gitignored, and symlinked into the agent's home dir)
-
-Generation: `make generate-agent-files` (runs as part of `make all`)
-
-See [agents/README.md](agents/README.md) for symlink targets and details.
-
-### skills/
-
-Reusable skills and specialized capabilities that agents can access and leverage.
-
-**Contents should include:**
-
-- Well-defined capabilities agents can perform
-- Domain expertise and knowledge bases
-- Procedural workflows and processes
-- Specialized knowledge resources
-
-### commands/
-
-Slash commands available to agents. Source files are Markdown (`.md`) with YAML frontmatter.
-
-- Claude reads them directly from `~/.claude/commands/`
-- Codex reads them from `~/.codex/prompts/`
-- Gemini requires TOML format — files are auto-converted via `make generate-gemini-commands` to `build/gemini-commands/` and symlinked to `~/.gemini/commands/`
-- Copilot does not support custom commands
-
-The source of truth is still `commands/*.md`, but the way you invoke a command depends on the agent:
-
-| Agent | `commit` | `tag` | `sprint-plan` | `sprint-work` | `audit-security` | `audit-design` | `audit-accessibility` | `audit-architecture` |
-|---|---|---|---|---|---|---|---|---|
-| Claude | `/commit` | `/tag` | `/sprint-plan improve release rollback safety` | `/sprint-work` | `/audit-security` | `/audit-design` | `/audit-accessibility` | `/audit-architecture` |
-| Codex | `/prompts:commit` | `/prompts:tag` | `/prompts:sprint-plan improve release rollback safety` | `/prompts:sprint-work` | `/prompts:audit-security` | `/prompts:audit-design` | `/prompts:audit-accessibility` | `/prompts:audit-architecture` |
-| Gemini | `/commit` | `/tag` | `/sprint-plan improve release rollback safety` | `/sprint-work` | `/audit-security` | `/audit-design` | `/audit-accessibility` | `/audit-architecture` |
-| Copilot | Not supported | Not supported | Not supported | Not supported | Not supported | Not supported | Not supported | Not supported |
-
-Current command workflows include:
-
-- `commit` for analyzing uncommitted changes and creating grouped conventional commits
-- `tag` for analyzing commits since the last tag and proposing the next semantic version tag
-- `sprint-plan` for creating a sprint plan in local docs and ledger
-- `sprint-work` for executing the next local sprint from the repo's sprint docs
-- `audit-security` for running a dual-agent security review (Claude + Codex independently, then synthesized) and producing an executable sprint of remediation tasks; the first in the `audit-*` command family
-- `audit-design` for running a dual-agent UI/UX design review covering layout, typography, color, component consistency, navigation patterns, design system adherence, and responsive design; produces an executable sprint of design remediation tasks
-- `audit-accessibility` for running a dual-agent WCAG 2.1/2.2 accessibility review covering semantic HTML, ARIA, keyboard navigation, focus management, color contrast, screen reader support, motion sensitivity, and cognitive load; produces an executable sprint of accessibility tasks each tied to a WCAG success criterion. **Note:** static code review cannot fully validate dynamic behavior, screen reader output, or focus management — findings marked `runtime` require browser and assistive technology testing to confirm
-- `audit-architecture` for running a dual-agent architectural review covering module boundaries, coupling, naming conventions, data flow, extensibility, DRY, YAGNI, and — for agent-config repos — command/skill/agent boundary clarity; produces an executable sprint of architecture improvement tasks each anchored to a named principle or observable trade-off. **Note:** architecture findings are LLM hypotheses, not mandates to refactor — validate each finding against team knowledge and project constraints before executing tasks
-
-The sprint commands also support an optional external planning tool name as the first argument, for example `linear` or `jira`, when the agent has a matching integration available.
-
-Examples:
-
-- `/commit`
-- `/commit commands`
-- `/tag`
-- `/tag patch`
-- `/sprint-plan improve release rollback safety`
-- `/sprint-plan linear improve release rollback safety`
-- `/sprint-work`
-- `/sprint-work linear`
-- `/audit-security`
-- `/audit-security src/auth`
-- `/audit-design`
-- `/audit-design src/components`
-- `/audit-accessibility`
-- `/audit-accessibility src/components src/pages`
-- `/audit-architecture`
-- `/audit-architecture commands/ skills/`
-
-Agent-specific examples:
-
-```bash
-# Claude
-/commit
-/commit commands
-/tag
-/tag patch
-/sprint-plan improve release rollback safety
-/sprint-plan linear improve release rollback safety
-/sprint-work
-/sprint-work linear
-/audit-security
-/audit-security src/auth
-/audit-design
-/audit-design src/components
-/audit-accessibility
-/audit-accessibility src/components src/pages
-/audit-architecture
-/audit-architecture commands/ skills/
-
-# Codex
-/prompts:commit
-/prompts:commit commands
-/prompts:tag
-/prompts:tag patch
-/prompts:sprint-plan improve release rollback safety
-/prompts:sprint-plan linear improve release rollback safety
-/prompts:sprint-work
-/prompts:sprint-work linear
-/prompts:audit-security
-/prompts:audit-security src/auth
-/prompts:audit-design
-/prompts:audit-design src/components
-/prompts:audit-accessibility
-/prompts:audit-accessibility src/components src/pages
-/prompts:audit-architecture
-/prompts:audit-architecture commands/ skills/
-
-# Gemini
-/commit
-/commit commands
-/tag
-/tag patch
-/sprint-plan improve release rollback safety
-/sprint-plan linear improve release rollback safety
-/sprint-work
-/sprint-work linear
-/audit-security
-/audit-security src/auth
-/audit-design
-/audit-design src/components
-/audit-accessibility
-/audit-accessibility src/components src/pages
-/audit-architecture
-/audit-architecture commands/ skills/
-```
-
-Tool-backed behavior:
-
-- `sprint-plan TOOL_NAME ...` uses `TOOL_NAME` as the external sprint system and the remaining arguments as the planning seed
-- After planning approval, `sprint-plan TOOL_NAME ...` should create or update the sprint in that external tool, including stories and tasks/subtasks when needed
-- `sprint-work TOOL_NAME` should pull the active or next planned sprint from that tool and execute against the stories and tasks defined there
-- If the named tool is not actually available to the agent in the current environment, the command should stop and report the missing integration rather than pretending the sync worked
-
-See [commands/commit.md](commands/commit.md), [commands/tag.md](commands/tag.md), [commands/sprint-plan.md](commands/sprint-plan.md), [commands/sprint-work.md](commands/sprint-work.md), [commands/audit-security.md](commands/audit-security.md), [commands/audit-design.md](commands/audit-design.md), [commands/audit-accessibility.md](commands/audit-accessibility.md), and [commands/audit-architecture.md](commands/audit-architecture.md) for the detailed command behavior.
-
-All `audit-*` commands produce a sprint document that can be executed with `/sprint-work`. The output is a standard `SPRINT-NNN.md` — no separate remediation command is needed. Each command in the family uses the same 5-phase dual-agent workflow (Orient → Independent Reviews → Synthesis → Devil's Advocate → Sprint Output) and extends the core finding schema with domain-specific columns.
-
-### subagents/
-
-Configurations for custom AI agents that primary agents can delegate work to.
-
-This repository supports subagents, but `subagents/` is currently empty.
-
-**Contents should include:**
-
-- Specialized agent configurations
-- Agents designed for specific domains or tasks
-- Agent instructions for delegated work
-- Subagent capabilities and limitations
-
-### scripts/
-
-Setup and configuration scripts for initializing the AI environment.
-
-All scripts use `utils.sh` for shared helpers. Existing files at symlink destinations are automatically backed up with a `.old` extension before replacement.
-
-**Available scripts:**
-
-| Script | Purpose |
+| Directory | Purpose |
 |---|---|
-| `generate-agent-files.sh` | Merges `_GLOBAL.md` + `_<AGENT>.md` → `<AGENT>.md` for each agent |
-| `generate-gemini-commands.sh` | Converts `commands/*.md` → `build/gemini-commands/*.toml` (TOML format for Gemini) |
-| `symlink-agents.sh` | Symlinks per-agent config to the correct filename in each agent's home dir |
-| `symlink-skills.sh` | Symlinks `skills/` to Claude and Copilot (skipped for Codex and Gemini) |
-| `symlink-commands.sh` | Symlinks `commands/` to Claude and Codex; defers Gemini to `symlink-gemini-commands.sh` |
-| `symlink-gemini-commands.sh` | Symlinks `build/gemini-commands/` → `~/.gemini/commands/` |
-| `symlink-subagents.sh` | Symlinks `subagents/` to Claude and Gemini (skipped for Codex; P1 for Copilot) |
+| `CLAUDE.md` | Global instructions loaded by Claude Code on every session |
+| `commands/` | Custom slash commands (invoke with `/command-name`) |
+| `skills/` | Reusable skill modules auto-discovered by Claude Code |
+| `subagents/` | Specialized agents Claude can delegate work to |
+| `prompts/` | Standalone prompts for specific tasks |
+| `scripts/` | Setup scripts |
 
 ## Setup
 
 ```bash
 git clone https://github.com/coreydaley/agent-config.git
 cd agent-config
+brew install gitleaks
 make all
 ```
 
-`make all` generates merged agent files, converts commands to TOML for Gemini, creates all symlinks, and registers Codex skills in `~/.codex/config.toml`. It is idempotent — safe to run multiple times.
+`make all` creates symlinks into `~/.claude/` and installs the gitleaks pre-commit hook. It is idempotent — safe to run multiple times.
+
+### What gets symlinked
+
+```
+CLAUDE.md   → ~/.claude/CLAUDE.md
+commands/   → ~/.claude/commands/
+skills/     → ~/.claude/skills/
+subagents/  → ~/.claude/agents/
+```
+
+Existing files at symlink destinations are backed up with a `.old` extension before replacement.
 
 ### Individual targets
 
 ```bash
-make generate             # Generate all artifacts (agent files + Gemini TOML)
-make symlinks             # Create all symlinks
-make symlink-agents       # Agent config symlinks only
-make symlink-skills       # Skills symlinks only (Claude + Copilot)
-make symlink-commands     # Command symlinks only (Claude + Codex)
-make symlink-gemini-commands # Gemini command symlinks only
-make symlink-subagents    # Subagent symlinks only (Claude + Gemini)
-make configure-codex-skills # Register Codex skills in ~/.codex/config.toml
-make help                 # Show all available targets
+make symlinks   # Create ~/.claude/ symlinks only
+make hooks      # Install gitleaks pre-commit hook only
+make help       # Show all available targets
 ```
 
-### Optional: Codex skills registration
+## Commands
 
-Codex does not support a global skills directory. This repo registers skills from `skills/` in `~/.codex/config.toml` as part of `make all`. If you want to run that step by itself:
+Invoke with `/command-name` in Claude Code.
 
-```bash
-make configure-codex-skills
-```
+| Command | Description |
+|---|---|
+| `/commit` | Analyze uncommitted changes and create grouped conventional commits |
+| `/tag` | Analyze commits since last tag and propose the next semantic version |
+| `/sprint-plan` | Multi-agent collaborative sprint planning |
+| `/sprint-work` | Execute the next sprint from local docs |
+| `/audit-security` | Dual-agent security review → executable sprint |
+| `/audit-design` | Dual-agent UI/UX review → executable sprint |
+| `/audit-accessibility` | Dual-agent WCAG 2.1/2.2 review → executable sprint |
+| `/audit-architecture` | Dual-agent architecture review → executable sprint |
+| `/create-blog-post` | AI-powered blog post creation workflow |
 
-### Optional: YOLO mode aliases
+## Skills
 
-Each agent has a flag to skip permission prompts and run fully autonomously. If you want this behavior by default, add these aliases to your shell config (`~/.zshrc`, `~/.bashrc`, etc.):
+Skills are auto-discovered from `~/.claude/skills/`. Each skill has a `SKILL.md` with YAML frontmatter describing when it applies.
 
-```bash
-alias claude='claude --dangerously-skip-permissions'
-alias codex='codex --dangerously-bypass-approvals-and-sandbox'
-alias copilot='copilot --allow-all'
-alias gemini='gemini --yolo'
-```
-
-> **Warning:** These aliases disable all permission prompts. The agent will execute file writes, shell commands, and other actions without asking first. Only use this if you trust the agent configuration in this repo and understand the risks.
-
-### Backup behavior
-
-Existing regular files or directories at symlink destinations are renamed to `.old` before the symlink is created. Existing symlinks are replaced directly.
-
-## Usage
-
-After running `make all`, each agent will load its merged config file automatically. Codex will also have skills from this repo registered in `~/.codex/config.toml`. The capability matrix above shows what each agent can access.
-
-Reference the individual README files for details:
-
-- [agents/README.md](agents/README.md) - Agent configuration and symlink targets
-
-## Contributing
-
-When adding new resources:
-
-- Place them in the appropriate folder (skills, commands, subagents, or prompts)
-- Follow the naming conventions established in each directory
-- Update the relevant README files with documentation
-- Test that symlinks and configurations work correctly
-
-If you encounter a problem, please [open an issue](https://github.com/coreydaley/agent-config/issues). If you'd like to fix an issue or add new functionality, feel free to fork this repository and [submit a pull request](https://github.com/coreydaley/agent-config/pulls).
+| Skill | Description |
+|---|---|
+| `github` | `gh` CLI operations — issues, PRs, releases, branches |
+| `frontend-design` | Production-grade UI component creation |
+| `mcp-builder` | MCP server creation guidance |
+| `ledger` | Sprint ledger tracking |
+| `generate-post-image` | Hugo blog post image generation |
+| `skill-creator` | Guide for creating new skills |
 
 ## Disclaimer
 
-**Please note:** Content in this project is likely generated using AI language models. While efforts have been made to ensure quality and accuracy, AI-generated content can contain errors, outdated information, or unintended biases.
-
-**Use at your own risk.** Always:
-
-- Review AI-generated content before using it in production
-- Test configurations and commands thoroughly
-- Verify information against authoritative sources
-- Consider the limitations and potential issues of AI-generated code and instructions
-- Take responsibility for any issues that may arise from using this project
-
-The creators and maintainers assume no liability for problems caused by following instructions or using resources from this repository.
+This repository contains AI-generated content. Review all configurations and instructions before use. The creators assume no liability for problems caused by using resources from this repository. See [SECURITY.md](SECURITY.md) for details.
