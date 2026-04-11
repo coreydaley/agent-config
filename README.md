@@ -109,6 +109,26 @@ $REPORT_TS-audit-security-report.md          ← final findings report
 
 The report is a reference document. To act on findings, run `/sprint-plan` and use the report as the seed.
 
+## Sprint planning output
+
+`/sprint-plan` writes all artifacts to `~/Reports/<repo-path>/` (derived from `pwd`). Files marked `*` are only created when the corresponding optional phase ran:
+
+```
+$REPORT_TS-sprint-plan-intent.md
+$REPORT_TS-sprint-plan-claude-draft.md
+$REPORT_TS-sprint-plan-codex-draft.md                  * (Compete)
+$REPORT_TS-sprint-plan-claude-draft-codex-critique.md  * (Compete)
+$REPORT_TS-sprint-plan-codex-draft-claude-critique.md  * (Compete)
+$REPORT_TS-sprint-plan-merge-notes.md                  * (Compete)
+$REPORT_TS-sprint-plan-devils-advocate.md              * (Devil's Advocate)
+$REPORT_TS-sprint-plan-security-review.md              * (Security Review)
+$REPORT_TS-sprint-plan-architecture-review.md          * (Architecture Review)
+$REPORT_TS-sprint-plan-test-strategy-review.md         * (Test Strategy Review)
+$REPORT_TS-sprint-plan-SPRINT-NNN.md                   ← final (renamed after approval)
+```
+
+The ledger (`ledger.tsv`) lives in the same `~/Reports/<repo-path>/` directory. `/sprint-work` reads sprint documents and the ledger from there.
+
 ## Disclaimer
 
 This repository contains AI-generated content. Review all configurations and instructions before use. The creators assume no liability for problems caused by using resources from this repository. See [SECURITY.md](SECURITY.md) for details.
