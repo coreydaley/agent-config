@@ -89,10 +89,10 @@ direction.
    git log --oneline -20
    ```
 
-4. Read the **3 highest-numbered sprint documents** to
+4. Read the **3 most recent sprint documents** to
    understand recent work:
-   - Use `ls docs/sprints/SPRINT-*.md | tail -3` to find
-     them
+   - Use `ls ~/Reports/$(pwd | sed 's|.*/Code/||')/*-sprint-plan-sprint.md 2>/dev/null | tail -3` to find
+     them (fall back to `docs/sprints/SPRINT-*.md` if the Reports dir doesn't exist yet)
    - Focus especially on what was **deferred,
      underestimated, or left incomplete** — not just what
      was planned
@@ -195,7 +195,7 @@ output — when a phase is disabled.
 
 **Special case — Compete skipped**: If Phase 5 is disabled,
 Phase 6 ("Merge") becomes "Promote": write
-`docs/sprints/SPRINT-NNN.md` directly from the Claude draft,
+`$REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md` directly from the Claude draft,
 apply the simplest viable filter, and run the sprint sizing
 gate. Skip writing merge notes.
 
@@ -208,45 +208,19 @@ agents will use.
 
 ### Intent Steps
 
-1. Determine the next sprint number using the ledger (already
-   checked in Phase 1):
+1. Set up the report output directory:
 
    ```bash
-   python3 /Users/corey/.claude/skills/ledger/scripts/ledger.py list
+   REPORT_DIR=~/Reports/$(pwd | sed 's|.*/Code/||')
+   REPORT_TS=$(date +%Y-%m-%dT%H-%M-%S)
+   mkdir -p $REPORT_DIR
    ```
 
-   Find the highest sprint ID in the output and increment by 1
-   to get NNN. If the ledger is empty, start at SPRINT-001.
-
-   **Do not use `ls docs/sprints/SPRINT-*.md` to determine the
-   number.** Filesystem files may be ahead of the ledger (e.g.
-   an in-progress sprint's file already exists), which causes
-   the number to be incremented past already-taken IDs. The
-   ledger is the authoritative source for sprint numbering.
-
-2. **Reserve the sprint number immediately** by registering it
-   in the ledger before writing any files. This prevents
-   concurrent planning sessions from claiming the same number:
-
-   ```bash
-   python3 /Users/corey/.claude/skills/ledger/scripts/ledger.py add NNN "Draft: [seed title]"
-   ```
-
-   If this fails because the sprint already exists (another
-   planning session claimed it first), increment NNN and retry
-   until you find an available number.
-
-3. Create the drafts directory if needed:
-
-   ```bash
-   mkdir -p docs/sprints/drafts
-   ```
-
-4. Write the intent document to
-   `docs/sprints/drafts/SPRINT-NNN-INTENT.md`:
+2. Write the intent document to
+   `$REPORT_DIR/$REPORT_TS-sprint-plan-intent.md`:
 
 ```markdown
-# Sprint NNN Intent: [Title]
+# Sprint Intent: [Title]
 
 ## Seed
 
@@ -328,10 +302,10 @@ deferred?" Move anything non-essential to a Deferred
 section. A plan that ships is better than a plan that's
 complete.
 
-### Write to `docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT.md`
+### Write to `$REPORT_DIR/$REPORT_TS-sprint-plan-claude-draft.md`
 
 ```markdown
-# Sprint NNN: [Title]
+# Sprint: [Title]
 
 ## Overview
 
@@ -516,12 +490,11 @@ Run this command (substitute the actual sprint number for
 NNN):
 
 ```bash
-codex exec "Please read docs/sprints/drafts/SPRINT-NNN-INTENT.md \
+codex exec "Please read $REPORT_DIR/$REPORT_TS-sprint-plan-intent.md \
   - this is a concentrated intent for our next sprint. \
-  Fully familiarize yourself with our sprint planning style \
-  (see docs/sprints/README.md) and project structure \
+  Fully familiarize yourself with the project structure \
   (see CLAUDE.md) and project goals. Then draft \
-  docs/sprints/drafts/SPRINT-NNN-CODEX-DRAFT.md only. \
+  $REPORT_DIR/$REPORT_TS-sprint-plan-codex-draft.md only. \
   Do not read or critique Claude's draft yet."
 ```
 
@@ -530,22 +503,22 @@ proceeding.
 
 ### Step 2 — Parallel Critiques
 
-Once `SPRINT-NNN-CODEX-DRAFT.md` exists, both critiques
+Once `$REPORT_TS-sprint-plan-codex-draft.md` exists, both critiques
 can run at the same time:
 
 **Launch Codex** (in background):
 
 ```bash
-codex exec "Read docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT.md \
+codex exec "Read $REPORT_DIR/$REPORT_TS-sprint-plan-claude-draft.md \
   and write a formal critique to \
-  docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md. \
+  $REPORT_DIR/$REPORT_TS-sprint-plan-claude-draft-codex-critique.md. \
   Cover: what Claude got right, what it missed, what you \
   would do differently, and any over-engineering or gaps."
 ```
 
 **Simultaneously, write your own critique of Codex's
 draft** to
-`docs/sprints/drafts/SPRINT-NNN-CODEX-DRAFT-CLAUDE-CRITIQUE.md`.
+`$REPORT_DIR/$REPORT_TS-sprint-plan-codex-draft-claude-critique.md`.
 Cover:
 
 - What did Codex get right that your draft missed?
@@ -556,7 +529,7 @@ Cover:
 
 Wait for Codex to finish its critique, then read:
 
-- `docs/sprints/drafts/SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md`
+- `$REPORT_DIR/$REPORT_TS-sprint-plan-claude-draft-codex-critique.md`
 
 This makes the critique symmetric: both drafts are attacked
 before the merge begins.
@@ -571,7 +544,7 @@ draft directly.
 
 > **Promote mode** (Compete skipped): Apply the simplest
 > viable filter and sprint sizing gate to the Claude draft,
-> then write it directly to `docs/sprints/SPRINT-NNN.md`.
+> then write it directly to `$REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md`.
 > Skip merge notes. Continue to Phase 7.
 >
 > **Merge mode** (Compete ran): Follow the full merge
@@ -595,7 +568,7 @@ draft directly.
 3. **Document the synthesis**:
 
    Write to
-   `docs/sprints/drafts/SPRINT-NNN-MERGE-NOTES.md`:
+   `$REPORT_DIR/$REPORT_TS-sprint-plan-merge-notes.md`:
 
    ```markdown
    # Sprint NNN Merge Notes
@@ -645,7 +618,7 @@ draft directly.
 
 6. **Write the initial sprint document**:
 
-   Create `docs/sprints/SPRINT-NNN.md` incorporating:
+   Create `$REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md` incorporating:
    - Best ideas from both drafts
    - Responses to valid critiques
    - Interview refinements
@@ -660,7 +633,7 @@ draft directly.
 the final sprint document before presenting it for approval.
 
 Up to four independent reviews are available. All operate
-on `docs/sprints/SPRINT-NNN.md` and can run simultaneously.
+on `$REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md` and can run simultaneously.
 
 > If **all four** are disabled, skip this section and
 > proceed directly to the Definition of Ready pre-flight.
@@ -683,12 +656,12 @@ on `docs/sprints/SPRINT-NNN.md` and can run simultaneously.
 **Launch Codex** (in background):
 
 ```bash
-codex exec "Read docs/sprints/SPRINT-NNN.md. This is a \
+codex exec "Read $REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md. This is a \
   finalized sprint plan. Your job is NOT to improve it — \
   your job is to attack it. Act as a senior skeptic who \
   must approve this plan before a single line of code is \
   written. Write \
-  docs/sprints/drafts/SPRINT-NNN-DEVILS-ADVOCATE.md with \
+  $REPORT_DIR/$REPORT_TS-sprint-plan-devils-advocate.md with \
   your critique. Cover: (1) flawed assumptions — what is \
   this plan taking for granted that could be wrong? \
   (2) scope risks — what could balloon, be underestimated, \
@@ -704,9 +677,9 @@ codex exec "Read docs/sprints/SPRINT-NNN.md. This is a \
 
 > Skip if Security Review was disabled in Phase 0.
 
-Review `docs/sprints/SPRINT-NNN.md` with a security-focused
+Review `$REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md` with a security-focused
 lens. Write your audit to
-`docs/sprints/drafts/SPRINT-NNN-SECURITY-REVIEW.md`
+`$REPORT_DIR/$REPORT_TS-sprint-plan-security-review.md`
 covering:
 
 1. **Attack surface** — what new inputs, APIs, or trust
@@ -730,10 +703,10 @@ suggest a concrete mitigation or DoD addition.
 
 > Skip if Architecture Review was disabled in Phase 0.
 
-Review `docs/sprints/SPRINT-NNN.md` for conformance to
+Review `$REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md` for conformance to
 existing project patterns and structural soundness. Write
 your audit to
-`docs/sprints/drafts/SPRINT-NNN-ARCHITECTURE-REVIEW.md`
+`$REPORT_DIR/$REPORT_TS-sprint-plan-architecture-review.md`
 covering:
 
 1. **Pattern conformance** — does the plan's approach
@@ -760,11 +733,11 @@ suggest a concrete plan adjustment or DoD addition.
 **Launch Codex** (in background):
 
 ```bash
-codex exec "Read docs/sprints/SPRINT-NNN.md. Your job is \
+codex exec "Read $REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md. Your job is \
   to attack the test strategy and Definition of Done. Act \
   as a senior engineer who must sign off on the testing \
   approach before implementation begins. Write \
-  docs/sprints/drafts/SPRINT-NNN-TEST-STRATEGY-REVIEW.md. \
+  $REPORT_DIR/$REPORT_TS-sprint-plan-test-strategy-review.md. \
   Cover: (1) DoD gaps — which criteria are vague, \
   unverifiable, or could be gamed by a bad implementation? \
   (2) missing edge cases — what scenarios does the test \
@@ -782,7 +755,7 @@ Wait for all enabled Codex tasks to finish, then process
 each enabled review:
 
 **Devil's Advocate** — read
-`docs/sprints/drafts/SPRINT-NNN-DEVILS-ADVOCATE.md`:
+`$REPORT_DIR/$REPORT_TS-sprint-plan-devils-advocate.md`:
 
 1. Evaluate each critique: valid? Patch it into the sprint
    document now.
@@ -790,24 +763,21 @@ each enabled review:
    "Critiques Addressed" section).
 
 **Security Review** — for Critical or High findings: update
-`docs/sprints/SPRINT-NNN.md` to add mitigations to the
+`$REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md` to add mitigations to the
 relevant tasks or Definition of Done. For Medium/Low: use
 judgment; add to the Security Considerations section if
 relevant.
 
 **Architecture Review** — for Critical or High findings:
-update `docs/sprints/SPRINT-NNN.md` to adjust the
+update `$REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md` to adjust the
 implementation plan or add DoD criteria. For Medium/Low:
 add to the Architecture section or note as a known
 trade-off.
 
 **Test Strategy Review** — read
-`docs/sprints/drafts/SPRINT-NNN-TEST-STRATEGY-REVIEW.md`:
+`$REPORT_DIR/$REPORT_TS-sprint-plan-test-strategy-review.md`:
 for each valid gap, strengthen the corresponding DoD
 criterion or add a missing test case to the plan.
-
-Once all findings are incorporated, update the ledger using
-the `/ledger sync` skill.
 
 ### Pre-Flight - Definition of Ready
 
@@ -854,7 +824,7 @@ execution can later be driven from that tool.
    - If access is missing, stop and tell the user exactly
      what is unavailable
 3. Using the final approved sprint document
-   `docs/sprints/SPRINT-NNN.md`, create the sprint in the
+   `$REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md`, create the sprint in the
    external tool.
 4. Translate the sprint plan into tool-native structure:
    - Create the sprint/cycle/iteration container if needed
@@ -891,19 +861,18 @@ After `/sprint-plan` completes, you'll have (files marked
 ran):
 
 ```text
-docs/sprints/
-├── drafts/
-│   ├── SPRINT-NNN-INTENT.md
-│   ├── SPRINT-NNN-CLAUDE-DRAFT.md
-│   ├── SPRINT-NNN-CODEX-DRAFT.md            * (Compete)
-│   ├── SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md  * (Compete)
-│   ├── SPRINT-NNN-CODEX-DRAFT-CLAUDE-CRITIQUE.md  * (Compete)
-│   ├── SPRINT-NNN-MERGE-NOTES.md            * (Compete)
-│   ├── SPRINT-NNN-DEVILS-ADVOCATE.md        * (Devil's Advocate)
-│   ├── SPRINT-NNN-SECURITY-REVIEW.md        * (Security Review)
-│   ├── SPRINT-NNN-ARCHITECTURE-REVIEW.md    * (Architecture Review)
-│   └── SPRINT-NNN-TEST-STRATEGY-REVIEW.md   * (Test Strategy Review)
-└── SPRINT-NNN.md
+~/Reports/<repo-path>/
+├── $REPORT_TS-sprint-plan-intent.md
+├── $REPORT_TS-sprint-plan-claude-draft.md
+├── $REPORT_TS-sprint-plan-codex-draft.md                * (Compete)
+├── $REPORT_TS-sprint-plan-claude-draft-codex-critique.md  * (Compete)
+├── $REPORT_TS-sprint-plan-codex-draft-claude-critique.md  * (Compete)
+├── $REPORT_TS-sprint-plan-merge-notes.md                * (Compete)
+├── $REPORT_TS-sprint-plan-devils-advocate.md            * (Devil's Advocate)
+├── $REPORT_TS-sprint-plan-security-review.md            * (Security Review)
+├── $REPORT_TS-sprint-plan-architecture-review.md        * (Architecture Review)
+├── $REPORT_TS-sprint-plan-test-strategy-review.md       * (Test Strategy Review)
+└── $REPORT_TS-sprint-plan-sprint.md
 ```
 
 ---
@@ -914,43 +883,41 @@ At the end of this workflow, you should have:
 
 - [ ] Orientation summary complete (includes in-progress
   sprints + git log review)
+- [ ] REPORT_DIR and REPORT_TS set; `$REPORT_DIR` created
 - [ ] Intent document written
-  (`drafts/SPRINT-NNN-INTENT.md`) with Approaches
-  Considered table
+  (`$REPORT_TS-sprint-plan-intent.md`) with Approaches Considered table
 - [ ] Alternative approaches enumerated; one selected with
   rejections documented
 - [ ] Claude draft written
-  (`drafts/SPRINT-NNN-CLAUDE-DRAFT.md`) with P0/P1/Deferred
+  (`$REPORT_TS-sprint-plan-claude-draft.md`) with P0/P1/Deferred
   tiering, Observability & Rollback, and Documentation
   sections
 - [ ] Interview conducted (adaptive to uncertainty, user
   may exit early via "Skip")
 - [ ] *(optional)* Codex draft received
-  (`drafts/SPRINT-NNN-CODEX-DRAFT.md`)
+  (`$REPORT_TS-sprint-plan-codex-draft.md`)
 - [ ] *(optional)* Codex critique received
-  (`drafts/SPRINT-NNN-CLAUDE-DRAFT-CODEX-CRITIQUE.md`)
+  (`$REPORT_TS-sprint-plan-claude-draft-codex-critique.md`)
 - [ ] *(optional)* Claude critique of Codex draft written
-  (`drafts/SPRINT-NNN-CODEX-DRAFT-CLAUDE-CRITIQUE.md`)
+  (`$REPORT_TS-sprint-plan-codex-draft-claude-critique.md`)
 - [ ] Simplest viable filter applied to merged/promoted plan
 - [ ] Sprint sizing gate passed (plan is scoped for a
   single sprint)
 - [ ] *(optional)* Merge notes written
-  (`drafts/SPRINT-NNN-MERGE-NOTES.md`) — skipped in
-  Promote mode
-- [ ] Sprint document written (`SPRINT-NNN.md`)
+  (`$REPORT_TS-sprint-plan-merge-notes.md`) — skipped in Promote mode
+- [ ] Sprint document written (`$REPORT_TS-sprint-plan-sprint.md`)
 - [ ] *(optional)* Devil's advocate critique received
-  (`drafts/SPRINT-NNN-DEVILS-ADVOCATE.md`)
+  (`$REPORT_TS-sprint-plan-devils-advocate.md`)
 - [ ] *(optional)* Security review received
-  (`drafts/SPRINT-NNN-SECURITY-REVIEW.md`)
+  (`$REPORT_TS-sprint-plan-security-review.md`)
 - [ ] *(optional)* Architecture review received
-  (`drafts/SPRINT-NNN-ARCHITECTURE-REVIEW.md`)
+  (`$REPORT_TS-sprint-plan-architecture-review.md`)
 - [ ] *(optional)* Test strategy review received
-  (`drafts/SPRINT-NNN-TEST-STRATEGY-REVIEW.md`)
+  (`$REPORT_TS-sprint-plan-test-strategy-review.md`)
 - [ ] *(optional)* All enabled review findings incorporated
-  or explicitly rejected in `SPRINT-NNN.md`
+  or explicitly rejected in `$REPORT_TS-sprint-plan-sprint.md`
 - [ ] Definition of Ready pre-flight passed (all 7 items
   checked)
-- [ ] Ledger updated via the `/ledger sync` skill
 - [ ] User approved the final document
 - [ ] If a tool name was provided, sprint created or
   updated in that tool with stories/tasks as needed
@@ -959,7 +926,6 @@ At the end of this workflow, you should have:
 
 ## Reference
 
-- Sprint conventions: `docs/sprints/README.md`
+- Report output: `~/Reports/<repo-path>/` (derived from pwd)
+- Sprint documents: `$REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md`
 - Project overview: `CLAUDE.md`
-- Recent sprints: `docs/sprints/SPRINT-*.md` (highest
-  numbers)
