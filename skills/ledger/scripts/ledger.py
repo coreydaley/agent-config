@@ -46,7 +46,7 @@ class SprintEntry:
 
     @property
     def doc_path(self) -> str:
-        return f"docs/sprints/SPRINT-{self.sprint_id}.md"
+        return f"~/Reports/<repo-path>/*-sprint-plan-SPRINT-{self.sprint_id}.md"
 
     def to_tsv(self) -> str:
         return f"{self.sprint_id}\t{self.title}\t{self.status}\t{self.created_at}\t{self.updated_at}"
@@ -132,16 +132,16 @@ class SprintLedger:
 
     def sync_from_docs(self) -> list[str]:
         changes = []
-        pattern = re.compile(r"^# Sprint (\d+): (.+)$", re.MULTILINE)
-        filename_pattern = re.compile(r"SPRINT-(\d+)\.md")
-        for md_file in self.path.parent.glob("SPRINT-*.md"):
-            match = filename_pattern.match(md_file.name)
+        title_pattern = re.compile(r"^# Sprint: (.+)$", re.MULTILINE)
+        filename_pattern = re.compile(r"SPRINT-(\d+)\.md$")
+        for md_file in self.path.parent.glob("*-sprint-plan-SPRINT-*.md"):
+            match = filename_pattern.search(md_file.name)
             if not match:
                 continue
             sprint_id = match.group(1).zfill(3)
             content = md_file.read_text(encoding="utf-8")
-            title_match = pattern.search(content)
-            title = title_match.group(2).strip() if title_match else f"Sprint {sprint_id}"
+            title_match = title_pattern.search(content)
+            title = title_match.group(1).strip() if title_match else f"Sprint {sprint_id}"
             if sprint_id not in self.entries:
                 self.add(sprint_id, title)
                 changes.append(f"Added: {sprint_id} - {title}")
@@ -155,8 +155,14 @@ class SprintLedger:
 
 
 def get_ledger_path() -> Path:
-    """Resolve ledger.tsv relative to the current working directory (project root)."""
-    return Path.cwd() / "docs" / "sprints" / "ledger.tsv"
+    """Resolve ledger.tsv to ~/Reports/<repo-path>/ledger.tsv."""
+    import re as _re
+    cwd = str(Path.cwd())
+    match = _re.search(r".*/Code/(.*)", cwd)
+    repo_path = match.group(1) if match else Path.cwd().name
+    report_dir = Path.home() / "Reports" / repo_path
+    report_dir.mkdir(parents=True, exist_ok=True)
+    return report_dir / "ledger.tsv"
 
 
 def print_entry(entry: SprintEntry, verbose: bool = False) -> None:
