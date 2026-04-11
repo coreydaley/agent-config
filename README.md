@@ -50,7 +50,7 @@ make help       # Show all available targets
 
 ## Commands
 
-Invoke with `/command-name` in Claude Code.
+Invoke with `/command-name` in Claude Code. Commands with `disable-model-invocation` must be called explicitly; others may also trigger automatically based on context.
 
 | Command | Description |
 |---|---|
@@ -64,25 +64,50 @@ Invoke with `/command-name` in Claude Code.
 | `/sandbox-project` | Create a new project directory in the sandbox |
 | `/sprint-plan` | Multi-agent collaborative sprint planning |
 | `/sprint-work` | Execute the next sprint from local docs |
-| `/audit-security` | Dual-agent security review → executable sprint |
-| `/audit-design` | Dual-agent UI/UX review → executable sprint |
-| `/audit-accessibility` | Dual-agent WCAG 2.1/2.2 review → executable sprint |
-| `/audit-architecture` | Dual-agent architecture review → executable sprint |
+| `/audit-security` | Dual-agent security review → findings report |
+| `/audit-design` | Dual-agent UI/UX review → findings report |
+| `/audit-accessibility` | Dual-agent WCAG 2.1/2.2 review → findings report |
+| `/audit-architecture` | Dual-agent architecture review → findings report |
 | `/create-blog-post` | AI-powered blog post creation workflow |
 
 ## Skills
 
-Skills are auto-discovered from `~/.claude/skills/`. Each skill has a `SKILL.md` with YAML frontmatter describing when it applies.
+Skills are auto-discovered from `~/.claude/skills/`. Each skill has a `SKILL.md` with YAML frontmatter describing when it applies. Skill descriptions are always loaded into context; skill bodies load only when triggered.
 
 | Skill | Description |
 |---|---|
 | `github` | `gh` CLI operations — issues, PRs, releases, branches |
 | `obsidian` | Obsidian vault operations via the `obsidian` CLI |
+| `orbstack` | OrbStack management — Linux machines, Docker, Kubernetes |
 | `frontend-design` | Production-grade UI component creation |
-| `mcp-builder` | MCP server creation guidance |
 | `ledger` | Sprint ledger tracking |
 | `generate-post-image` | Hugo blog post image generation |
 | `skill-creator` | Guide for creating new skills |
+
+## Subagents
+
+Subagents are specialized agents Claude delegates work to via the Agent tool. Their full workflow runs in an isolated context, keeping the main conversation clean. Defined in `subagents/` (symlinked to `~/.claude/agents/`).
+
+| Subagent | Description |
+|---|---|
+| `audit-security` | Dual-agent security audit — 5-phase workflow (orient, independent reviews, synthesis, devil's advocate, report) |
+| `audit-accessibility` | Dual-agent WCAG 2.1/2.2 audit — same 5-phase pattern with accessibility-specific finding schema |
+| `audit-architecture` | Dual-agent architecture audit — findings anchored to named principles with migration cost estimates |
+| `audit-design` | Dual-agent UI/UX audit — findings anchored to Nielsen heuristics and project design system |
+
+### Audit output
+
+Each audit run writes timestamped artifacts to `~/Reports/<repo-path>/`:
+
+```
+$REPORT_TS-audit-security-claude.md          ← Claude's independent review
+$REPORT_TS-audit-security-codex.md           ← Codex's independent review
+$REPORT_TS-audit-security-synthesis.md       ← unified findings
+$REPORT_TS-audit-security-devils-advocate.md ← Codex challenge pass
+$REPORT_TS-audit-security-report.md          ← final findings report
+```
+
+The report is a reference document. To act on findings, run `/sprint-plan` and use the report as the seed.
 
 ## Disclaimer
 
