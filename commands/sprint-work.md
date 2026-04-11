@@ -32,7 +32,13 @@ If `$ARGUMENTS` is a sprint number (e.g. `005`), run that sprint directly. Other
 
    **If `$ARGUMENTS` is a sprint number:**
    - Use `/ledger list` to verify the sprint exists in the ledger.
-   - If the sprint is not in the ledger: if the sprint doc exists on disk, instruct the user to run `/ledger sync`; if no doc exists, instruct the user to run `/ledger add NNN "Title"`. Then stop.
+   - If the sprint is not in the ledger: instruct the user to run `/ledger add NNN "Title"`. Then stop.
+   - Find the sprint document in `~/Reports/`:
+     ```bash
+     REPORT_DIR=~/Reports/$(pwd | sed 's|.*/Code/||')
+     ls "$REPORT_DIR"/*-sprint-plan-SPRINT-NNN.md 2>/dev/null | tail -1
+     ```
+     If no file is found, inform the user and suggest re-running `/sprint-plan`.
    - If one sprint is already `in_progress` and a different explicit NNN was given, the explicit argument takes precedence — but surface a note identifying the in-progress sprint (number + title) before continuing.
    - Proceed to Step 2 with the specified sprint number.
 
@@ -42,14 +48,14 @@ If `$ARGUMENTS` is a sprint number (e.g. `005`), run that sprint directly. Other
      - If one exists: surface its number and title, then ask the user whether to continue it or abort. Default: continue the existing in-progress sprint. Do not auto-continue without surfacing the sprint identity.
    - If no `in_progress` sprint: identify the lowest-numbered sprint with status `planned`.
      - If no planned sprints exist: inform the user that there are no planned sprints and suggest running `/sprint-plan` to create one. Then stop.
-     - Before proceeding, check whether the selected sprint is still being actively planned by looking for draft files:
-       ```bash
-       ls docs/sprints/drafts/SPRINT-NNN-*.md 2>/dev/null
-       ```
-       If draft files exist, the sprint may be mid-planning. Surface this to the user (sprint number + which draft files are present) and ask whether to proceed or wait for planning to finish.
-   - Read the sprint document: `docs/sprints/SPRINT-NNN.md`
-
-   > If sprint docs and ledger entries appear out of sync, `/ledger sync` will reconcile them.
+   - Find the sprint document in `~/Reports/`:
+     ```bash
+     REPORT_DIR=~/Reports/$(pwd | sed 's|.*/Code/||')
+     ls "$REPORT_DIR"/*-sprint-plan-SPRINT-NNN.md 2>/dev/null | tail -1
+     ```
+     (Replace `NNN` with the zero-padded sprint number.)
+     - If no matching file is found: inform the user and suggest re-running `/sprint-plan` to regenerate.
+   - Read the located sprint document.
 
 2. **Mark sprint in progress**
    - Use the `/ledger start NNN` skill
@@ -129,7 +135,7 @@ ledger flow:
 
 ## Reference
 
-- Sprint conventions: `docs/sprints/README.md`
-- Ledger: `docs/sprints/ledger.tsv`
+- Sprint documents: `~/Reports/<repo-path>/*-sprint-plan-SPRINT-NNN.md`
+- Ledger: `~/Reports/<repo-path>/ledger.tsv`
 
 Use TaskCreate and TaskUpdate to track progress through these steps.

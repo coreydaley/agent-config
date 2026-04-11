@@ -91,8 +91,8 @@ direction.
 
 4. Read the **3 most recent sprint documents** to
    understand recent work:
-   - Use `ls ~/Reports/$(pwd | sed 's|.*/Code/||')/*-sprint-plan-sprint.md 2>/dev/null | tail -3` to find
-     them (fall back to `docs/sprints/SPRINT-*.md` if the Reports dir doesn't exist yet)
+   - Use `ls ~/Reports/$(pwd | sed 's|.*/Code/||')/*-sprint-plan-SPRINT-*.md 2>/dev/null | tail -3` to find
+     them
    - Focus especially on what was **deferred,
      underestimated, or left incomplete** — not just what
      was planned
@@ -802,8 +802,43 @@ any fails, address it first.
 Once all items pass, show the user a combined summary of
 all enabled review findings — what was incorporated and
 what was rejected — then ask for approval of the final
-document. After approval, direct the user to run
-`/sprint-work` to execute the sprint.
+document.
+
+### Post-Approval: Register Sprint
+
+After the user approves, register the sprint so
+`/sprint-work` can find it:
+
+1. Determine the next sprint number using the ledger skill:
+
+   ```bash
+   /ledger stats
+   ```
+
+   Use the next available sprint number (one greater than
+   the highest numbered sprint in the ledger; start at `001`
+   if the ledger is empty). Zero-pad to three digits (e.g.
+   `001`, `012`, `123`).
+
+2. Extract the sprint title from the first `# Sprint:`
+   heading in `$REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md`.
+
+3. Rename the sprint document to include the sprint number:
+
+   ```bash
+   mv "$REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md" \
+      "$REPORT_DIR/$REPORT_TS-sprint-plan-SPRINT-NNN.md"
+   ```
+
+4. Register the sprint in the ledger:
+
+   ```bash
+   /ledger add NNN "Title"
+   ```
+
+5. Tell the user the sprint was registered as `SPRINT-NNN`
+   at `$REPORT_DIR/$REPORT_TS-sprint-plan-SPRINT-NNN.md`,
+   and direct them to run `/sprint-work` to execute it.
 
 ---
 
@@ -872,7 +907,7 @@ ran):
 ├── $REPORT_TS-sprint-plan-security-review.md            * (Security Review)
 ├── $REPORT_TS-sprint-plan-architecture-review.md        * (Architecture Review)
 ├── $REPORT_TS-sprint-plan-test-strategy-review.md       * (Test Strategy Review)
-└── $REPORT_TS-sprint-plan-sprint.md
+└── $REPORT_TS-sprint-plan-SPRINT-NNN.md  (renamed after approval)
 ```
 
 ---
@@ -919,6 +954,8 @@ At the end of this workflow, you should have:
 - [ ] Definition of Ready pre-flight passed (all 7 items
   checked)
 - [ ] User approved the final document
+- [ ] Sprint registered in ledger with `/ledger add NNN "Title"`, renamed to
+  `$REPORT_DIR/$REPORT_TS-sprint-plan-SPRINT-NNN.md` in `~/Reports/`
 - [ ] If a tool name was provided, sprint created or
   updated in that tool with stories/tasks as needed
 

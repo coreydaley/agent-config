@@ -13,7 +13,7 @@ Manage the sprint ledger by running:
 python3 ${CLAUDE_SKILL_DIR}/scripts/ledger.py $ARGUMENTS
 ```
 
-The script resolves `ledger.tsv` relative to the current working directory at `docs/sprints/ledger.tsv`, so it must be run from the project root.
+The script resolves `ledger.tsv` to `~/Reports/<repo-path>/ledger.tsv` (derived from `pwd` stripping everything up to and including `.../Code/`). Run from the project root.
 
 > **Model invocation note**: Model invocation of this skill is intentional and expected. The `/sprint` command calls this skill via the Skill tool to update ledger state as part of its workflow. The `allowed-tools: Bash(python3 *)` constraint remains as the execution guardrail.
 
@@ -30,6 +30,6 @@ The script resolves `ledger.tsv` relative to the current working directory at `d
 | `complete NNN` | Mark sprint as completed |
 | `skip NNN` | Mark sprint as skipped |
 | `status NNN <status>` | Set arbitrary status |
-| `sync` | Sync ledger from SPRINT-*.md files in docs/sprints/ |
+| `sync` | Sync ledger from `*-sprint-plan-SPRINT-*.md` files in `~/Reports/<repo-path>/` |
 
 Valid statuses: `planned`, `in_progress`, `completed`, `skipped`
