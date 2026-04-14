@@ -40,6 +40,11 @@ Claude Code has access to file system tools (Read, Write, Edit, Glob, Grep), Bas
 
 CLAUDE.md files are loaded hierarchically: `~/.claude/CLAUDE.md` (global) → project root → subdirectories. More specific files take precedence.
 
+## Agent Config
+
+Lives at `~/Code/github.com/coreydaley/agent-config/` (public GitHub repo: `coreydaley/agent-config`).
+Contains CLAUDE.md, commands, skills, and subagents — all symlinked into `~/.claude/` via `make all`.
+
 ## Skills
 
 Skills in `~/.claude/skills/` are auto-discovered. Each skill has a `SKILL.md` with YAML frontmatter describing when it applies.
@@ -56,9 +61,15 @@ Subagent definitions in `~/.claude/agents/` can be delegated work via the Agent 
 
 The vault lives at `~/Vault/` (symlinked from iCloud for backup). Refer to it as "the vault." Use the `obsidian` skill for all vault operations.
 
+## Dotfiles
+
+Lives at `~/Code/github.com/coreydaley/dotfiles/` (private GitHub repo: `coreydaley/dotfiles`).
+Contains shell, git, ghostty, starship, and VSCode configs — symlinked to their system destinations via `make all`.
+
 ## Sandbox
 
-The sandbox lives at `~/Code/sandbox/` (private GitHub repo: `coreydaley/sandbox`). Scripts go in `scripts/`, experiments and POCs go in `projects/<name>/`.
+Lives at `~/Code/github.com/coreydaley/sandbox/` (private GitHub repo: `coreydaley/sandbox`).
+Scripts go in `scripts/`, experiments and POCs go in `projects/<name>/`. Run `make all` after cloning to install git hooks.
 
 ## Git
 
