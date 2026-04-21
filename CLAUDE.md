@@ -52,7 +52,7 @@ CLAUDE.md files are loaded hierarchically: `~/.claude/CLAUDE.md` (global) → pr
 ## Agent Config
 
 Lives at `~/Code/github.com/coreydaley/agent-config/` (public GitHub repo: `coreydaley/agent-config`).
-Contains CLAUDE.md, commands, skills, and subagents — all symlinked into `~/.claude/` via `make all`.
+Contains CLAUDE.md, commands, lib, skills, and subagents — all symlinked into `~/.claude/` via `make all`.
 
 ## Skills
 
@@ -61,6 +61,20 @@ Skills in `~/.claude/skills/` are auto-discovered. Each skill has a `SKILL.md` w
 ## Commands
 
 Custom slash commands live in `~/.claude/commands/`. Invoke with `/command-name`.
+
+## Lib
+
+Shared Python libraries live in `~/.claude/lib/` (symlinked from `agent-config/lib/`). Scripts under `skills/` and `commands/` import from here to share schemas and utilities without duplication. Scripts add the lib path via:
+
+```python
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path.home() / ".claude" / "lib"))
+from sprint_ledger import SprintEntry, SprintLedger, get_ledger_path  # etc.
+```
+
+Currently:
+- `sprint_ledger.py` — shared data model and display helpers for the sprint ledger, used by the `sprints` skill and the `commit` skill.
 
 ## Subagents
 
