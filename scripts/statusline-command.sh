@@ -12,9 +12,10 @@ model=$(jqget '.model.display_name // "Claude"')
 session=$(jqget '.session_name // ""')
 cwd=$(jqget '.workspace.current_dir // .cwd // "."')
 cost=$(jqget '.cost.total_cost_usd // 0')
-duration_ms=$(jqget '.cost.total_duration_ms // 0')
 rate_5h=$(jqget '.rate_limits.five_hour.used_percentage // empty')
 rate_7d=$(jqget '.rate_limits.seven_day.used_percentage // empty')
+resets_5h=$(jqget '.rate_limits.five_hour.resets_at // empty')
+resets_7d=$(jqget '.rate_limits.seven_day.resets_at // empty')
 
 # ANSI helpers
 c() { printf "\033[%sm%s\033[0m" "$1" "$2"; }
@@ -31,24 +32,37 @@ claude_seg+=("$(c "1;35" "$model")")
 # Session name
 [[ -n "$session" ]] && claude_seg+=("$(c "35" "[$session]")")
 
-# Session duration
-if [[ -n "$duration_ms" && "$duration_ms" -gt 0 ]]; then
-  s=$(( duration_ms / 1000 ))
-  if   (( s < 60 ));   then dur="${s}s"
-  elif (( s < 3600 )); then dur="$((s/60))m"
-  else                      dur="$((s/3600))h$(( (s%3600)/60 ))m"
-  fi
-  claude_seg+=("$(c "36" "$dur")")
-fi
 
-# Context % — from stdin (Claude Code provides this directly)
+# Build a 5-dot bar for a given percentage
+dot_bar() {
+  local pct=$1 filled=$(( $1 * 5 / 100 )) bar=""
+  for (( i=0; i<5; i++ )); do
+    (( i < filled )) && bar+="●" || bar+="○"
+  done
+  echo "$bar"
+}
+
+# Format seconds remaining as compact human-readable string
+fmt_remaining() {
+  local secs=$1
+  if (( secs <= 0 )); then echo "now"; return; fi
+  local d=$(( secs / 86400 ))
+  local h=$(( (secs % 86400) / 3600 ))
+  local m=$(( (secs % 3600) / 60 ))
+  if (( d > 0 ));   then echo "${d}d${h}h"
+  elif (( h > 0 )); then echo "${h}h${m}m"
+  else                   echo "${m}m"
+  fi
+}
+
+# Context %, color by fill level
 pct=$(jqget '.context_window.used_percentage // empty')
 pct=${pct%.*}
 if [[ -n "$pct" && "$pct" -gt 0 ]]; then
   color="32"
   (( pct > 50 )) && color="33"
   (( pct > 75 )) && color="1;31"
-  claude_seg+=("$(c "$color" "${pct}%")")
+  claude_seg+=("$(c "$color" "$(dot_bar "$pct")")")
 fi
 
 # Cost
@@ -57,21 +71,30 @@ if awk -v x="$cost" 'BEGIN{exit !(x+0>0)}'; then
 fi
 
 # Rate limits — only present after first API response in a session
+now_ts=$(date +%s)
 rate_segs=()
 if [[ -n "$rate_5h" ]]; then
   pct5=${rate_5h%.*}
   color="32"; (( pct5 > 50 )) && color="33"; (( pct5 > 75 )) && color="1;31"
-  rate_segs+=("$(c "$color" "5h:${pct5}%")")
+  label="$(dot_bar "$pct5")"
+  if [[ -n "$resets_5h" ]]; then
+    label+="/$(fmt_remaining $(( resets_5h - now_ts )))"
+  fi
+  rate_segs+=("$(c "$color" "$label")")
 fi
 if [[ -n "$rate_7d" ]]; then
   pct7=${rate_7d%.*}
   color="32"; (( pct7 > 50 )) && color="33"; (( pct7 > 75 )) && color="1;31"
-  rate_segs+=("$(c "$color" "7d:${pct7}%")")
+  label="$(dot_bar "$pct7")"
+  if [[ -n "$resets_7d" ]]; then
+    label+="/$(fmt_remaining $(( resets_7d - now_ts )))"
+  fi
+  rate_segs+=("$(c "$color" "$label")")
 fi
 if (( ${#rate_segs[@]} > 0 )); then
   rate_joined=""
   for r in "${rate_segs[@]}"; do
-    [[ -z "$rate_joined" ]] && rate_joined="$r" || rate_joined="${rate_joined}$(c "$DIM" "/")${r}"
+    [[ -z "$rate_joined" ]] && rate_joined="$r" || rate_joined="${rate_joined} ${r}"
   done
   claude_seg+=("$rate_joined")
 fi
