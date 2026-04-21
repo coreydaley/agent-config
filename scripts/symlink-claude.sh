@@ -8,6 +8,7 @@
 # Targets:
 #   - CLAUDE.md   → ~/.claude/CLAUDE.md
 #   - commands/   → ~/.claude/commands/
+#   - lib/        → ~/.claude/lib/
 #   - skills/     → ~/.claude/skills/
 #   - subagents/  → ~/.claude/agents/
 #
@@ -40,6 +41,7 @@ ensure_dir "$HOME/.claude"
 
 create_symlink "$ROOT_DIR/CLAUDE.md"                        "$HOME/.claude/CLAUDE.md"
 create_symlink "$ROOT_DIR/commands"                         "$HOME/.claude/commands"
+create_symlink "$ROOT_DIR/lib"                              "$HOME/.claude/lib"
 create_symlink "$ROOT_DIR/skills"                           "$HOME/.claude/skills"
 create_symlink "$ROOT_DIR/subagents"                        "$HOME/.claude/agents"
 create_symlink "$ROOT_DIR/scripts/statusline-command.sh"    "$HOME/.claude/statusline-command.sh"
