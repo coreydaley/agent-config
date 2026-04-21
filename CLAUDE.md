@@ -1,5 +1,14 @@
 # Claude Code Instructions
 
+## Response Style
+
+- Be concise. Skip preamble, affirmations, and summaries of what you're about to do.
+- No meta-commentary ("I'll now...", "Let me..."). Just act.
+- Explain *why* only when the reason isn't obvious from context.
+- Prefer code over prose when demonstrating a concept.
+- Don't narrate tool use steps. Complete the task, report the result.
+- Answer direct questions directly before any elaboration.
+
 ## About the User
 
 - **Languages**: Go (primary), Python (secondary)
@@ -61,6 +70,18 @@ Subagent definitions in `~/.claude/agents/` can be delegated work via the Agent 
 
 The vault lives at `~/Vault/` (symlinked from iCloud for backup). Refer to it as "the vault." Use the `obsidian` skill for all vault operations.
 
+### Vault structure
+
+The vault has top-level folders for `Ideas/`, `Knowledge/`, `Projects/`, `Drafts/`, `Tasks/`, and `Templates/`. Each folder has a corresponding `.base` file at the vault root that provides the table/board views for that folder.
+
+### Project file naming convention
+
+Each project lives in its own folder under `Projects/`. The hub document for a project is named `<ProjectName>.md` (matching the folder name), **not** `README.md`. This is so that the Projects base view's `file.name` column displays the actual project name rather than a sea of identical "README" rows.
+
+Sub-files within a project folder follow the pattern `<ProjectName> — <aspect>.md` (em-dash separator) so they remain visually grouped and attributable to the project in listings. For example, within `Projects/QuorumForge/`, the hub is `QuorumForge.md` and sub-files might be `QuorumForge — demo scenario.md`, `QuorumForge — agent personas.md`, etc. If a project accumulates many sub-files, they can be moved into a sub-folder (e.g. `Projects/QuorumForge/notes/`) but the hub stays at `Projects/QuorumForge/QuorumForge.md`.
+
+Links like `[[QuorumForge]]` from other notes resolve unambiguously to the hub file under this convention.
+
 ## Dotfiles
 
 Lives at `~/Code/github.com/coreydaley/dotfiles/` (private GitHub repo: `coreydaley/dotfiles`).
@@ -69,7 +90,7 @@ Contains shell, git, ghostty, starship, and VSCode configs — symlinked to thei
 ## Sandbox
 
 Lives at `~/Code/github.com/coreydaley/sandbox/` (private GitHub repo: `coreydaley/sandbox`).
-Scripts go in `scripts/`, experiments and POCs go in `projects/<name>/`. Run `make all` after cloning to install git hooks.
+Scripts go in `scripts/`, experiments and POCs go in `projects/<n>/`. Run `make all` after cloning to install git hooks.
 
 ## Git
 
@@ -80,4 +101,3 @@ Scripts go in `scripts/`, experiments and POCs go in `projects/<name>/`. Run `ma
 **Organize repositories under `~/Code/<host>/<org>/<repo>/`.** For example, `~/Code/github.com/coreydaley/dotfiles/`. Always clone into this structure regardless of the host or org.
 
 **For forked repositories, always configure the upstream remote.** After cloning a fork, add the original repo as `upstream` via `git remote add upstream <original-url>`.
-
