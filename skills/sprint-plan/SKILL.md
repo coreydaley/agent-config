@@ -516,6 +516,7 @@ Questions that the drafts should attempt to answer.
 *(Populated after Phase 4 — leave empty for now.)*
 ```
 
+
 ### Dry-run exit
 
 If `--dry` was passed, after composing the intent above:
@@ -610,6 +611,7 @@ After the interview, populate the **Interview Refinements** section
 of `$REPORT_DIR/$REPORT_TS-sprint-plan-intent.md` with a concise
 summary of what the user clarified. Both draft workers read this
 document, so refinements captured here will reach both drafts.
+
 
 ---
 
@@ -771,6 +773,7 @@ Diagrams (ASCII art), component descriptions, data flow.
 Uncertainties needing resolution.
 ```
 
+
 ---
 
 ## Phase 6: Critique (delegated, parallel) *(optional)*
@@ -908,6 +911,7 @@ draft directly.
    - Observability & Rollback, Performance & Scale, Breaking
      Changes, and Documentation sections
 
+
 ---
 
 ## Phase 8: Reviews (delegated, parallel) *(optional)*
@@ -1029,6 +1033,7 @@ wrong in production that the tests would not catch? Be specific.
 Every concern should cite the relevant section of the plan.
 ```
 
+
 ### Phase 8e: Observability Review *(expert: claude)*
 
 > Skip if disabled in Phase 2.
@@ -1103,6 +1108,7 @@ suggest a concrete plan adjustment or DoD addition.
 
 Wait for all enabled review workers to finish before proceeding to
 Phase 9.
+
 
 ---
 
@@ -1268,6 +1274,7 @@ If the user requests changes, iterate on the sprint document
 directly (the file on disk), then re-render Steps 1–3 before
 re-prompting.
 
+
 ### Step 6 — Register Sprint
 
 After the user approves, register the sprint so `/sprint-work` can
@@ -1293,10 +1300,44 @@ find it:
       "$REPORT_DIR/$REPORT_TS-sprint-plan-SPRINT-NNN.md"
    ```
 
-4. Register the sprint in the ledger:
+4. **Compute the participants list** — who actually produced
+   planning artifacts for this sprint. Compute from which phases
+   *ran*, not which were enabled. A phase that was enabled but
+   produced no artifact (e.g., worker failed, skipped at runtime)
+   does not count.
+
+   - Include `claude` if any Claude-side worker ran:
+     - Phase 5a or 5b delegated to a Claude-side worker
+       (orch-side when orchestrator is Claude; opposite-side when
+       orchestrator is Codex)
+     - Phase 6a or 6b delegated to a Claude-side worker
+     - Any Phase 8 review routed to Claude (Security,
+       Architecture, Observability, Breaking Change)
+   - Include `codex` if any Codex-side worker ran:
+     - Phase 5a or 5b delegated to a Codex-side worker
+     - Phase 6a or 6b delegated to a Codex-side worker
+     - Any Phase 8 review routed to Codex (Devil's Advocate,
+       Test Strategy, Performance & Scale)
+   - The orchestrator itself does not count as a participant —
+     only delegated workers that produced artifacts do.
+   - Emit the list alphabetically (the ledger normalizes this,
+     but emit in order for readability).
+
+   Single-agent example (only Claude-side workers ran):
+   `claude`
+
+   Both-sides example (Phase 5b ran as opposite-side, or any
+   Phase 8 review routed to the opposite side):
+   `claude,codex`
+
+   This participants list is what the `/commit` skill will later
+   read to build multi-agent `Co-authored-by:` trailers for the
+   sprint-artifact commit.
+
+5. Register the sprint in the ledger:
 
    ```bash
-   /sprints --add NNN "Title" --recommended-model=<tier>
+   /sprints --add NNN "Title" --recommended-model=<tier> --participants=<list>
    ```
 
    `<tier>` is the model name from the Recommended Execution block
@@ -1304,7 +1345,10 @@ find it:
    --velocity` compare recommendations to the model that actually
    ran the sprint.
 
-5. Tell the user the sprint was registered as `SPRINT-NNN` at
+   `<list>` is the comma-separated participants list computed in
+   step 4 above (e.g. `claude` or `claude,codex`).
+
+6. Tell the user the sprint was registered as `SPRINT-NNN` at
    `$REPORT_DIR/$REPORT_TS-sprint-plan-SPRINT-NNN.md`. Repeat
    the **Recommended Execution** block in this final message so
    the exact `/model` and `/sprint-work` commands are the last
@@ -1338,6 +1382,7 @@ only created when the corresponding optional phase ran):
 Retros live alongside plans at
 `$REPORT_TS-sprint-retro-SPRINT-NNN.md` and are written by
 `/sprint-work` after completion.
+
 
 ---
 
@@ -1386,7 +1431,10 @@ At the end of this workflow, you should have:
 - [ ] Definition of Ready pre-flight passed (all 8 items checked)
 - [ ] User approved the final document; Recommended Execution
   block shown prominently at approval time
-- [ ] Sprint registered in ledger with `/sprints --add NNN "Title"`
+- [ ] Participants list computed from which phases actually ran
+  (claude-side workers → include `claude`; codex-side workers →
+  include `codex`)
+- [ ] Sprint registered in ledger with `/sprints --add NNN "Title" --recommended-model=<tier> --participants=<list>`
   and renamed to
   `$REPORT_DIR/$REPORT_TS-sprint-plan-SPRINT-NNN.md`
 - [ ] Recommended Execution block repeated in the final message
