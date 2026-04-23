@@ -33,14 +33,13 @@ claude_seg+=("$(c "1;35" "$model")")
 [[ -n "$session" ]] && claude_seg+=("$(c "35" "[$session]")")
 
 
-# 3 fixed-color dots: green lights at >0%, orange at 33%, red at 66%
-dot_bar() {
+# Percentage with color: green <33%, orange <66%, red >=66%
+pct_color() {
   local pct=$1
-  local d1="$(c "2;37" "○")" d2="$(c "2;37" "○")" d3="$(c "2;37" "○")"
-  (( pct > 0  )) && d1="$(c "32"       "●")"
-  (( pct >= 33 )) && d2="$(c "38;5;208" "●")"
-  (( pct >= 66 )) && d3="$(c "31"       "●")"
-  echo "${d1}${d2}${d3}"
+  local col="32"
+  (( pct >= 33 )) && col="38;5;208"
+  (( pct >= 66 )) && col="31"
+  c "$col" "${pct}%"
 }
 
 # Format seconds remaining as compact human-readable string
@@ -60,7 +59,7 @@ fmt_remaining() {
 pct=$(jqget '.context_window.used_percentage // empty')
 pct=${pct%.*}
 if [[ -n "$pct" && "$pct" -gt 0 ]]; then
-  claude_seg+=("$(dot_bar "$pct")")
+  claude_seg+=("$(pct_color "$pct")")
 fi
 
 # Cost
@@ -73,7 +72,7 @@ now_ts=$(date +%s)
 rate_segs=()
 if [[ -n "$rate_5h" ]]; then
   pct5=${rate_5h%.*}
-  label="$(dot_bar "$pct5")"
+  label="$(pct_color "$pct5")"
   if [[ -n "$resets_5h" ]]; then
     label+="$(c "2;37" "/$(fmt_remaining $(( resets_5h - now_ts )))")"
   fi
@@ -81,7 +80,7 @@ if [[ -n "$rate_5h" ]]; then
 fi
 if [[ -n "$rate_7d" ]]; then
   pct7=${rate_7d%.*}
-  label="$(dot_bar "$pct7")"
+  label="$(pct_color "$pct7")"
   if [[ -n "$resets_7d" ]]; then
     label+="$(c "2;37" "/$(fmt_remaining $(( resets_7d - now_ts )))")"
   fi
@@ -242,3 +241,4 @@ if [[ -n "$top" ]]; then
 fi
 printf "%b" "$middle"
 [[ -n "$git_piece" ]] && printf "\n%b" "$git_piece"
+exit 0
