@@ -37,8 +37,8 @@ claude_seg+=("$(c "1;35" "$model")")
 pct_color() {
   local pct=$1
   local col="32"
-  (( pct >= 33 )) && col="38;5;208"
-  (( pct >= 66 )) && col="31"
+  (( pct >= 50 )) && col="38;5;208"
+  (( pct >= 80 )) && col="31"
   c "$col" "${pct}%"
 }
 
