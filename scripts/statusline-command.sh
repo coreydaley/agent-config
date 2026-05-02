@@ -29,8 +29,6 @@ env_seg=()
 # ── Claude info ──
 claude_seg+=("$(c "1;35" "$model")")
 
-# Session name
-[[ -n "$session" ]] && claude_seg+=("$(c "35" "[$session]")")
 
 
 # Percentage with color: green <33%, orange <66%, red >=66%
@@ -98,9 +96,10 @@ fi
 # Directory: starship-style — repo-relative or ~-collapsed path, truncated to last 5 components
 repo_root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)
 if [[ -n "$repo_root" ]]; then
+  repo_parent=$(basename "$(dirname "$repo_root")")
   repo_name=$(basename "$repo_root")
   rel=${cwd#$repo_root}; rel=${rel#/}
-  dir_path="$repo_name${rel:+/$rel}"
+  dir_path="$repo_parent/$repo_name${rel:+/$rel}"
 else
   dir_path="${cwd/#$HOME/~}"
 fi
@@ -174,40 +173,6 @@ for i in "${!env_seg[@]}"; do
   fi
 done
 
-# ── Top line: right-aligned env context (docker / k8s / gcloud / terraform) ──
-top_segs=()
-
-docker_ctx=$(docker context show 2>/dev/null)
-[[ -n "$docker_ctx" ]] && top_segs+=("$(c "1" "dk:$docker_ctx")")
-
-k8s_ctx=$(kubectl config current-context 2>/dev/null)
-[[ -n "$k8s_ctx" ]] && top_segs+=("$(c "1" "k8s:$k8s_ctx")")
-
-# gcloud project — cached (5 min) because `gcloud config get-value` is slow
-gc_cache="/tmp/statusline-gcloud-$USER"
-if [[ ! -f "$gc_cache" ]] || (( $(date +%s) - $(stat -f %m "$gc_cache" 2>/dev/null || echo 0) > 300 )); then
-  gcloud config get-value project 2>/dev/null > "$gc_cache.tmp" && mv "$gc_cache.tmp" "$gc_cache"
-fi
-gc_project=$(cat "$gc_cache" 2>/dev/null | tr -d '[:space:]')
-[[ -n "$gc_project" ]] && top_segs+=("$(c "1" "gc:$gc_project")")
-
-# terraform workspace — only if .terraform/environment exists in cwd or ancestors
-if tf_dir=$(cd "$cwd" 2>/dev/null && while [[ "$PWD" != "/" ]]; do [[ -f .terraform/environment ]] && { echo "$PWD"; break; }; cd ..; done); then
-  if [[ -n "$tf_dir" ]]; then
-    tf_ws=$(cat "$tf_dir/.terraform/environment" 2>/dev/null)
-    [[ -n "$tf_ws" ]] && top_segs+=("$(c "1" "tf:$tf_ws")")
-  fi
-fi
-
-top=""
-if (( ${#top_segs[@]} > 0 )); then
-  for i in "${!top_segs[@]}"; do
-    if (( i == 0 )); then top="${top_segs[$i]}"
-    else top="${top}  ${top_segs[$i]}"
-    fi
-  done
-fi
-
 # Middle line: claude info + dir (git moved to its own line below)
 middle=""
 if [[ -n "$left" && -n "$dir_piece" ]]; then
@@ -218,27 +183,6 @@ else
   middle="$dir_piece"
 fi
 
-# Right-align the top line by padding with spaces to terminal width.
-# Claude Code runs this script without a TTY on stdout, so `tput cols` and
-# $COLUMNS are unreliable. Try the most reliable sources first.
-if [[ -n "$top" ]]; then
-  cols=${CLAUDE_STATUSLINE_COLS:-0}
-  # tmux: ask the server for the active pane width
-  if (( cols == 0 )) && [[ -n "$TMUX" ]]; then
-    cols=$(tmux display-message -p '#{pane_width}' 2>/dev/null || echo 0)
-  fi
-  # Read directly from the controlling terminal
-  (( cols == 0 )) && cols=$(stty size </dev/tty 2>/dev/null | awk '{print $2}')
-  (( cols == 0 )) && cols=$(tput cols </dev/tty 2>/dev/null || echo 0)
-  (( cols == 0 )) && cols=${COLUMNS:-0}
-  (( cols == 0 )) && cols=200
-  [[ "$cols" =~ ^[0-9]+$ ]] || cols=200
-  top_plain=$(printf "%b" "$top" | sed $'s/\033\\[[0-9;]*m//g')
-  # Claude Code's status area appears narrower than the full pane width — reserve 6 cols
-  pad=$(( cols - ${#top_plain} - 6 ))
-  (( pad < 0 )) && pad=0
-  printf "\xe2\x80\x8d%${pad}s%b\n" "" "$top"
-fi
 printf "%b" "$middle"
 [[ -n "$git_piece" ]] && printf "\n%b" "$git_piece"
 exit 0
