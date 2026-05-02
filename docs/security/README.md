@@ -1,31 +1,24 @@
 # Security Audit Reference
 
-This directory stores intermediate artifacts produced by the
-`/audit-security` command during a security review.
+Schema and severity reference for the `/audit-security` command.
+Audit artifacts are written outside this repo to
+`~/Reports/<repo-path>/` (derived from `pwd`).
 
-## Relationship to Sprints
+## Output
 
-`/audit-security` produces a standard `docs/sprints/SPRINT-NNN.md`
-sprint document as its final output. The sprint NNN matches the
-intermediate files stored here. Execute the sprint with `/sprint-work NNN`.
-
-The `audit-*` command family uses this pattern:
-- Intermediate working files → `docs/security/`
-- Final executable output → `docs/sprints/SPRINT-NNN.md`
-
-## Naming Convention
-
-All files use the sprint number `NNN` from the audit run:
+Each audit run produces five timestamp-prefixed files in
+`~/Reports/<repo-path>/`:
 
 | File | Contents |
 |------|----------|
-| `NNN-CLAUDE.md` | Claude's independent security review |
-| `NNN-CODEX.md` | Codex's independent security review |
-| `NNN-SYNTHESIS.md` | Unified findings (with canonical S-prefix IDs) |
-| `NNN-DEVILS-ADVOCATE.md` | Codex's challenge of the synthesis |
+| `<TS>-audit-security-claude.md` | Claude's independent security review |
+| `<TS>-audit-security-codex.md` | Codex's independent security review |
+| `<TS>-audit-security-synthesis.md` | Unified findings (canonical `S`-prefix IDs) |
+| `<TS>-audit-security-devils-advocate.md` | Codex's challenge of the synthesis |
+| `<TS>-audit-security-report.md` | Final findings report (the human-facing artifact) |
 
-`NNN` is the sprint number assigned at the start of the audit run.
-A finding `S003` in `AUDIT-004-SYNTHESIS.md` corresponds to `SPRINT-004.md`.
+The report is reference material. To act on the findings, run
+`/sprint-plan` with the report path as the seed prompt.
 
 ## Finding Schema
 
@@ -33,7 +26,6 @@ All intermediate files use this table format:
 
 ```
 | ID | Severity | Title | Location | Why It Matters | Recommended Fix | Evidence/Notes |
-|----|----------|-------|----------|----------------|-----------------|----------------|
 ```
 
 **ID prefixes:**
@@ -50,7 +42,5 @@ reachability) — not on the number of reviewers who flagged it.
 
 These files describe security vulnerabilities and may contain exploit
 details, exposed credential patterns, or descriptions of attack paths.
-
-**Review these files before committing them to a public repository.**
-Consider adding `docs/security/` to `.gitignore` if the repo is public
-and audits are run before issues are remediated.
+Because they live under `~/Reports/` (outside any git repo by default),
+they don't risk accidental commit. Review before sharing.

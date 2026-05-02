@@ -9,13 +9,15 @@ A personal configuration repository for [Claude Code](https://claude.ai/code) �
 
 ## What's in here
 
-| Directory | Purpose |
+| Path | Purpose |
 |---|---|
 | `CLAUDE.md` | Global instructions loaded by Claude Code on every session |
+| `settings.json` | Global Claude Code settings (permissions, hooks, statusline, model, theme) |
 | `commands/` | Custom slash commands (invoke with `/command-name`) |
 | `skills/` | Reusable skill modules auto-discovered by Claude Code |
 | `subagents/` | Specialized agents Claude can delegate work to |
-| `prompts/` | Standalone prompts for specific tasks |
+| `lib/` | Shared Python libraries imported by skills and commands |
+| `docs/` | Workflow documentation |
 | `scripts/` | Setup scripts |
 
 ## Setup
@@ -32,10 +34,12 @@ make all
 ### What gets symlinked
 
 ```
-CLAUDE.md   → ~/.claude/CLAUDE.md
-commands/   → ~/.claude/commands/
-skills/     → ~/.claude/skills/
-subagents/  → ~/.claude/agents/
+CLAUDE.md       → ~/.claude/CLAUDE.md
+settings.json   → ~/.claude/settings.json
+commands/       → ~/.claude/commands/
+skills/         → ~/.claude/skills/
+subagents/      → ~/.claude/agents/
+lib/            → ~/.claude/lib/
 ```
 
 Existing files at symlink destinations are backed up with a `.old` extension before replacement.
@@ -56,19 +60,27 @@ Invoke with `/command-name` in Claude Code. Commands with `disable-model-invocat
 |---|---|
 | `/commit` | Analyze uncommitted changes and create grouped conventional commits |
 | `/tag` | Analyze commits since last tag and propose the next semantic version |
-| `/create-task` | Create a new task note in the Obsidian vault |
-| `/create-knowledge` | Create a new knowledge note in the Obsidian vault |
-| `/create-draft` | Create a new draft note in the Obsidian vault |
-| `/create-read-later` | Add a URL to the Read Later list in the Obsidian vault |
-| `/sandbox-script` | Create a new standalone script in the sandbox |
-| `/sandbox-project` | Create a new project directory in the sandbox |
+| `/sprint-seed` | Pre-plan exploratory discussion; produces a `SEED.md` |
 | `/sprint-plan` | Multi-agent collaborative sprint planning |
-| `/sprint-work` | Execute the next sprint from local docs |
+| `/sprint-work` | Execute a planned sprint end-to-end and open PR(s) |
+| `/sprints` | Sprint ledger — status, velocity, add/start/complete |
+| `/review-pr-simple` | Single-agent PR review → `REVIEW.md` |
+| `/review-pr-comprehensive` | Dual-agent PR review (Claude + Codex) → `REVIEW.md` |
+| `/review-address-feedback` | Walk through review feedback and apply fixes |
+| `/polish-pull-request` | Final-pass PR cleanup before merge |
 | `/audit-security` | Dual-agent security review → findings report |
 | `/audit-design` | Dual-agent UI/UX review → findings report |
 | `/audit-accessibility` | Dual-agent WCAG 2.1/2.2 review → findings report |
 | `/audit-architecture` | Dual-agent architecture review → findings report |
+| `/create-task` | Create a new task note in the Obsidian vault |
+| `/create-knowledge` | Create a new knowledge note in the Obsidian vault |
+| `/create-draft` | Create a new draft note in the Obsidian vault |
+| `/create-read-later` | Add a URL to the Read Later list in the Obsidian vault |
 | `/create-blog-post` | AI-powered blog post creation workflow |
+| `/sandbox-script` | Create a new standalone script in the sandbox |
+| `/sandbox-project` | Create a new project directory in the sandbox |
+| `/hsplit` | Split the current tmux pane horizontally (left/right) |
+| `/vsplit` | Split the current tmux pane vertically (top/bottom) |
 
 ## Skills
 
@@ -76,12 +88,20 @@ Skills are auto-discovered from `~/.claude/skills/`. Each skill has a `SKILL.md`
 
 | Skill | Description |
 |---|---|
-| `github` | `gh` CLI operations — issues, PRs, releases, branches |
+| `gh` | `gh` CLI operations — issues, PRs, releases, branches |
 | `obsidian` | Obsidian vault operations via the `obsidian` CLI |
 | `orbstack` | OrbStack management — Linux machines, Docker, Kubernetes |
+| `sprint-seed` | Pre-plan exploratory discussion; shapes fuzzy ideas into a `SEED.md` |
+| `sprint-plan` | Multi-agent collaborative planning with strict orchestrator/worker separation |
+| `sprint-work` | Execute a planned sprint end-to-end from a `SPRINT.md` |
+| `sprints` | Sprint ledger — status, velocity, add/start/complete |
+| `review-pr-simple` | Single-agent PR review → `REVIEW.md` |
+| `review-pr-comprehensive` | Dual-agent PR review (Claude + Codex, synthesis, devil's advocate) → `REVIEW.md` |
+| `review-address-feedback` | Walk through PR review feedback and apply fixes; supports live PR comments or a local `REVIEW.md` |
+| `polish-pull-request` | Final-pass PR cleanup — title, body, cross-links, stale thread resolution |
+| `commit` | Analyze changes and create grouped conventional commits with sprint-aware co-author trailers |
 | `frontend-design` | Production-grade UI component creation |
-| `ledger` | Sprint ledger tracking |
-| `generate-post-image` | Hugo blog post image generation |
+| `generate-post-image` | Hugo blog post image generation via DALL-E 3 |
 | `skill-creator` | Guide for creating new skills |
 
 ## Subagents
@@ -94,6 +114,7 @@ Subagents are specialized agents Claude delegates work to via the Agent tool. Th
 | `audit-accessibility` | Dual-agent WCAG 2.1/2.2 audit — same 5-phase pattern with accessibility-specific finding schema |
 | `audit-architecture` | Dual-agent architecture audit — findings anchored to named principles with migration cost estimates |
 | `audit-design` | Dual-agent UI/UX audit — findings anchored to Nielsen heuristics and project design system |
+| `audit-responsive` | Dual-agent responsive design audit — viewport, breakpoints, touch targets, fluid layouts, typography, overflow |
 
 ### Audit output
 
@@ -109,25 +130,42 @@ $REPORT_TS-audit-security-report.md          ← final findings report
 
 The report is a reference document. To act on findings, run `/sprint-plan` and use the report as the seed.
 
-## Sprint planning output
+## Sprint workflow output
 
-`/sprint-plan` writes all artifacts to `~/Reports/<repo-path>/` (derived from `pwd`). Files marked `*` are only created when the corresponding optional phase ran:
+All sprint artifacts live under `~/Reports/<org>/<repo>/` (derived from `git remote get-url origin`). Nothing is written into the project repo itself. See [`docs/sprints/README.md`](docs/sprints/README.md) for the full lifecycle and artifact map.
+
+Files marked `*` are only created when the corresponding optional phase ran.
 
 ```
-$REPORT_TS-sprint-plan-intent.md
-$REPORT_TS-sprint-plan-claude-draft.md
-$REPORT_TS-sprint-plan-codex-draft.md                  * (Compete)
-$REPORT_TS-sprint-plan-claude-draft-codex-critique.md  * (Compete)
-$REPORT_TS-sprint-plan-codex-draft-claude-critique.md  * (Compete)
-$REPORT_TS-sprint-plan-merge-notes.md                  * (Compete)
-$REPORT_TS-sprint-plan-devils-advocate.md              * (Devil's Advocate)
-$REPORT_TS-sprint-plan-security-review.md              * (Security Review)
-$REPORT_TS-sprint-plan-architecture-review.md          * (Architecture Review)
-$REPORT_TS-sprint-plan-test-strategy-review.md         * (Test Strategy Review)
-$REPORT_TS-sprint-plan-SPRINT-NNN.md                   ← final (renamed after approval)
+~/Reports/<org>/<repo>/
+├── ledger.tsv                                        # sprint index (managed by /sprints)
+├── sprints/
+│   └── YYYY-MM-DDTHH-MM-SS/                         # one folder per planning session
+│       ├── SEED.md                                   * (/sprint-seed handoff)
+│       ├── intent.md
+│       ├── claude-draft.md                           # orch-side draft (always)
+│       ├── codex-draft.md                            * (Phase 5b — opposite-side draft)
+│       ├── claude-draft-codex-critique.md            * (Phase 6a)
+│       ├── codex-draft-claude-critique.md            * (Phase 6b)
+│       ├── merge-notes.md                            * (Phase 7 — Merge mode only)
+│       ├── devils-advocate.md                        * (Phase 8a)
+│       ├── security-review.md                        * (Phase 8b)
+│       ├── architecture-review.md                    * (Phase 8c)
+│       ├── test-strategy-review.md                   * (Phase 8d)
+│       ├── observability-review.md                   * (Phase 8e)
+│       ├── performance-review.md                     * (Phase 8f)
+│       ├── breaking-change-review.md                 * (Phase 8g)
+│       ├── SPRINT.md                                 # the approved plan
+│       └── RETRO.md                                  * (/sprint-work --retro)
+├── pr-reviews/
+│   └── pr-N/
+│       ├── YYYY-MM-DDTHH-MM-SS/                      # one folder per review run
+│       │   └── REVIEW.md  diff.patch  ...
+│       └── YYYY-MM-DDTHH-MM-SS-addressed/            # one folder per address-feedback run
+│           └── ADDRESSED.md
+└── <TS>-audit-<lens>-{claude,codex,synthesis,devils-advocate,report}.md
+                                                      # audit artifacts, flat, timestamp-prefixed
 ```
-
-The ledger (`ledger.tsv`) lives in the same `~/Reports/<repo-path>/` directory. `/sprint-work` reads sprint documents and the ledger from there.
 
 ## Disclaimer
 

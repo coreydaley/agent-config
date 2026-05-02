@@ -153,7 +153,7 @@ Addresses <TICKET-ID>        (only if ticket_id is non-null)
 - Summary: imperative mood, lowercase, no trailing period
 - `type(scope): summary` line: max 72 characters total
 - Scope: directory name or component affected (e.g. `commands`,
-  `agents/claude`, `sprint-001`, `scripts`)
+  `skills`, `lib`, `scripts`)
 - Body: explain *why* not *what*; omit if the summary is self-evident
 - `Addresses <TICKET-ID>` only if the plan provided a `ticket_id`; omit
   otherwise (no `Addresses: none`, no placeholder)

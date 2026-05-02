@@ -1,22 +1,27 @@
 #!/usr/bin/env python3
 """
-Sprint Manager - CLI tool for tracking sprint progress.
+Sprint Manager — CLI tool for tracking sprint progress.
+
+Sprints are keyed by session timestamp (e.g. "2026-05-01T14-30-00"),
+which corresponds to the folder name under ~/Reports/<org>/<repo>/sprints/.
+Most commands accept a session timestamp, a session prefix (e.g.
+"2026-05-01"), or a title substring — fuzzy lookups are resolved
+to a single entry, with an error if the query is ambiguous.
 
 Usage:
-    python3 sprints.py --stats                        # Show overview
-    python3 sprints.py --current                      # Show in_progress sprint
-    python3 sprints.py --next                         # Show next planned sprint
-    python3 sprints.py --add 003 "Sprint Title"       # Add new sprint
-    python3 sprints.py --start 001                    # Mark as in_progress
-    python3 sprints.py --complete 001                 # Mark as completed
-    python3 sprints.py --skip 001                     # Mark as skipped
-    python3 sprints.py --set-status 001 completed     # Set arbitrary status
-    python3 sprints.py --list [--status planned]     # List sprints
-    python3 sprints.py --sync                         # Sync from .md files
+    python3 sprints.py --stats                      # Show overview
+    python3 sprints.py --current                    # Show in-progress sprint
+    python3 sprints.py --next                       # Show next planned sprint
+    python3 sprints.py --add <TS> "Title"           # Register an existing session
+    python3 sprints.py --start <query>              # Mark as in_progress
+    python3 sprints.py --complete <query>           # Mark as completed
+    python3 sprints.py --skip <query>               # Mark as skipped
+    python3 sprints.py --set-status <query> <status>
+    python3 sprints.py --list [--status planned]
+    python3 sprints.py --sync                       # Sync from sprints/<TS>/SPRINT.md
+    python3 sprints.py --path <query>               # Print absolute session folder path
 
-Data model and display helpers are imported from ~/.claude/lib/sprint_ledger.py
-so other scripts (e.g. the commit planner) can share the same schema without
-duplicating TSV parsing logic.
+Data model and display helpers are imported from ~/.claude/lib/sprint_ledger.py.
 """
 
 import sys
@@ -29,6 +34,7 @@ from sprint_ledger import (  # noqa: E402
     SprintEntry,
     SprintLedger,
     get_ledger_path,
+    get_sprints_dir,
     _symbol,
     _bold_pad,
     _relative_compact,
@@ -37,8 +43,25 @@ from sprint_ledger import (  # noqa: E402
     _format_duration,
     _format_duration_compact,
     _effective_timestamp,
+    _short_session,
     _WHEN_LABELS,
 )
+
+
+def _resolve(ledger: SprintLedger, query: str) -> SprintEntry:
+    """Resolve a user-supplied query to exactly one entry. Errors on
+    ambiguity or no-match."""
+    matches = ledger.find(query)
+    if not matches:
+        raise ValueError(f"No sprint matching: {query!r}")
+    if len(matches) > 1:
+        lines = [f"  {e.session}  {e.title}" for e in matches]
+        raise ValueError(
+            f"Ambiguous query {query!r} — {len(matches)} matches:\n"
+            + "\n".join(lines)
+            + "\nUse a more specific session timestamp or title fragment."
+        )
+    return matches[0]
 
 
 def print_verbose(entry: SprintEntry) -> None:
@@ -46,7 +69,7 @@ def print_verbose(entry: SprintEntry) -> None:
     status_label = entry.status.replace("_", " ")
     when_label = _WHEN_LABELS.get(entry.status, "Updated")
     ts = _effective_timestamp(entry)
-    print(f"{_symbol(entry.status)} Sprint {entry.sprint_id}  {entry.title}")
+    print(f"{_symbol(entry.status)} {entry.session}  {entry.title}")
     print()
     print(f"  {'Status':<12} {status_label}")
     print(f"  {when_label:<12} {_relative_phrase(ts)}  ({_absolute_date(ts)})")
@@ -102,12 +125,12 @@ def cmd_stats(ledger: SprintLedger) -> None:
         model_note = f", {current.model}" if current.model else ""
         print(
             f"  {_bold_pad('Current', 9)}{_symbol(current.status)} "
-            f"{current.sprint_id}  {current.title}   (started {since}{model_note})"
+            f"{current.title}   (started {since}{model_note})"
         )
     if next_sprint:
         print(
             f"  {_bold_pad('Next', 9)}{_symbol(next_sprint.status)} "
-            f"{next_sprint.sprint_id}  {next_sprint.title}"
+            f"{next_sprint.title}"
         )
 
 
@@ -121,7 +144,7 @@ def cmd_current(ledger: SprintLedger) -> None:
     if next_sprint:
         print(
             f"Next planned: {_symbol(next_sprint.status)} "
-            f"{next_sprint.sprint_id}  {next_sprint.title}."
+            f"{next_sprint.session}  {next_sprint.title}."
         )
         print("Run /sprint-work to start it.")
     else:
@@ -151,7 +174,7 @@ def cmd_list(ledger: SprintLedger, status: Optional[str] = None) -> None:
     entries = (
         ledger.get_by_status(status)
         if status
-        else sorted(ledger.entries.values(), key=lambda e: e.sprint_number)
+        else sorted(ledger.entries.values(), key=lambda e: e.session)
     )
     if not entries:
         print(f"No sprints with status '{status}'.")
@@ -175,19 +198,20 @@ def cmd_list(ledger: SprintLedger, status: Optional[str] = None) -> None:
     max_title = max(len(e.title) for e in entries)
     for entry in entries:
         right = _right(entry)
+        sess = _short_session(entry.session)
         if right:
             padded = entry.title.ljust(max_title)
-            print(f"  {_symbol(entry.status)} {entry.sprint_id}  {padded}   {right}")
+            print(f"  {_symbol(entry.status)} {sess}  {padded}   {right}")
         else:
-            print(f"  {_symbol(entry.status)} {entry.sprint_id}  {entry.title}")
+            print(f"  {_symbol(entry.status)} {sess}  {entry.title}")
 
 
 def cmd_add(
-    ledger: SprintLedger, sprint_id: str, title: str,
+    ledger: SprintLedger, session: str, title: str,
     recommended_model: str = "", participants: str = "",
 ) -> None:
     entry = ledger.add(
-        sprint_id, title,
+        session, title,
         recommended_model=recommended_model,
         participants=participants,
     )
@@ -198,50 +222,62 @@ def cmd_add(
     if entry.participants:
         extras.append(f"participants: {entry.participants}")
     suffix = f" ({', '.join(extras)})" if extras else ""
-    print(f"Added sprint {entry.sprint_id}: {entry.title}{suffix}")
+    print(f"Registered: {entry.session}  {entry.title}{suffix}")
 
 
-def cmd_set_fit(ledger: SprintLedger, sprint_id: str, fit: str) -> None:
-    entry = ledger.set_fit(sprint_id, fit)
+def cmd_set_fit(ledger: SprintLedger, query: str, fit: str) -> None:
+    entry = _resolve(ledger, query)
+    ledger.set_fit(entry.session, fit)
     ledger.save()
-    print(f"Set fit for sprint {entry.sprint_id}: {entry.fit.replace('_', ' ')}")
+    print(f"Set fit for {entry.session} ({entry.title}): {fit.replace('_', ' ')}")
 
 
-def cmd_set_participants(ledger: SprintLedger, sprint_id: str, participants: str) -> None:
-    entry = ledger.set_participants(sprint_id, participants)
-    ledger.save()
+def cmd_set_participants(ledger: SprintLedger, query: str, participants: str) -> None:
+    entry = _resolve(ledger, query)
+    ledger.set_participants(entry.session, participants)
     display = entry.participants or "(none)"
-    print(f"Set participants for sprint {entry.sprint_id}: {display}")
+    ledger.save()
+    print(f"Set participants for {entry.session} ({entry.title}): {display}")
 
 
-def cmd_start(ledger: SprintLedger, sprint_id: str, model: Optional[str] = None) -> None:
-    entry = ledger.update_status(sprint_id, "in_progress", model)
+def cmd_start(ledger: SprintLedger, query: str, model: Optional[str] = None) -> None:
+    entry = _resolve(ledger, query)
+    ledger.update_status(entry.session, "in_progress", model)
     ledger.save()
     model_note = f" ({entry.model})" if entry.model else ""
-    print(f"Started sprint {entry.sprint_id}: {entry.title}{model_note}")
+    print(f"Started: {entry.session}  {entry.title}{model_note}")
 
 
-def cmd_complete(ledger: SprintLedger, sprint_id: str, model: Optional[str] = None) -> None:
-    entry = ledger.update_status(sprint_id, "completed", model)
+def cmd_complete(ledger: SprintLedger, query: str, model: Optional[str] = None) -> None:
+    entry = _resolve(ledger, query)
+    ledger.update_status(entry.session, "completed", model)
     ledger.save()
     duration_note = (
         f" in {_format_duration(entry.duration_seconds)}"
         if entry.duration_seconds is not None
         else ""
     )
-    print(f"Completed sprint {entry.sprint_id}: {entry.title}{duration_note}")
+    print(f"Completed: {entry.session}  {entry.title}{duration_note}")
 
 
-def cmd_skip(ledger: SprintLedger, sprint_id: str) -> None:
-    entry = ledger.update_status(sprint_id, "skipped")
+def cmd_skip(ledger: SprintLedger, query: str) -> None:
+    entry = _resolve(ledger, query)
+    ledger.update_status(entry.session, "skipped")
     ledger.save()
-    print(f"Skipped sprint {entry.sprint_id}: {entry.title}")
+    print(f"Skipped: {entry.session}  {entry.title}")
 
 
-def cmd_status(ledger: SprintLedger, sprint_id: str, status: str) -> None:
-    entry = ledger.update_status(sprint_id, status)
+def cmd_status(ledger: SprintLedger, query: str, status: str) -> None:
+    entry = _resolve(ledger, query)
+    ledger.update_status(entry.session, status)
     ledger.save()
-    print(f"Updated sprint {entry.sprint_id} to {entry.status}")
+    print(f"Updated {entry.session} to {entry.status}")
+
+
+def cmd_path(ledger: SprintLedger, query: str) -> None:
+    """Print the absolute session folder path for the resolved entry."""
+    entry = _resolve(ledger, query)
+    print(get_sprints_dir() / entry.session)
 
 
 def cmd_sync(ledger: SprintLedger) -> None:
@@ -325,7 +361,12 @@ def cmd_velocity(ledger: SprintLedger) -> None:
 
 
 HELP_TEXT = """\
-/sprints — manage the sprint record
+/sprints — manage the sprint ledger
+
+Sprints are identified by their session timestamp (e.g.
+"2026-05-01T14-30-00"). Most commands accept a fuzzy query: a session
+prefix or a title substring. Ambiguous queries error out with the
+matching list.
 
 Usage:
   /sprints <flag> [args]
@@ -336,32 +377,33 @@ Action flags (mutually exclusive):
   --next                               Show the next planned sprint
   --list                               List all sprints (combine with --status to filter)
   --velocity                           Velocity statistics across completed sprints
-  --add NNN "Title"                    Add a new sprint entry
+  --add <TS> "Title"                   Register an existing session
                                          (optional --recommended-model=<n>, --participants=<list>)
-  --start NNN [--model=<n>]            Mark sprint NNN as in_progress; record model if given
-  --complete NNN [--model=<n>]         Mark sprint NNN as completed
-  --skip NNN                           Mark sprint NNN as skipped
-  --set-status NNN <status>            Set arbitrary status for sprint NNN
-  --set-fit NNN <verdict>              Record post-sprint fit (over_powered /
+  --start <query> [--model=<n>]        Mark sprint as in_progress; record model if given
+  --complete <query> [--model=<n>]     Mark sprint as completed
+  --skip <query>                       Mark sprint as skipped
+  --set-status <query> <status>        Set arbitrary status
+  --set-fit <query> <verdict>          Record post-sprint fit (over_powered /
                                          right_sized / under_powered) from the retro
-  --set-participants NNN <list>        Replace participants list for sprint NNN
+  --set-participants <query> <list>    Replace participants list
                                          (comma-separated subset of: claude, codex)
-  --sync                               Sync from *-sprint-plan-SPRINT-*.md files
+  --sync                               Sync from sprints/<TS>/SPRINT.md files
+  --path <query>                       Print absolute session folder path
   --help, -h                           Show this help and exit
 
 Modifier flags:
   --status=<status>                    Filter for --list (e.g. --list --status=planned)
-  --model=<n>                          Record the model (opus/sonnet/haiku) for a sprint.
+  --model=<n>                          Record model (opus/sonnet/haiku) on a sprint.
                                          Pairs with --start (primary) or --complete.
   --recommended-model=<n>              What sprint-plan suggested at planning time.
                                          Pairs with --add.
-  --participants=<list>                Who participated in planning this sprint.
-                                         Comma-separated subset of: claude, codex.
+  --participants=<list>                Who participated in planning (claude, codex).
                                          Pairs with --add.
 
 Valid statuses: planned, in_progress, completed, skipped
 
-Data file: ./docs/sprints/sprints.tsv (relative to cwd; created if missing)
+Ledger: ~/Reports/<org>/<repo>/ledger.tsv (org/repo from `git remote get-url origin`)
+Sprint sessions: ~/Reports/<org>/<repo>/sprints/<TS>/
 
 Full documentation: ~/.claude/skills/sprints/SKILL.md"""
 
@@ -376,8 +418,6 @@ def main() -> int:
         return 0
 
     flag = sys.argv[1]
-    # Collect non-flag positional arguments after the action flag, while also
-    # extracting modifier flags.
     positional: list[str] = []
     status_filter: Optional[str] = None
     model_modifier: Optional[str] = None
@@ -426,7 +466,7 @@ def main() -> int:
         elif flag == "--add":
             if len(positional) < 2:
                 print(
-                    "Usage: sprints.py --add <sprint_id> <title> "
+                    "Usage: sprints.py --add <session-TS> <title> "
                     "[--recommended-model=<n>] [--participants=<list>]"
                 )
                 return 1
@@ -437,34 +477,39 @@ def main() -> int:
             )
         elif flag == "--start":
             if not positional:
-                print("Usage: sprints.py --start <sprint_id> [--model=<n>]")
+                print("Usage: sprints.py --start <query> [--model=<n>]")
                 return 1
             cmd_start(ledger, positional[0], model_modifier)
         elif flag == "--complete":
             if not positional:
-                print("Usage: sprints.py --complete <sprint_id> [--model=<n>]")
+                print("Usage: sprints.py --complete <query> [--model=<n>]")
                 return 1
             cmd_complete(ledger, positional[0], model_modifier)
         elif flag == "--skip":
             if not positional:
-                print("Usage: sprints.py --skip <sprint_id>")
+                print("Usage: sprints.py --skip <query>")
                 return 1
             cmd_skip(ledger, positional[0])
         elif flag == "--set-status":
             if len(positional) < 2:
-                print("Usage: sprints.py --set-status <sprint_id> <status>")
+                print("Usage: sprints.py --set-status <query> <status>")
                 return 1
             cmd_status(ledger, positional[0], positional[1])
         elif flag == "--set-fit":
             if len(positional) < 2:
-                print("Usage: sprints.py --set-fit <sprint_id> <over_powered|right_sized|under_powered>")
+                print("Usage: sprints.py --set-fit <query> <over_powered|right_sized|under_powered>")
                 return 1
             cmd_set_fit(ledger, positional[0], positional[1])
         elif flag == "--set-participants":
             if len(positional) < 2:
-                print("Usage: sprints.py --set-participants <sprint_id> <comma-separated list>")
+                print("Usage: sprints.py --set-participants <query> <comma-separated list>")
                 return 1
             cmd_set_participants(ledger, positional[0], positional[1])
+        elif flag == "--path":
+            if not positional:
+                print("Usage: sprints.py --path <query>")
+                return 1
+            cmd_path(ledger, positional[0])
         elif flag == "--sync":
             cmd_sync(ledger)
         else:
