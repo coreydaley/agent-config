@@ -1,25 +1,24 @@
-# docs/architecture/
+# Architecture Audit Reference
 
-Intermediate artifacts from `/audit-architecture` runs. Each run produces
-a set of files prefixed with the sprint number (`AUDIT_NNN`).
+Schema and severity reference for the `/audit-architecture` command.
+Audit artifacts are written outside this repo to
+`~/Reports/<repo-path>/` (derived from `pwd`).
 
-> **Note**: These files may reveal structural weaknesses in the codebase.
-> Review them before committing to a public repository.
+## Output
 
-## Naming Convention
-
-Each audit run uses the sprint number as the prefix. The sprint number
-matches the `SPRINT-NNN.md` document produced in `docs/sprints/`.
+Each audit run produces five timestamp-prefixed files in
+`~/Reports/<repo-path>/`:
 
 | File | Contents |
 |---|---|
-| `AUDIT_NNN-CLAUDE.md` | Claude's independent architecture review (ID prefix `A`) |
-| `AUDIT_NNN-CODEX.md` | Codex's independent architecture review (ID prefix `C`) |
-| `AUDIT_NNN-SYNTHESIS.md` | Unified findings after deduplication and devil's advocate (ID prefix `S`) |
-| `AUDIT_NNN-DEVILS-ADVOCATE.md` | Codex's challenge of the synthesis |
+| `<TS>-audit-architecture-claude.md` | Claude's independent architecture review (ID prefix `A`) |
+| `<TS>-audit-architecture-codex.md` | Codex's independent architecture review (ID prefix `C`) |
+| `<TS>-audit-architecture-synthesis.md` | Unified findings after deduplication and devil's advocate (ID prefix `S`) |
+| `<TS>-audit-architecture-devils-advocate.md` | Codex's challenge of the synthesis |
+| `<TS>-audit-architecture-report.md` | Final findings report (the human-facing artifact) |
 
-The corresponding sprint document lives at `docs/sprints/SPRINT-NNN.md`
-and is the execution contract for `/sprint-work NNN`.
+The report is reference material. To act on the findings, run
+`/sprint-plan` with the report path as the seed prompt.
 
 ## Finding Schema
 
@@ -29,7 +28,7 @@ All audit files use this table format:
 | ID | Severity | Title | Location | Pattern/Principle | Why It Matters | Alternative | Migration Cost | Recommended Fix | Evidence/Notes |
 ```
 
-### Core Columns (from `audit-*` base)
+### Core Columns
 
 | Column | Description |
 |---|---|
@@ -69,7 +68,8 @@ Reviewer agreement raises **confidence**, not severity.
 
 ## Synthesis Format
 
-`AUDIT_NNN-SYNTHESIS.md` adds two extra columns to the unified table:
+`<TS>-audit-architecture-synthesis.md` adds an extra column to the
+unified table:
 
 - `Sources` — the original reviewer IDs that contributed to the finding
   (e.g., `A001, C002`)
@@ -77,12 +77,5 @@ Reviewer agreement raises **confidence**, not severity.
 It also includes sections for:
 - **Findings Present in Only One Review** — findings not corroborated
   by the other reviewer, with rationale for retaining or dropping
-- **Rejected Devil's Advocate Challenges** — every challenge from
-  `AUDIT_NNN-DEVILS-ADVOCATE.md` that was not accepted, with explicit
-  reasoning
-
-## Usage
-
-Run `/audit-architecture` (or `/audit-architecture <path(s)>`) to
-produce a new set of audit files and a corresponding sprint document.
-Then execute the sprint with `/sprint-work NNN`.
+- **Rejected Devil's Advocate Challenges** — every challenge from the
+  devil's advocate file that was not accepted, with explicit reasoning

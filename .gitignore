@@ -37,8 +37,3 @@ npm-debug.log*
 *.swp
 *.swo
 *~
-
-# This repo defines the sprint skills, so docs/sprints/ holds their
-# documentation — override the global gitignore's `docs/sprints` rule.
-!docs/sprints/
-!docs/sprints/**

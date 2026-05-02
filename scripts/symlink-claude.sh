@@ -6,11 +6,12 @@
 # Purpose: Creates symlinks from this repository into ~/.claude/
 #
 # Targets:
-#   - CLAUDE.md   → ~/.claude/CLAUDE.md
-#   - commands/   → ~/.claude/commands/
-#   - lib/        → ~/.claude/lib/
-#   - skills/     → ~/.claude/skills/
-#   - subagents/  → ~/.claude/agents/
+#   - CLAUDE.md       → ~/.claude/CLAUDE.md
+#   - settings.json   → ~/.claude/settings.json
+#   - commands/       → ~/.claude/commands/
+#   - lib/            → ~/.claude/lib/
+#   - skills/         → ~/.claude/skills/
+#   - subagents/      → ~/.claude/agents/
 #
 # Usage: ./scripts/symlink-claude.sh
 #
@@ -40,6 +41,7 @@ create_symlink() {
 ensure_dir "$HOME/.claude"
 
 create_symlink "$ROOT_DIR/CLAUDE.md"                        "$HOME/.claude/CLAUDE.md"
+create_symlink "$ROOT_DIR/settings.json"                    "$HOME/.claude/settings.json"
 create_symlink "$ROOT_DIR/commands"                         "$HOME/.claude/commands"
 create_symlink "$ROOT_DIR/lib"                              "$HOME/.claude/lib"
 create_symlink "$ROOT_DIR/skills"                           "$HOME/.claude/skills"

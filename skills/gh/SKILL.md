@@ -1,5 +1,5 @@
 ---
-name: github
+name: gh
 description: >-
   Use the gh CLI for all GitHub and git operations. Trigger whenever the task
   involves commits, pull requests, issues, branches, releases, code search,

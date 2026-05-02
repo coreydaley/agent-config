@@ -1,22 +1,24 @@
-# Design Audit Artifacts
+# Design Audit Reference
 
-This directory contains intermediate artifacts produced by the
-`/audit-design` command.
+Schema and severity reference for the `/audit-design` command.
+Audit artifacts are written outside this repo to
+`~/Reports/<repo-path>/` (derived from `pwd`).
 
-## Naming Convention
+## Output
 
-Files are named using the sprint number (`NNN`) that matches the
-sprint document produced at the end of the audit workflow:
+Each audit run produces five timestamp-prefixed files in
+`~/Reports/<repo-path>/`:
 
 | File | Description |
 |------|-------------|
-| `NNN-CLAUDE.md` | Claude's independent design review |
-| `NNN-CODEX.md` | Codex's independent design review |
-| `NNN-SYNTHESIS.md` | Unified, deduplicated findings with calibrated severity |
-| `NNN-DEVILS-ADVOCATE.md` | Codex's challenge pass against the synthesis |
+| `<TS>-audit-design-claude.md` | Claude's independent design review |
+| `<TS>-audit-design-codex.md` | Codex's independent design review |
+| `<TS>-audit-design-synthesis.md` | Unified, deduplicated findings with calibrated severity |
+| `<TS>-audit-design-devils-advocate.md` | Codex's challenge pass against the synthesis |
+| `<TS>-audit-design-report.md` | Final findings report (the human-facing artifact) |
 
-`NNN` matches the `SPRINT-NNN.md` document in `docs/sprints/` that
-was produced by this audit run.
+The report is reference material. To act on the findings, run
+`/sprint-plan` with the report path as the seed prompt.
 
 ## Finding Schema
 
@@ -40,9 +42,3 @@ guidelines (Material Design, Apple HIG).
 
 When standards conflict, the finding notes the disagreement
 explicitly rather than resolving silently.
-
-## Security Note
-
-These files may reveal UI/UX details, design system structure, or
-compliance gaps about the audited application. **Review before
-committing to a public repository.**

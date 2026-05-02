@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(*)",
+      "Edit(*)",
+      "Write(*)",
+      "Read(*)",
+      "Glob(*)",
+      "Grep(*)"
+    ],
+    "deny": []
+  },
+  "model": "opus",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -n \"$TMUX\" ]; then active=$(tmux display-message -p '#{window_active}#{pane_active}' 2>/dev/null); [ \"$active\" = \"11\" ] && exit 0; else frontmost=$(osascript -e 'tell application \"System Events\" to get name of first application process whose frontmost is true' 2>/dev/null | tr '[:upper:]' '[:lower:]'); echo \"$frontmost\" | grep -qi ghostty && exit 0; fi; osascript -e 'display notification \"Claude finished\" with title \"Claude Code\"' 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/statusline-command.sh"
+  },
+  "enabledPlugins": {
+    "clangd-lsp@claude-plugins-official": true,
+    "gopls-lsp@claude-plugins-official": true
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "theme": "light",
+  "teammateMode": "tmux"
+}

@@ -1,22 +1,24 @@
-# Accessibility Audit Artifacts
+# Accessibility Audit Reference
 
-This directory contains intermediate artifacts produced by the
-`/audit-accessibility` command.
+Schema and severity reference for the `/audit-accessibility` command.
+Audit artifacts are written outside this repo to
+`~/Reports/<repo-path>/` (derived from `pwd`).
 
-## Naming Convention
+## Output
 
-Files are named using the sprint number (`NNN`) that matches the
-sprint document produced at the end of the audit workflow:
+Each audit run produces five timestamp-prefixed files in
+`~/Reports/<repo-path>/`:
 
 | File | Description |
 |------|-------------|
-| `NNN-CLAUDE.md` | Claude's independent accessibility review |
-| `NNN-CODEX.md` | Codex's independent accessibility review |
-| `NNN-SYNTHESIS.md` | Unified, deduplicated findings with calibrated severity |
-| `NNN-DEVILS-ADVOCATE.md` | Codex's challenge pass against the synthesis |
+| `<TS>-audit-accessibility-claude.md` | Claude's independent accessibility review |
+| `<TS>-audit-accessibility-codex.md` | Codex's independent accessibility review |
+| `<TS>-audit-accessibility-synthesis.md` | Unified, deduplicated findings with calibrated severity |
+| `<TS>-audit-accessibility-devils-advocate.md` | Codex's challenge pass against the synthesis |
+| `<TS>-audit-accessibility-report.md` | Final findings report (the human-facing artifact) |
 
-`NNN` matches the `SPRINT-NNN.md` document in `docs/sprints/` that
-was produced by this audit run.
+The report is reference material. To act on the findings, run
+`/sprint-plan` with the report path as the seed prompt.
 
 ## Finding Schema
 
@@ -60,9 +62,3 @@ These artifacts reflect static code review against WCAG 2.1/2.2.
 They are a structured starting point, not a conformance
 certification. Findings marked `runtime` in the Verification column
 require browser and assistive technology testing to confirm.
-
-## Security Note
-
-These files may reveal UX details, design gaps, or compliance status
-about the audited application. **Review before committing to a public
-repository.**

@@ -32,11 +32,16 @@ override every tier before work begins.
   matches yours.
   - If you are Claude: spawn via the `Agent` tool with
     `subagent_type=general-purpose` and `model=<tier>`.
-  - If you are Codex: invoke via `codex exec -m <tier> "<prompt>"`.
+  - If you are Codex: invoke via `codex exec "<prompt>"`. Codex
+    picks its model from `~/.codex/config.toml`; to override for
+    a single call use `codex exec -c model="<name>" "<prompt>"`.
+    There is no `-m` flag — passing one will hang the CLI on
+    stdin.
 - **Opposite-side worker** — an agent from the other model family.
   Handles opposite-side drafts, critiques, and any review whose
   expert side is the opposite of yours.
-  - If you are Claude: invoke via `codex exec -m <tier> "<prompt>"`.
+  - If you are Claude: invoke via `codex exec "<prompt>"` (same
+    notes as above re: codex model selection).
   - If you are Codex: invoke via
     `claude -p --model <tier> "<prompt>"`.
 
@@ -53,10 +58,19 @@ Two tiers only — no Haiku-equivalent is ever used. Tiers govern
 **delegated workers only**; the orchestrator's own model is fixed
 by how the user invoked the command.
 
-| Tier | Claude-side | Codex-side    |
-|------|-------------|---------------|
-| High | `opus`      | `gpt-5.4`     |
-| Mid  | `sonnet`    | `gpt-5.4-mini`|
+| Tier | Claude-side | Codex-side                 |
+|------|-------------|----------------------------|
+| High | `opus`      | codex default (no override)|
+| Mid  | `sonnet`    | codex default (no override)|
+
+Claude-side tiers map to Anthropic model names passed via the
+`Agent` tool's `model` parameter. Codex-side tier control is
+not currently wired — `codex exec` picks its model from
+`~/.codex/config.toml` and there is no `-m` flag. To force a
+specific codex model for one call, pass `-c model="<name>"`
+where `<name>` is a model codex supports. Until that wiring is
+proven for both High and Mid, treat codex tier as informational
+only and accept whatever model codex's config selects.
 
 ### Per-Phase Tier Defaults
 
@@ -92,10 +106,26 @@ tiers in Phase 2:
 
 ## Arguments
 
-`$ARGUMENTS` may begin with flags, followed by the seed prompt for
-the sprint. See the **Flags** section below for available options.
+`$ARGUMENTS` may begin with flags, followed by the seed for the
+sprint. The seed can be either:
+
+- **Inline text** — typical case, e.g. `improve sprint planning workflow`.
+- **A path to an `.md` file** — the file's content becomes the seed
+  prompt. Two sub-cases, dispatched by basename:
+  - **`SEED.md`** (from `/sprint-seed`): the file's parent directory
+    becomes `$SESSION_DIR`. Phase 3 reuses it instead of creating a
+    new session folder, so `/sprint-seed` and `/sprint-plan` share
+    one session folder.
+  - **Anything else** (audit `REPORT.md`, external design doc, etc.):
+    the content is used as an enriched seed, but a fresh
+    `sprints/<TS>/` session folder is created. This avoids writing
+    sprint files into another tool's output folder (e.g. an audit's
+    `audits/<TS>-<lens>/` directory).
+
+See the **Flags** section below for available options.
 
 - Example: `improve sprint planning workflow`
+- Example: `~/Reports/<org>/<repo>/sprints/2026-05-01T14-30-00/SEED.md`
 - Example: `--auto add deployment rollback guardrails`
 - Example: `--full --tier=high migrate session store`
 - Example: `--dry add deployment rollback guardrails`
@@ -280,21 +310,46 @@ per-phase tier needs.
    understand recent work and what past sprints actually taught us:
 
    ```bash
-   ls ./docs/sprints/*-sprint-plan-SPRINT-*.md 2>/dev/null | tail -3
-   ls ./docs/sprints/*-sprint-retro-SPRINT-*.md 2>/dev/null | tail -3
+   REMOTE=$(git remote get-url origin)
+   ORG_REPO=$(echo "$REMOTE" | sed 's|.*github\.com[:/]||; s|\.git$||')
+   REPORTS_BASE="$HOME/Reports/$ORG_REPO"
+   ls -d "$REPORTS_BASE"/sprints/*/ 2>/dev/null | sort | tail -3
+   # Within each session folder: SPRINT.md is the plan, RETRO.md is the retro.
    ```
 
    Focus especially on what was **deferred, underestimated, or
    left incomplete** — the retros are explicit about this. If a
    retro flags a recurring issue, weight it in the current plan.
-5. Identify relevant code areas for the seed prompt:
-   - Search for related modules, types, or patterns.
-   - Note existing implementations that this plan might extend.
+5. **Read the relevant code areas — don't just list them.** This
+   is the difference between a Phase 4 interview that asks generic
+   strategic questions and one that lands on real decisions. The
+   user's time is more expensive than your reading time.
+
+   - Search to identify candidate files (modules, types, patterns
+     touched by the seed).
+   - **Actually read the 3–5 most relevant files** end-to-end, not
+     just the function signatures. You're forming concrete
+     hypotheses about what this change touches and where it gets
+     hard, not assembling a bibliography.
+   - From that reading, derive **Surface Areas**: specific places
+     in the code where this change will need a decision the seed
+     doesn't answer. Examples — *"existing FooHandler returns a
+     single value; seed implies a list, callers at X/Y/Z must
+     change signature"*, *"User.email is non-nullable but seed
+     implies optional contact methods — migration story?"*,
+     *"existing pattern uses context.WithTimeout but seed implies
+     a long-running operation — cancellation strategy?"*. Each
+     Surface Area cites a file:line so it's traceable.
    - **Prior-art check**: before proposing new code, ask whether
      an existing OSS tool, library, framework, or internal skill
      already solves this. Prefer reuse over build. Note any
      candidates here; the drafts should defend the build-vs-reuse
      decision.
+
+   Keep your Surface Areas list focused — 3–8 items, the ones a
+   reasonable engineer would actually want decided before drafting.
+   Don't pad it with mechanical rename/move questions; those
+   answer themselves in the draft.
 6. **Dependency prereq check**: list anything this sprint depends
    on that is *not yet done* — blocked upstream sprints, external
    approvals, infrastructure that must be stood up first,
@@ -311,13 +366,14 @@ per-phase tier needs.
 
 ### Orient Deliverable
 
-Write a brief **Orientation Summary** (4–6 bullet points) covering:
+Write a brief **Orientation Summary** (4–7 bullet points) covering:
 
 - Current project state relevant to the seed
 - Recent sprint themes/direction, including retro lessons and any
   recurring underestimates or deferred items
 - Any in-progress sprints and how they interact with the seed
-- Key modules/files likely involved
+- Key modules/files **read** (not just listed) — note the concrete
+  observations that will become Surface Areas in the intent
 - Prior-art candidates (OSS, internal skills) worth considering
   before building
 - Hard dependency blockers (if any) — call these out explicitly
@@ -409,7 +465,7 @@ selections; reference them at the start of each delegated phase.
 **Special case — Phase 5b skipped**: If the opposite-side draft
 is disabled, Phase 6 is automatically skipped, and Phase 7
 ("Merge") becomes "Promote": write
-`$REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md` directly from the
+`$SESSION_DIR/SPRINT.md` directly from the
 orch-side draft, apply the simplest viable filter, run the sprint
 sizing gate. Skip writing merge notes.
 
@@ -423,19 +479,100 @@ preview at the end of this phase and exit.
 
 ### Intent Steps
 
-1. Set up the report output directory (**skip in `--dry` mode** —
-   no files will be written):
+1. Set up the session output directory (**skip in `--dry` mode** —
+   no files will be written).
+
+   **Three cases — detect by what `$ARGUMENTS` points at:**
 
    ```bash
-   REPORT_DIR=./docs/sprints
-   REPORT_TS=$(date +%Y-%m-%dT%H-%M-%S)
-   mkdir -p $REPORT_DIR
+   # Common setup for any case that creates a fresh session folder
+   _new_session() {
+     REMOTE=$(git remote get-url origin)
+     ORG_REPO=$(echo "$REMOTE" | sed 's|.*github\.com[:/]||; s|\.git$||')
+     REPORTS_BASE="$HOME/Reports/$ORG_REPO"
+     REPORT_TS=$(date +%Y-%m-%dT%H-%M-%S)
+     SESSION_DIR="$REPORTS_BASE/sprints/$REPORT_TS"
+     mkdir -p "$SESSION_DIR"
+   }
+
+   if [ -f "$SEED_ARG" ] && [[ "$SEED_ARG" == *.md ]]; then
+     SEED_PROMPT=$(cat "$SEED_ARG")
+     SEED_BASENAME=$(basename "$SEED_ARG")
+
+     if [ "$SEED_BASENAME" = "SEED.md" ]; then
+       # Case A: handoff from /sprint-seed. The parent directory
+       # IS the sprint session folder by construction. Reuse it.
+       SESSION_DIR=$(cd "$(dirname "$SEED_ARG")" && pwd)
+       REPORT_TS=$(basename "$SESSION_DIR")
+       # Don't mkdir — folder already exists.
+     else
+       # Case B: any other .md file (audit REPORT.md, an external
+       # design doc, etc.). Use the file content as enriched seed,
+       # but create a fresh sprint session folder — don't write
+       # sprint files into someone else's session (e.g. an audit's
+       # output folder).
+       _new_session
+     fi
+   else
+     # Case C: $ARGUMENTS is inline seed text. Create a fresh session.
+     _new_session
+     SEED_PROMPT="$SEED_ARG"
+   fi
    ```
+
+   **Case A (SEED.md handoff):** the SEED.md content includes the
+   refined seed prompt + Context discussed + Source signals from
+   `/sprint-seed`. Use it as enriched orientation, not raw seed
+   text. The "Source signals" section in particular tells you
+   which past sprints informed this seed; treat those as priors
+   when filling out the Intent template below.
+
+   **Case B (audit report or other .md input):** the file is rich
+   context produced by another tool. For audit reports
+   (`$AUDIT_DIR/REPORT.md`), the structured P0/P1/Deferred task
+   list is essentially a pre-formed plan — your Intent should
+   reference it heavily. Mention the audit's session path in the
+   intent's Recent Sprint Context so future agents can find the
+   audit's intermediate files (claude.md, codex.md, synthesis.md,
+   devils-advocate.md) if they need them.
+
+   **Case C (inline seed):** standard flow — your only input is the
+   prompt text.
+
+   **Re-run detection** (Case A only — the SEED.md handoff reuses an
+   existing folder, so collisions are possible). After resolving
+   `$SESSION_DIR`, check whether prior `/sprint-plan` artifacts
+   already exist there:
+
+   ```bash
+   if [ -f "$SESSION_DIR/SPRINT.md" ] || [ -f "$SESSION_DIR/intent.md" ]; then
+     # Prior planning artifacts found.
+     :
+   fi
+   ```
+
+   If they do, AskUserQuestion before proceeding:
+
+   - **Overwrite** — silently regenerate intent / drafts / SPRINT.md;
+     existing files in this session folder will be replaced.
+   - **Start fresh in a new session folder** — abandon the SEED.md
+     linkage; create a new `sprints/<new-TS>/` folder, copy the
+     SEED.md content into it, and proceed there.
+   - **Cancel** — exit without writing anything.
+
+   Default to **Cancel** — overwriting silently is too easy a way to
+   lose review feedback or in-progress edits.
+
+   Cases B and C always create a fresh folder, so re-run detection
+   isn't needed there.
+
+   `$SESSION_DIR` is the per-planning-session folder. Every artifact
+   for this run — intent, drafts, critiques, reviews, the final
+   `SPRINT.md` — lives inside it.
 
 2. Compose the intent document.
 
-   - **Normal mode**: write it to
-     `$REPORT_DIR/$REPORT_TS-sprint-plan-intent.md`.
+   - **Normal mode**: write it to `$SESSION_DIR/intent.md`.
    - **`--dry` mode**: keep the content in memory only — do not
      write to disk.
 
@@ -458,7 +595,25 @@ preview at the end of this phase and exit.
 
 ## Relevant Codebase Areas
 
-[Key modules, files, patterns identified during orientation]
+[Key modules, files, patterns identified during orientation. Note
+which files were *read* in Phase 1 vs. only listed.]
+
+## Surface Areas
+
+Concrete decisions this change forces, derived from actually reading
+the code in Phase 1. Each item cites a file:line so it's traceable
+to a real place in the codebase, and frames the decision as a
+question the seed alone doesn't answer. **These are the questions
+Phase 4 will walk through with the user — make them specific.**
+
+| # | File:Line | Observation | Decision needed |
+| --- | --- | --- | --- |
+| 1 | path/to/file.go:42 | [what you saw] | [what the seed leaves open] |
+| 2 | ... | ... | ... |
+
+If this list is empty, the seed is either trivially mechanical or
+Phase 1 didn't read deeply enough — go back and read more before
+moving on.
 
 ## Prior Art
 
@@ -509,7 +664,12 @@ to a direction:
 
 ## Open Questions
 
-Questions that the drafts should attempt to answer.
+Questions that the drafts should attempt to answer. Distinct from
+**Surface Areas** above: those are decisions the *user* should
+make in Phase 4. Open Questions here are ones the drafts can
+reason about and propose answers to (e.g. *"what should the
+internal type hierarchy look like?"*, *"should this be a single
+package or split?"*).
 
 ## Interview Refinements
 
@@ -552,10 +712,45 @@ proportional to uncertainty, **before** drafts are commissioned.
 Drafting is compute-expensive; interview first so both workers start
 from a refined intent.
 
-### Step 1 — Assess Uncertainty
+The interview is grounded in the **Surface Areas** captured during
+Phase 1's code reading. Generic strategic questions ("is correctness
+or speed more important?") waste user attention; questions tied to
+a specific file:line where the code forces a decision land on real
+choices the user actually has to make.
 
-Before asking questions, evaluate the uncertainty level of this
-sprint:
+### Step 1 — Source Questions from Surface Areas
+
+Start with the **Surface Areas** table from the intent. Each row is
+already a question framed against a real file:line — turn each into
+an `AskUserQuestion` prompt, in priority order. If the seed is so
+clear that Surface Areas is empty, fall back to the strategic
+question categories in Step 3.
+
+For each Surface Area, draft 2–4 concrete answer options the user
+can choose from — don't ask open-ended "what do you think?"
+questions. Always include the escape hatch: *"Skip — proceed to
+next phase"*.
+
+Example, given a Surface Area row *"User.email is non-nullable but
+seed implies optional contact methods (path/to/user.go:24)"*:
+
+```
+AskUserQuestion: "User.email is currently non-nullable in the
+schema. The seed implies optional contact methods. How should
+existing rows be handled?"
+
+Options:
+- Backfill empty emails with a sentinel before relaxing the constraint
+- Add a new optional contact-methods table; leave email as-is
+- Make email nullable; assume callers handle the empty case
+- Skip — proceed to next phase
+```
+
+### Step 2 — Assess Uncertainty (calibrate question budget)
+
+Use the uncertainty level to cap how many Surface Areas you actually
+walk through with the user. Stop walking when you've hit the cap or
+the user picks "Skip", whichever comes first.
 
 | Factor | Low Uncertainty | High Uncertainty |
 | --- | --- | --- |
@@ -564,19 +759,18 @@ sprint:
 | **Architecture** | Extends existing patterns | New patterns, integration points |
 | **Verification** | Standard testing sufficient | Conformance/differential testing |
 
-Assign an uncertainty level:
+Question budget by uncertainty:
 
-- **Low**: 1–2 questions (routine feature, clear requirements)
-- **Medium**: 3–4 questions (some ambiguity, moderate complexity)
-- **High**: 5–7 questions (reference implementations, specs, novel
-  architecture)
+- **Low**: 1–2 questions (top Surface Area only, or skip entirely)
+- **Medium**: 3–4 questions (top Surface Areas)
+- **High**: 5–7 questions (most Surface Areas + 1–2 strategic)
 
-### Step 2 — Prioritize Questions by Impact
+### Step 3 — Strategic Fallback (when Surface Areas don't cover it)
 
-Order questions by their impact on sprint success. Always include
-an escape hatch.
-
-**Question categories** (ask in this priority order):
+If after walking the priority Surface Areas you still have budget
+remaining, and there are real strategic gaps the code reading didn't
+surface, ask from these categories — but only if they're not
+already implicitly answered by the Surface Area decisions:
 
 1. **Verification Strategy** (HIGH impact when correctness matters)
 2. **Scope Validation** (HIGH impact when seed is ambiguous)
@@ -584,7 +778,10 @@ an escape hatch.
 4. **Technical Preferences** (MEDIUM impact)
 5. **Sequencing/Dependencies** (LOW impact unless external factors)
 
-### Step 3 — Conduct Adaptive Interview
+Don't ask strategic questions when you have unused Surface Areas —
+those are higher-impact every time.
+
+### Step 4 — Conduct Adaptive Interview
 
 Use `AskUserQuestion` iteratively. **Every question must include an
 option to end the interview.**
@@ -598,19 +795,21 @@ AskUserQuestion with options:
 
 **Interview flow**:
 
-1. Ask the highest-impact question for this sprint's uncertainty
-   profile.
+1. Ask the highest-impact question (Surface Area #1) for this
+   sprint's uncertainty profile.
 2. If user selects "Skip — proceed to next phase", immediately end
    interview and move to Phase 5.
 3. Otherwise, incorporate the answer and ask the next question.
-4. Repeat until questions exhausted or user skips.
+4. Repeat until the question budget is reached or user skips.
 
-### Step 4 — Append Refinements to Intent
+### Step 5 — Append Refinements to Intent
 
 After the interview, populate the **Interview Refinements** section
-of `$REPORT_DIR/$REPORT_TS-sprint-plan-intent.md` with a concise
-summary of what the user clarified. Both draft workers read this
-document, so refinements captured here will reach both drafts.
+of `$SESSION_DIR/intent.md` with a concise summary of what the user
+clarified. Tie each refinement back to its Surface Area row by
+number where applicable, so the drafts can see *"Surface Area 2:
+user chose option B"* and act accordingly. Both draft workers read
+this document, so refinements captured here will reach both drafts.
 
 
 ---
@@ -634,11 +833,11 @@ Substitute `ORCH_NAME` with your own side's literal name.
 **Prompt**:
 
 ```
-Read $REPORT_DIR/$REPORT_TS-sprint-plan-intent.md — this is a
+Read $SESSION_DIR/intent.md — this is a
 concentrated intent for the next sprint. Read CLAUDE.md and
 familiarize yourself with the project structure. Then write a
 comprehensive sprint draft to
-$REPORT_DIR/$REPORT_TS-sprint-plan-ORCH_NAME-draft.md using the
+$SESSION_DIR/ORCH_NAME-draft.md using the
 template in the "Draft Template" section of
 ~/.claude/skills/sprint-plan/SKILL.md. Do not read or reference any
 opposite-side draft; write independently. Apply the simplest
@@ -658,11 +857,11 @@ Phase 2 for 5b. Substitute `OPPO_NAME`.
 **Prompt**:
 
 ```
-Please read $REPORT_DIR/$REPORT_TS-sprint-plan-intent.md — this
+Please read $SESSION_DIR/intent.md — this
 is a concentrated intent for our next sprint. Fully familiarize
 yourself with the project structure (see CLAUDE.md) and project
 goals. Then draft
-$REPORT_DIR/$REPORT_TS-sprint-plan-OPPO_NAME-draft.md only. Do
+$SESSION_DIR/OPPO_NAME-draft.md only. Do
 not read or reference any other draft; write independently.
 Apply the simplest viable filter — anything non-essential
 belongs in a Deferred section. If the intent's Prior Art section
@@ -765,7 +964,7 @@ Diagrams (ASCII art), component descriptions, data flow.
 
 ## Dependencies
 
-- Sprint NNN (if any)
+- Prior sprint sessions (if any) — reference by session timestamp or title
 - External requirements
 
 ## Open Questions
@@ -795,9 +994,9 @@ Delegate to an **opposite-side worker** at Phase 6a's tier.
 **Prompt**:
 
 ```
-Read $REPORT_DIR/$REPORT_TS-sprint-plan-ORCH_NAME-draft.md and
+Read $SESSION_DIR/ORCH_NAME-draft.md and
 write a formal critique to
-$REPORT_DIR/$REPORT_TS-sprint-plan-ORCH_NAME-draft-OPPO_NAME-critique.md.
+$SESSION_DIR/ORCH_NAME-draft-OPPO_NAME-critique.md.
 Cover: what ORCH_NAME got right, what it missed, what you would
 do differently, and any over-engineering or gaps. Do not
 reference or defer to your own draft; critique independently.
@@ -810,9 +1009,9 @@ Delegate to an **orch-side worker** at Phase 6b's tier.
 **Prompt**:
 
 ```
-Read $REPORT_DIR/$REPORT_TS-sprint-plan-OPPO_NAME-draft.md and
+Read $SESSION_DIR/OPPO_NAME-draft.md and
 write a formal critique to
-$REPORT_DIR/$REPORT_TS-sprint-plan-OPPO_NAME-draft-ORCH_NAME-critique.md.
+$SESSION_DIR/OPPO_NAME-draft-ORCH_NAME-critique.md.
 Cover: what OPPO_NAME got right that you missed, what gaps or
 weaknesses the draft has, and what your own approach would
 defend against it. Do not reference or defer to your own draft;
@@ -831,7 +1030,7 @@ draft directly.
 
 > **Promote mode** (Phase 5b skipped): Apply the simplest viable
 > filter and sprint-sizing gate to the orch-side draft, then write
-> it directly to `$REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md`.
+> it directly to `$SESSION_DIR/SPRINT.md`.
 > Skip merge notes. Continue to Phase 8.
 >
 > **Merge mode** (Phase 5b ran): Follow the full merge process
@@ -856,10 +1055,10 @@ draft directly.
 
 3. **Document the synthesis**:
 
-   Write to `$REPORT_DIR/$REPORT_TS-sprint-plan-merge-notes.md`:
+   Write to `$SESSION_DIR/merge-notes.md`:
 
    ```markdown
-   # Sprint NNN Merge Notes
+   # Merge Notes — [Title]
 
    ## Orch-side Draft Strengths
    - ...
@@ -902,7 +1101,7 @@ draft directly.
 
 6. **Write the initial sprint document**:
 
-   Create `$REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md` using the
+   Create `$SESSION_DIR/SPRINT.md` using the
    Draft Template, incorporating:
    - Best ideas from both drafts
    - Responses to valid critiques
@@ -941,7 +1140,7 @@ opposite-side worker. Tier for each review comes from Phase 2.
 > delegations in parallel. Reviews on different sides are fully
 > independent and can run simultaneously.
 
-Each review operates on `$REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md`.
+Each review operates on `$SESSION_DIR/SPRINT.md`.
 Skip disabled reviews cleanly with no stub files.
 
 ### Phase 8a: Devil's Advocate *(expert: codex)*
@@ -951,11 +1150,11 @@ Skip disabled reviews cleanly with no stub files.
 **Prompt**:
 
 ```
-Read $REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md. This is a
+Read $SESSION_DIR/SPRINT.md. This is a
 finalized sprint plan. Your job is NOT to improve it — your job
 is to attack it. Act as a senior skeptic who must approve this
 plan before a single line of code is written. Write
-$REPORT_DIR/$REPORT_TS-sprint-plan-devils-advocate.md with your
+$SESSION_DIR/devils-advocate.md with your
 critique. Cover: (1) flawed assumptions — what is this plan
 taking for granted that could be wrong? (2) scope risks — what
 could balloon, be underestimated, or have hidden dependencies?
@@ -973,9 +1172,9 @@ concern should cite the relevant section of the plan.
 **Prompt**:
 
 ```
-Read $REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md with a
+Read $SESSION_DIR/SPRINT.md with a
 security-focused lens. Write your audit to
-$REPORT_DIR/$REPORT_TS-sprint-plan-security-review.md covering:
+$SESSION_DIR/security-review.md covering:
 (1) attack surface — what new inputs, APIs, or trust boundaries
 does this plan introduce? (2) data handling — any risks around
 sensitive data, secrets, or PII? (3) injection and parsing risks
@@ -996,10 +1195,10 @@ a concrete mitigation or DoD addition.
 **Prompt**:
 
 ```
-Read $REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md for conformance
+Read $SESSION_DIR/SPRINT.md for conformance
 to existing project patterns and structural soundness. Write your
 audit to
-$REPORT_DIR/$REPORT_TS-sprint-plan-architecture-review.md covering:
+$SESSION_DIR/architecture-review.md covering:
 (1) pattern conformance — does the plan's approach align with
 conventions in CLAUDE.md? Note deviations. (2) coupling and
 cohesion — does this plan introduce inappropriate coupling?
@@ -1019,11 +1218,11 @@ suggest a concrete plan adjustment or DoD addition.
 **Prompt**:
 
 ```
-Read $REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md. Your job is to
+Read $SESSION_DIR/SPRINT.md. Your job is to
 attack the test strategy and Definition of Done. Act as a senior
 engineer who must sign off on the testing approach before
 implementation begins. Write
-$REPORT_DIR/$REPORT_TS-sprint-plan-test-strategy-review.md. Cover:
+$SESSION_DIR/test-strategy-review.md. Cover:
 (1) DoD gaps — which criteria are vague, unverifiable, or could
 be gamed by a bad implementation? (2) missing edge cases — what
 scenarios does the test plan fail to cover? (3) test approach
@@ -1041,9 +1240,9 @@ Every concern should cite the relevant section of the plan.
 **Prompt**:
 
 ```
-Read $REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md with an
+Read $SESSION_DIR/SPRINT.md with an
 observability lens. Write your audit to
-$REPORT_DIR/$REPORT_TS-sprint-plan-observability-review.md
+$SESSION_DIR/observability-review.md
 covering: (1) post-ship verification — can we actually prove this
 is working correctly in production using only the logs, metrics,
 and traces the plan describes? (2) failure-mode coverage — for
@@ -1065,9 +1264,9 @@ a concrete telemetry addition or DoD update.
 **Prompt**:
 
 ```
-Read $REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md with a
+Read $SESSION_DIR/SPRINT.md with a
 performance and scalability lens. Write your audit to
-$REPORT_DIR/$REPORT_TS-sprint-plan-performance-review.md covering:
+$SESSION_DIR/performance-review.md covering:
 (1) hot paths — which code paths will see the most traffic, and
 does the plan account for their cost? (2) resource ceilings —
 memory, CPU, I/O, connection pools, file descriptors: anywhere
@@ -1089,9 +1288,9 @@ suggest a concrete plan adjustment or DoD addition.
 **Prompt**:
 
 ```
-Read $REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md with a
+Read $SESSION_DIR/SPRINT.md with a
 backwards-compatibility lens. Write your audit to
-$REPORT_DIR/$REPORT_TS-sprint-plan-breaking-change-review.md
+$SESSION_DIR/breaking-change-review.md
 covering: (1) contract changes — enumerate every external
 contract this plan modifies (public APIs, RPC signatures, schema
 definitions, config formats, CLI flags, file formats, event
@@ -1120,7 +1319,7 @@ Process each enabled review's output and patch findings into the
 sprint document.
 
 - **Devil's Advocate** — read
-  `$REPORT_DIR/$REPORT_TS-sprint-plan-devils-advocate.md`. Evaluate
+  `$SESSION_DIR/devils-advocate.md`. Evaluate
   each critique: if valid, patch into the sprint document now; if
   invalid, note why (brief inline comment or a "Critiques
   Addressed" section).
@@ -1132,7 +1331,7 @@ sprint document.
   implementation plan or add DoD criteria. For Medium/Low: add to
   the Architecture section or note as a known trade-off.
 - **Test Strategy Review** — read
-  `$REPORT_DIR/$REPORT_TS-sprint-plan-test-strategy-review.md`. For
+  `$SESSION_DIR/test-strategy-review.md`. For
   each valid gap, strengthen the corresponding DoD criterion or
   add a missing test case.
 - **Observability Review** — for Critical/High findings: add
@@ -1205,7 +1404,7 @@ Settle on **low** when:
 - Confident the work is mechanical
 
 **Write the recommendation** as a dedicated section appended to
-`$REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md`:
+`$SESSION_DIR/SPRINT.md`:
 
 ```markdown
 ## Recommended Execution
@@ -1215,7 +1414,7 @@ Settle on **low** when:
 Before running `/sprint-work`, set the session model:
 
     /model sonnet
-    /sprint-work SPRINT-NNN
+    /sprint-work
 
 **Rationale**: Standard extension of existing patterns. Security
 Review flagged one Medium finding (incorporated in DoD).
@@ -1257,7 +1456,7 @@ Present the final plan to the user for review, in this order:
    incorporated from each enabled Phase 8 review and what was
    explicitly rejected, with brief reasoning for rejections.
 2. **Full sprint document rendered inline** — emit the entire
-   contents of `$REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md`
+   contents of `$SESSION_DIR/SPRINT.md`
    directly in your response so the user can read what they are
    about to approve without opening a separate file. Render it as
    markdown inside a fenced block or as native markdown content
@@ -1278,29 +1477,16 @@ re-prompting.
 ### Step 6 — Register Sprint
 
 After the user approves, register the sprint so `/sprint-work` can
-find it:
+find it. The session folder (`$SESSION_DIR`) and `SPRINT.md` are
+already on disk from Phase 7 — registration only writes to the
+ledger.
 
-1. Determine the next sprint number using the sprints skill:
+1. Extract the sprint title from the first `# Title` heading in
+   `$SESSION_DIR/SPRINT.md`. The session timestamp (the folder
+   name, `$REPORT_TS`) is the sprint's identifier — there is no
+   separate sprint number.
 
-   ```bash
-   /sprints --stats
-   ```
-
-   Use the next available sprint number (one greater than the
-   highest numbered sprint in the ledger; start at `001` if the
-   ledger is empty). Zero-pad to three digits.
-
-2. Extract the sprint title from the first `# Sprint:` heading in
-   `$REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md`.
-
-3. Rename the sprint document to include the sprint number:
-
-   ```bash
-   mv "$REPORT_DIR/$REPORT_TS-sprint-plan-sprint.md" \
-      "$REPORT_DIR/$REPORT_TS-sprint-plan-SPRINT-NNN.md"
-   ```
-
-4. **Compute the participants list** — who actually produced
+2. **Compute the participants list** — who actually produced
    planning artifacts for this sprint. Compute from which phases
    *ran*, not which were enabled. A phase that was enabled but
    produced no artifact (e.g., worker failed, skipped at runtime)
@@ -1334,25 +1520,26 @@ find it:
    read to build multi-agent `Co-authored-by:` trailers for the
    sprint-artifact commit.
 
-5. Register the sprint in the ledger:
+3. Register the sprint in the ledger:
 
    ```bash
-   /sprints --add NNN "Title" --recommended-model=<tier> --participants=<list>
+   /sprints --add $REPORT_TS "Title" --recommended-model=<tier> --participants=<list>
    ```
 
+   The session timestamp `$REPORT_TS` is the sprint identifier.
    `<tier>` is the model name from the Recommended Execution block
    (`opus` / `sonnet` / `haiku`). Recording it lets `/sprints
    --velocity` compare recommendations to the model that actually
    ran the sprint.
 
    `<list>` is the comma-separated participants list computed in
-   step 4 above (e.g. `claude` or `claude,codex`).
+   step 2 above (e.g. `claude` or `claude,codex`).
 
-6. Tell the user the sprint was registered as `SPRINT-NNN` at
-   `$REPORT_DIR/$REPORT_TS-sprint-plan-SPRINT-NNN.md`. Repeat
-   the **Recommended Execution** block in this final message so
-   the exact `/model` and `/sprint-work` commands are the last
-   thing the user sees before running the sprint.
+4. Tell the user the sprint was registered with session
+   `$REPORT_TS` at `$SESSION_DIR/SPRINT.md`. Repeat the
+   **Recommended Execution** block in this final message so the
+   exact `/model` and `/sprint-work` commands are the last thing
+   the user sees before running the sprint.
 
 ---
 
@@ -1362,26 +1549,28 @@ After `/sprint-plan` completes, you'll have (files marked `*` are
 only created when the corresponding optional phase ran):
 
 ```text
-./docs/sprints/
-├── $REPORT_TS-sprint-plan-intent.md
-├── $REPORT_TS-sprint-plan-ORCH_NAME-draft.md
-├── $REPORT_TS-sprint-plan-OPPO_NAME-draft.md                       * (Phase 5b)
-├── $REPORT_TS-sprint-plan-ORCH_NAME-draft-OPPO_NAME-critique.md    * (Phase 6a)
-├── $REPORT_TS-sprint-plan-OPPO_NAME-draft-ORCH_NAME-critique.md    * (Phase 6b)
-├── $REPORT_TS-sprint-plan-merge-notes.md                           * (Merge mode)
-├── $REPORT_TS-sprint-plan-devils-advocate.md                       * (Phase 8a)
-├── $REPORT_TS-sprint-plan-security-review.md                       * (Phase 8b)
-├── $REPORT_TS-sprint-plan-architecture-review.md                   * (Phase 8c)
-├── $REPORT_TS-sprint-plan-test-strategy-review.md                  * (Phase 8d)
-├── $REPORT_TS-sprint-plan-observability-review.md                  * (Phase 8e)
-├── $REPORT_TS-sprint-plan-performance-review.md                    * (Phase 8f)
-├── $REPORT_TS-sprint-plan-breaking-change-review.md                * (Phase 8g)
-└── $REPORT_TS-sprint-plan-SPRINT-NNN.md  (renamed after approval)
+~/Reports/<org>/<repo>/
+├── ledger.tsv                                       (managed by /sprints; this session gets a row keyed by $REPORT_TS)
+└── sprints/
+    └── $REPORT_TS/                                  ($SESSION_DIR — one folder per planning run)
+        ├── intent.md
+        ├── ORCH_NAME-draft.md
+        ├── OPPO_NAME-draft.md                       * (Phase 5b)
+        ├── ORCH_NAME-draft-OPPO_NAME-critique.md    * (Phase 6a)
+        ├── OPPO_NAME-draft-ORCH_NAME-critique.md    * (Phase 6b)
+        ├── merge-notes.md                           * (Merge mode)
+        ├── devils-advocate.md                       * (Phase 8a)
+        ├── security-review.md                       * (Phase 8b)
+        ├── architecture-review.md                   * (Phase 8c)
+        ├── test-strategy-review.md                  * (Phase 8d)
+        ├── observability-review.md                  * (Phase 8e)
+        ├── performance-review.md                    * (Phase 8f)
+        ├── breaking-change-review.md                * (Phase 8g)
+        └── SPRINT.md                                (the plan; first heading is "# Title" — no sprint number)
 ```
 
-Retros live alongside plans at
-`$REPORT_TS-sprint-retro-SPRINT-NNN.md` and are written by
-`/sprint-work` after completion.
+The retro lands in the same `$SESSION_DIR/` later as `RETRO.md`,
+written by `/sprint-work` after completion.
 
 
 ---
@@ -1392,20 +1581,25 @@ At the end of this workflow, you should have:
 
 - [ ] Orientation summary complete (includes retros, prior-art,
   dependency prereq check, tier assessment)
+- [ ] Phase 1 step 5 actually **read** 3–5 relevant files (not just
+  listed them) and produced concrete observations
 - [ ] Per-phase tier defaults pre-filled based on Orient signals
-- [ ] `REPORT_DIR` and `REPORT_TS` set; `$REPORT_DIR` created
+- [ ] `REPORTS_BASE`, `REPORT_TS`, and `SESSION_DIR` set;
+  `$SESSION_DIR` created
 - [ ] Phase selections **and tier selections** recorded and
   respected
-- [ ] Intent document written
-  (`$REPORT_TS-sprint-plan-intent.md`) with Prior Art and
-  Approaches Considered tables
+- [ ] Intent document written (`$SESSION_DIR/intent.md`) with
+  Surface Areas, Prior Art, and Approaches Considered tables
+- [ ] Surface Areas table populated with concrete file:line decisions
+  (or empty with explicit justification that the seed is mechanical)
 - [ ] Alternative approaches enumerated; one selected with
   rejections documented
-- [ ] Interview conducted (adaptive to uncertainty; user may exit
-  early via "Skip"); refinements appended to intent
-- [ ] Orch-side draft received
-  (`$REPORT_TS-sprint-plan-ORCH_NAME-draft.md`) from delegated
-  worker at the selected tier
+- [ ] Interview conducted (questions sourced from Surface Areas
+  first, falling back to strategic categories; user may exit early
+  via "Skip"); refinements appended to intent and tied back to
+  Surface Area numbers
+- [ ] Orch-side draft received (`$SESSION_DIR/ORCH_NAME-draft.md`)
+  from delegated worker at the selected tier
 - [ ] *(optional)* Opposite-side draft received at the selected
   tier
 - [ ] *(optional)* Opposite-side critique of orch-side draft
@@ -1416,8 +1610,7 @@ At the end of this workflow, you should have:
 - [ ] Sprint sizing gate passed (plan is scoped for a single
   sprint)
 - [ ] *(optional)* Merge notes written — skipped in Promote mode
-- [ ] Sprint document written
-  (`$REPORT_TS-sprint-plan-sprint.md`)
+- [ ] Sprint document written (`$SESSION_DIR/SPRINT.md`)
 - [ ] *(optional)* Each enabled review received at the selected
   tier (Devil's Advocate, Security, Architecture, Test Strategy,
   Observability, Performance & Scale, Breaking Change)
@@ -1434,9 +1627,7 @@ At the end of this workflow, you should have:
 - [ ] Participants list computed from which phases actually ran
   (claude-side workers → include `claude`; codex-side workers →
   include `codex`)
-- [ ] Sprint registered in ledger with `/sprints --add NNN "Title" --recommended-model=<tier> --participants=<list>`
-  and renamed to
-  `$REPORT_DIR/$REPORT_TS-sprint-plan-SPRINT-NNN.md`
+- [ ] Sprint registered in ledger with `/sprints --add $REPORT_TS "Title" --recommended-model=<tier> --participants=<list>`
 - [ ] Recommended Execution block repeated in the final message
   so `/model` + `/sprint-work` commands are the last thing the
   user sees
@@ -1445,7 +1636,9 @@ At the end of this workflow, you should have:
 
 ## Reference
 
-- Report output: `./docs/sprints/` (relative to cwd)
-- Sprint documents: `./docs/sprints/$REPORT_TS-sprint-plan-SPRINT-NNN.md`
-- Retros: `./docs/sprints/$REPORT_TS-sprint-retro-SPRINT-NNN.md`
+- Reports base: `~/Reports/<org>/<repo>/` (org/repo from `git remote get-url origin`)
+- Planning sessions: `~/Reports/<org>/<repo>/sprints/<TS>/`
+- Sprint plans: `<session>/SPRINT.md`
+- Retros: `<session>/RETRO.md` (written by `/sprint-work`)
+- Ledger: `~/Reports/<org>/<repo>/ledger.tsv`
 - Project overview: `CLAUDE.md`

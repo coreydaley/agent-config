@@ -5,12 +5,15 @@ Provides SprintEntry/SprintLedger data model and display helpers used by:
 - ~/.claude/skills/sprints/scripts/sprints.py — sprint manager CLI
 - ~/.claude/lib/commit.py — commit planner (reads participants for sprint-artifact commits)
 
-Extracted from the original self-contained sprints.py so the schema lives
-in one place. Any script that touches the ledger imports from here.
+Sprints are keyed by their session timestamp (e.g. "2026-05-01T14-30-00"),
+which corresponds to the folder name under ~/Reports/<org>/<repo>/sprints/.
+The session is unique, chronological, and the canonical identifier — no
+separate sprint number layer.
 """
 
 import os
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
@@ -146,18 +149,30 @@ def _format_duration_compact(seconds: float) -> str:
     return f"{int(seconds // 86400)}d"
 
 
+def _short_session(session: str) -> str:
+    """Compact display of a session timestamp: 'May 01 14:30'."""
+    dt = _parse_iso(session.replace("T", " ").replace("-", ":", 2)
+                    if session.count("-") >= 5 else session)
+    # Sessions have form YYYY-MM-DDTHH-MM-SS; convert to ISO for parsing.
+    if dt is None and len(session) == 19 and session[10] == "T":
+        # Convert YYYY-MM-DDTHH-MM-SS → YYYY-MM-DDTHH:MM:SS
+        iso_form = session[:13] + ":" + session[14:16] + ":" + session[17:]
+        dt = _parse_iso(iso_form)
+    return dt.strftime("%b %d %H:%M") if dt else session
+
+
 # --- End display helpers ---------------------------------------------
 
 
 @dataclass
 class SprintEntry:
-    """A single sprint entry in the ledger."""
+    """A single sprint entry in the ledger, keyed by session timestamp."""
 
     VALID_STATUSES = ["planned", "in_progress", "completed", "skipped"]
     VALID_FITS = ["", "over_powered", "right_sized", "under_powered"]
     VALID_PARTICIPANTS = {"claude", "codex"}
 
-    sprint_id: str
+    session: str  # primary key — timestamp like "2026-05-01T14-30-00"
     title: str
     status: str
     created_at: str
@@ -170,7 +185,8 @@ class SprintEntry:
     participants: str = ""  # comma-separated subset of VALID_PARTICIPANTS
 
     def __post_init__(self):
-        self.sprint_id = str(int(self.sprint_id)).zfill(3)
+        if not self.session:
+            raise ValueError("session is required")
         if self.status not in self.VALID_STATUSES:
             raise ValueError(f"Invalid status: {self.status}. Must be one of {self.VALID_STATUSES}")
         if self.fit not in self.VALID_FITS:
@@ -178,7 +194,6 @@ class SprintEntry:
                 f"Invalid fit: {self.fit}. Must be one of {[v for v in self.VALID_FITS if v]}"
             )
         # Normalize participants: trim whitespace, lowercase, dedupe, sort.
-        # Empty string is valid (no planning workers ran, e.g. --base mode).
         if self.participants:
             parts = [p.strip().lower() for p in self.participants.split(",") if p.strip()]
             invalid = [p for p in parts if p not in self.VALID_PARTICIPANTS]
@@ -190,12 +205,9 @@ class SprintEntry:
             self.participants = ",".join(sorted(set(parts)))
 
     @property
-    def sprint_number(self) -> int:
-        return int(self.sprint_id)
-
-    @property
     def doc_path(self) -> str:
-        return f"./docs/sprints/*-sprint-plan-SPRINT-{self.sprint_id}.md"
+        """Path to this sprint's SPRINT.md, relative to the reports root."""
+        return f"sprints/{self.session}/SPRINT.md"
 
     @property
     def participant_list(self) -> list[str]:
@@ -216,7 +228,7 @@ class SprintEntry:
 
     def to_tsv(self) -> str:
         return "\t".join([
-            self.sprint_id, self.title, self.status,
+            self.session, self.title, self.status,
             self.created_at, self.updated_at,
             self.started_at, self.completed_at, self.model,
             self.recommended_model, self.fit, self.participants,
@@ -228,7 +240,7 @@ class SprintEntry:
         if len(parts) < 5:
             raise ValueError(f"Invalid TSV line: {line}")
         return cls(
-            sprint_id=parts[0], title=parts[1], status=parts[2],
+            session=parts[0], title=parts[1], status=parts[2],
             created_at=parts[3], updated_at=parts[4],
             started_at=parts[5] if len(parts) > 5 else "",
             completed_at=parts[6] if len(parts) > 6 else "",
@@ -240,10 +252,10 @@ class SprintEntry:
 
 
 class SprintLedger:
-    """Manages the sprint ledger TSV file."""
+    """Manages the sprint ledger TSV file. Keyed by session timestamp."""
 
     HEADER = (
-        "sprint_id\ttitle\tstatus\tcreated_at\tupdated_at"
+        "session\ttitle\tstatus\tcreated_at\tupdated_at"
         "\tstarted_at\tcompleted_at\tmodel\trecommended_model\tfit"
         "\tparticipants"
     )
@@ -262,11 +274,12 @@ class SprintLedger:
             if not line:
                 continue
             entry = SprintEntry.from_tsv(line)
-            self.entries[entry.sprint_id] = entry
+            self.entries[entry.session] = entry
         return self
 
     def save(self) -> None:
-        sorted_entries = sorted(self.entries.values(), key=lambda e: e.sprint_number)
+        # Sort chronologically by session (which is a sortable timestamp).
+        sorted_entries = sorted(self.entries.values(), key=lambda e: e.session)
         with open(self.path, "w", encoding="utf-8") as f:
             f.write(self.HEADER + "\n")
             for entry in sorted_entries:
@@ -275,44 +288,57 @@ class SprintLedger:
     def _now(self) -> str:
         return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    def add(self, sprint_id: str, title: str, status: str = "planned",
+    def find(self, query: str) -> list[SprintEntry]:
+        """Resolve a user-supplied query to a list of matching entries.
+
+        Match strategy, in priority order:
+        1. Exact session match
+        2. Session prefix match (e.g. "2026-05-01" → matches sessions starting with that date)
+        3. Title substring match (case-insensitive)
+
+        Caller decides how to disambiguate when multiple results are returned.
+        """
+        if query in self.entries:
+            return [self.entries[query]]
+        prefix_matches = [e for e in self.entries.values() if e.session.startswith(query)]
+        if prefix_matches:
+            return prefix_matches
+        q_lower = query.lower()
+        return [e for e in self.entries.values() if q_lower in e.title.lower()]
+
+    def add(self, session: str, title: str, status: str = "planned",
             recommended_model: str = "", participants: str = "") -> SprintEntry:
-        sprint_id = str(int(sprint_id)).zfill(3)
-        if sprint_id in self.entries:
-            raise ValueError(f"Sprint {sprint_id} already exists")
+        if session in self.entries:
+            raise ValueError(f"Sprint with session '{session}' already exists")
         now = self._now()
         entry = SprintEntry(
-            sprint_id=sprint_id, title=title, status=status,
+            session=session, title=title, status=status,
             created_at=now, updated_at=now,
             recommended_model=recommended_model,
             participants=participants,
         )
-        self.entries[sprint_id] = entry
+        self.entries[session] = entry
         return entry
 
-    def set_fit(self, sprint_id: str, fit: str) -> SprintEntry:
-        sprint_id = str(int(sprint_id)).zfill(3)
-        if sprint_id not in self.entries:
-            raise ValueError(f"Sprint {sprint_id} not found")
+    def set_fit(self, session: str, fit: str) -> SprintEntry:
+        if session not in self.entries:
+            raise ValueError(f"Sprint '{session}' not found")
         if fit not in SprintEntry.VALID_FITS or fit == "":
             valid = [v for v in SprintEntry.VALID_FITS if v]
             raise ValueError(f"Invalid fit: {fit!r}. Must be one of {valid}")
-        entry = self.entries[sprint_id]
+        entry = self.entries[session]
         entry.fit = fit
         entry.updated_at = self._now()
         return entry
 
-    def set_participants(self, sprint_id: str, participants: str) -> SprintEntry:
-        """Replace the participants list for a sprint. Whitespace and case
-        are normalized by SprintEntry.__post_init__ via a re-construction."""
-        sprint_id = str(int(sprint_id)).zfill(3)
-        if sprint_id not in self.entries:
-            raise ValueError(f"Sprint {sprint_id} not found")
-        entry = self.entries[sprint_id]
-        # Normalize via round-trip: assign raw, then post-init-style cleanup.
-        # Easier: build a temp SprintEntry just to validate/normalize.
+    def set_participants(self, session: str, participants: str) -> SprintEntry:
+        """Replace the participants list for a sprint."""
+        if session not in self.entries:
+            raise ValueError(f"Sprint '{session}' not found")
+        entry = self.entries[session]
+        # Round-trip via SprintEntry to normalize.
         temp = SprintEntry(
-            sprint_id=entry.sprint_id, title=entry.title, status=entry.status,
+            session=entry.session, title=entry.title, status=entry.status,
             created_at=entry.created_at, updated_at=entry.updated_at,
             participants=participants,
         )
@@ -320,17 +346,13 @@ class SprintLedger:
         entry.updated_at = self._now()
         return entry
 
-
-    def update_status(self, sprint_id: str, status: str, model: Optional[str] = None) -> SprintEntry:
-        sprint_id = str(int(sprint_id)).zfill(3)
-        if sprint_id not in self.entries:
-            raise ValueError(f"Sprint {sprint_id} not found")
+    def update_status(self, session: str, status: str, model: Optional[str] = None) -> SprintEntry:
+        if session not in self.entries:
+            raise ValueError(f"Sprint '{session}' not found")
         if status not in SprintEntry.VALID_STATUSES:
             raise ValueError(f"Invalid status: {status}. Must be one of {SprintEntry.VALID_STATUSES}")
-        entry = self.entries[sprint_id]
+        entry = self.entries[session]
         now = self._now()
-        # Record timing on the transitions that matter. Re-starts overwrite
-        # started_at (per design: duration = most recent attempt only).
         if status == "in_progress":
             entry.started_at = now
             entry.completed_at = ""
@@ -353,8 +375,9 @@ class SprintLedger:
         return records
 
     def get_next_planned(self) -> Optional[SprintEntry]:
+        """Return the chronologically-oldest planned sprint, or None."""
         planned = [e for e in self.entries.values() if e.status == "planned"]
-        return min(planned, key=lambda e: e.sprint_number) if planned else None
+        return min(planned, key=lambda e: e.session) if planned else None
 
     def get_in_progress(self) -> Optional[SprintEntry]:
         in_progress = [e for e in self.entries.values() if e.status == "in_progress"]
@@ -363,7 +386,10 @@ class SprintLedger:
     def get_by_status(self, status: str) -> list[SprintEntry]:
         if status not in SprintEntry.VALID_STATUSES:
             raise ValueError(f"Invalid status: {status}. Must be one of {SprintEntry.VALID_STATUSES}")
-        return sorted([e for e in self.entries.values() if e.status == status], key=lambda e: e.sprint_number)
+        return sorted(
+            [e for e in self.entries.values() if e.status == status],
+            key=lambda e: e.session,
+        )
 
     def count_by_status(self) -> dict[str, int]:
         counts = {s: 0 for s in SprintEntry.VALID_STATUSES}
@@ -372,34 +398,72 @@ class SprintLedger:
         return counts
 
     def sync_from_docs(self) -> list[str]:
+        """Scan ./sprints/<TS>/SPRINT.md files (relative to ledger.tsv parent)
+        and update the ledger. Title is the first heading (`# Title`); the
+        session is the parent folder name."""
         changes = []
-        title_pattern = re.compile(r"^# Sprint: (.+)$", re.MULTILINE)
-        filename_pattern = re.compile(r"SPRINT-(\d+)\.md$")
-        for md_file in self.path.parent.glob("*-sprint-plan-SPRINT-*.md"):
-            match = filename_pattern.search(md_file.name)
-            if not match:
+        # Accept "# Title" or "# Sprint 001: Title" (legacy) — strip the
+        # legacy prefix if present.
+        heading_pattern = re.compile(r"^#\s+(.+)$", re.MULTILINE)
+        legacy_prefix = re.compile(r"^Sprint\s+\d+\s*[:—–-]\s*", re.IGNORECASE)
+        sprints_dir = self.path.parent / "sprints"
+        if not sprints_dir.is_dir():
+            return changes
+        for sprint_md in sorted(sprints_dir.glob("*/SPRINT.md")):
+            session = sprint_md.parent.name
+            content = sprint_md.read_text(encoding="utf-8")
+            heading_match = heading_pattern.search(content)
+            if not heading_match:
                 continue
-            sprint_id = match.group(1).zfill(3)
-            content = md_file.read_text(encoding="utf-8")
-            title_match = title_pattern.search(content)
-            title = title_match.group(1).strip() if title_match else f"Sprint {sprint_id}"
-            if sprint_id not in self.entries:
-                self.add(sprint_id, title)
-                changes.append(f"Added: {sprint_id} - {title}")
+            title = legacy_prefix.sub("", heading_match.group(1).strip()).strip()
+            if not title:
+                continue
+            if session not in self.entries:
+                self.add(session, title)
+                changes.append(f"Added: {session} — {title}")
             else:
-                existing = self.entries[sprint_id]
+                existing = self.entries[session]
                 if existing.title != title:
                     existing.title = title
                     existing.updated_at = self._now()
-                    changes.append(f"Updated title: {sprint_id} - {title}")
+                    changes.append(f"Updated: {session} — {title}")
         return changes
 
 
+def get_reports_base() -> Path:
+    """Resolve ~/Reports/<org>/<repo>/ from `git remote get-url origin`.
+
+    Falls back to ~/Reports/_no-repo/ when the current directory isn't a git
+    repo or has no origin remote — keeps the ledger usable in scratch contexts
+    without crashing."""
+    org_repo = "_no-repo"
+    try:
+        result = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            capture_output=True, text=True, check=True,
+        )
+        remote = result.stdout.strip()
+        # Strip leading host (handles both ssh and https forms) and trailing .git
+        match = re.search(r"github\.com[:/](.+?)(?:\.git)?$", remote)
+        if match:
+            org_repo = match.group(1)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+    base = Path.home() / "Reports" / org_repo
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
 def get_ledger_path() -> Path:
-    """Resolve the sprints TSV to ./docs/sprints/sprints.tsv relative to cwd."""
-    sprint_dir = Path.cwd() / "docs" / "sprints"
-    sprint_dir.mkdir(parents=True, exist_ok=True)
-    return sprint_dir / "sprints.tsv"
+    """Resolve the sprint ledger to ~/Reports/<org>/<repo>/ledger.tsv."""
+    return get_reports_base() / "ledger.tsv"
+
+
+def get_sprints_dir() -> Path:
+    """Resolve ~/Reports/<org>/<repo>/sprints/ — the parent of all session folders."""
+    sprints_dir = get_reports_base() / "sprints"
+    sprints_dir.mkdir(parents=True, exist_ok=True)
+    return sprints_dir
 
 
 # --- Shared display helpers for entry formatting ---------------------

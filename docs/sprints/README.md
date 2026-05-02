@@ -1,369 +1,258 @@
-# Sprint Skills
+# Sprint Workflow
 
-This directory documents three Claude Code skills that together form
-a lightweight sprint workflow: plan → execute → track.
+End-to-end lifecycle for planning, executing, reviewing, and shipping
+work in this sandbox. Each stage has a dedicated skill; this doc shows
+how they compose.
 
-| Skill | Invoke as | Purpose |
+For details on any single skill's phases and inputs, see
+`skills/<skill>/SKILL.md`.
+
+---
+
+## Lifecycle
+
+*Renders natively on GitHub. In VS Code, install [Markdown Preview Mermaid Support](https://marketplace.visualstudio.com/items?itemName=bierner.markdown-mermaid) to render in the built-in preview.*
+
+```mermaid
+flowchart TD
+    Audit["/audit-* commands<br/>(optional input)"] -.findings.-> Plan
+    Seed["/sprint-seed<br/>(optional pre-plan)"] -->|SEED.md path| Plan
+    Direct["direct seed text"] -.->|inline prompt| Plan
+    Plan["/sprint-plan"] -->|SPRINT.md| Work["/sprint-work"]
+    Work -->|opens PR| PR((PR opened))
+
+    PR --> SelfCycle
+    subgraph SelfCycle ["Self-review cycle"]
+        direction LR
+        SR["/review-pr-simple<br/>OR<br/>/review-pr-comprehensive"]
+        SA["/review-address-feedback<br/>(REVIEW.md mode)"]
+        SP["git commit & push<br/>(updates the PR branch)"]
+        SR -->|REVIEW.md| SA
+        SA -->|fixes applied| SP
+        SP -->|PR updated| SR
+    end
+
+    SelfCycle -->|"terminal:<br/>only LOW/NIT"| HumanCycle
+
+    subgraph HumanCycle ["Human review cycle"]
+        direction LR
+        HR["humans / bots<br/>review the PR<br/>(CI, teammates)"]
+        HA["/review-address-feedback<br/>(PR comments mode)"]
+        HP["git commit & push<br/>(updates the PR branch)"]
+        HR -->|inline comments<br/>requested changes| HA
+        HA -->|fixes applied| HP
+        HP -->|PR updated| HR
+    end
+
+    HumanCycle -->|approved| Polish["/polish-pull-request<br/>(optional)"]
+    Polish -->|metadata cleaned| Merge((merged))
+    HumanCycle -.->|skip polish| Merge
+    Merge --> Retro["/sprint-work --retro"]
+    Retro -->|RETRO.md| Done((complete))
+```
+
+**Pre-plan options** feeding into `/sprint-plan` are all optional and
+mutually-mixable: pass an audit report as the seed, write a `SEED.md`
+via `/sprint-seed` first, or just hand `/sprint-plan` an inline seed
+prompt directly.
+
+**Review/fix cycle** (`/review-pr-*` ↔ `/review-address-feedback`)
+runs as many iterations as needed until terminal — see the *Review →
+Fix Cycle* section below.
+
+---
+
+## Skills by stage
+
+| Stage | Skill | Output |
 |---|---|---|
-| `sprint-plan` | `/sprint-plan` | Multi-agent collaborative planning that produces a reviewed sprint document |
-| `sprint-work` | `/sprint-work` | Execute a planned sprint end-to-end and write a retrospective |
-| `sprints`     | `/sprints`     | Manage the sprint ledger (`sprints.tsv`) — status, velocity, add/start/complete |
-
-All three operate on a per-project `./docs/sprints/` directory. Sprint
-plans, retrospectives, and the ledger all live there, so sprint
-history travels with the repository in git.
-
----
-
-## `sprint-plan` — Collaborative Multi-Agent Planning
-
-`/sprint-plan` is the heaviest of the three skills. It orchestrates
-a 9-phase workflow that turns a short seed prompt into a reviewed,
-approved, and registered sprint document. The key design principle
-is **strict separation of duties**: the orchestrator (the agent you
-invoked) never drafts, critiques, or reviews its own work.
-Generative and adversarial work is delegated to fresh workers —
-either same-family subagents or opposite-family agents invoked via
-`exec` — so no single context writes a plan and then judges it.
-
-### What it does
-
-1. **Orient** — reads `CLAUDE.md`, scans the ledger, reviews the last
-   3 sprints + retros, does a prior-art check, and pre-fills
-   per-phase model tier recommendations.
-2. **Phase Selection** — presents a menu of optional phases (drafts,
-   critiques, reviews) with enabled/disabled + tier recommendations
-   informed by Orient. You can accept, edit, or override.
-3. **Intent** — composes a concentrated intent document including a
-   "Approaches Considered" table so both drafts start from the same
-   concentrated context.
-4. **Interview** — adaptive dialogue whose depth scales with the
-   sprint's uncertainty (Low: 1–2 questions; High: 5–7). Every
-   question has a "Skip" option.
-5. **Draft (parallel)** — commissions a Claude-side draft and an
-   opposite-side (Codex) draft in parallel. Each is written
-   independently with no knowledge of the other.
-6. **Critique (parallel, optional)** — each side critiques the
-   other's draft.
-7. **Merge / Promote** — synthesizes the best ideas, applies a
-   simplest-viable filter, runs a sprint-sizing gate to catch
-   oversized plans before review cost is spent.
-8. **Reviews (parallel, optional)** — up to seven lenses, each routed
-   to its expert side:
-   - Devil's Advocate *(codex)*
-   - Security *(claude)*
-   - Architecture *(claude)*
-   - Test Strategy *(codex)*
-   - Observability *(claude)*
-   - Performance & Scale *(codex)*
-   - Breaking Change *(claude)*
-9. **Finalize** — incorporates findings, runs a Definition-of-Ready
-   pre-flight, proposes a feasibility spike if uncertainty is
-   structurally too high, and appends a **Recommended Execution**
-   section that tells you which Claude tier (`opus` / `sonnet` /
-   `haiku`) to run `/sprint-work` with. After approval, the sprint
-   is registered in the ledger as `SPRINT-NNN`.
-
-### Usage
-
-```bash
-# Full interactive workflow — Orient, then a phase-selection menu
-/sprint-plan <seed prompt>
-
-# Accept all Orient recommendations and skip the menu
-/sprint-plan --auto <seed prompt>
-
-# Enable every optional phase
-/sprint-plan --full <seed prompt>
-
-# Minimum viable planning — required phases only (5a, 7, 9)
-/sprint-plan --base <seed prompt>
-
-# Force all delegated phases to High (opus / gpt-5.4) or Mid
-/sprint-plan --tier=high <seed prompt>
-/sprint-plan --tier=mid  <seed prompt>
-
-# Preview only — no files written, exits after Intent
-/sprint-plan --dry <seed prompt>
-
-# Combines freely, e.g.:
-/sprint-plan --full --tier=high critical auth rewrite
-/sprint-plan --dry --auto add rollback guardrails
-
-# Help
-/sprint-plan --help
-```
-
-Flag precedence: `--help` trumps everything; `--base` / `--full` /
-`--auto` are mutually exclusive; `--tier=` combines with any
-workflow shortcut; `--dry` suppresses all side effects. Unknown
-flags fail loudly.
-
-### Artifacts produced
-
-All files land in `./docs/sprints/` with a shared timestamp prefix:
-
-```
-./docs/sprints/
-├── 2026-04-22T14-03-11-sprint-plan-intent.md
-├── 2026-04-22T14-03-11-sprint-plan-claude-draft.md
-├── 2026-04-22T14-03-11-sprint-plan-codex-draft.md             * optional
-├── 2026-04-22T14-03-11-sprint-plan-claude-draft-codex-critique.md   * optional
-├── 2026-04-22T14-03-11-sprint-plan-codex-draft-claude-critique.md   * optional
-├── 2026-04-22T14-03-11-sprint-plan-merge-notes.md             * merge mode
-├── 2026-04-22T14-03-11-sprint-plan-devils-advocate.md         * optional
-├── 2026-04-22T14-03-11-sprint-plan-security-review.md         * optional
-├── 2026-04-22T14-03-11-sprint-plan-architecture-review.md     * optional
-├── 2026-04-22T14-03-11-sprint-plan-test-strategy-review.md    * optional
-├── 2026-04-22T14-03-11-sprint-plan-observability-review.md    * optional
-├── 2026-04-22T14-03-11-sprint-plan-performance-review.md      * optional
-├── 2026-04-22T14-03-11-sprint-plan-breaking-change-review.md  * optional
-└── 2026-04-22T14-03-11-sprint-plan-SPRINT-007.md              (renamed on approval)
-```
+| Audit (optional input) | `/audit-architecture` `/audit-design` `/audit-security` `/audit-accessibility` | Findings written as sprint-able tasks |
+| Pre-plan discussion (optional) | `/sprint-seed` | `SEED.md` (refined seed prompt + discussion summary) in a fresh session folder |
+| Plan | `/sprint-plan` | `SPRINT.md` + supporting drafts/critiques/reviews |
+| Ledger | `/sprints` | `ledger.tsv`; lookup by `--current` / `--path <query>` (session prefix or title fragment) |
+| Execute | `/sprint-work` | Code changes + PR(s) opened from `SPRINT.md`, multi-repo aware. |
+| Review (single agent) | `/review-pr-simple` | `REVIEW.md` |
+| Review (dual agent) | `/review-pr-comprehensive` | `REVIEW.md` (Claude + Codex synthesis) |
+| Address feedback | `/review-address-feedback` | Code changes + `ADDRESSED.md` |
+| Pre-merge polish (optional) | `/polish-pull-request` | Updated PR title/body + resolved stale threads |
+| Retro | `--retro` flag on `/sprint-work` | `RETRO.md` |
 
 ---
 
-## `sprint-work` — Execute the Next Sprint
+## Execution flow
 
-`/sprint-work` runs a sprint planned by `/sprint-plan`. It finds the
-sprint document, marks the sprint in-progress, executes the plan,
-writes a retrospective, and marks the sprint completed — all in one
-session.
-
-### What it does
-
-1. **Locate the sprint** — if you pass `NNN`, it runs that specific
-   sprint; otherwise it picks up any in-progress sprint (surfacing
-   its identity first), or falls back to the lowest-numbered
-   `planned` sprint in the ledger.
-2. **Mark in-progress** — records the Claude model family
-   (`opus` / `sonnet` / `haiku`) running this session so velocity
-   stats can compare recommended vs. actual model later.
-3. **Execute** — works through every item in the sprint's Definition
-   of Done. Finds build/test commands from `README.md`, `Makefile`,
-   or the DoD itself. Fixes build and test failures.
-4. **Write the retro** — captures what was underestimated, deferred,
-   surprising, and what to do differently. The retro also includes a
-   model-fit assessment so future `/sprint-plan` Orient phases learn
-   from it. Retro file: `*-sprint-retro-SPRINT-NNN.md`.
-5. **Mark completed** — updates the ledger and records the retro's
-   model-fit verdict (`over_powered` / `right_sized` /
-   `under_powered`).
-
-It never pushes git changes.
-
-### Usage
-
-```bash
-# Run the next sprint (in-progress first, else lowest planned)
-/sprint-work
-
-# Run a specific sprint
-/sprint-work 007
-
-# Print the sprint plan document and exit — no execution
-/sprint-work --review
-/sprint-work --review 007
-
-# Help
-/sprint-work --help
+```
+/sprint-plan → /sprint-work → PR → review/fix cycle → merge → retro
 ```
 
-### Recommended flow
-
-The final step of `/sprint-plan` writes a **Recommended Execution**
-block telling you which model tier to use. The intended flow is:
-
-```bash
-/sprint-plan <seed prompt>   # produce and register the plan
-# read the Recommended Execution block at the end of the sprint doc
-/model sonnet                # or opus / haiku, per the recommendation
-/sprint-work                 # runs the newly registered sprint
-```
-
-You can re-read the recommendation any time with
-`/sprint-work --review [NNN]`.
+`SPRINT.md` is the source of truth for tasks. The ledger tracks
+sprint state (status, model, model-fit verdict).
 
 ---
 
-## `sprints` — Sprint Ledger Manager
+## The review → fix cycle
 
-`/sprints` is a thin CLI wrapper over `scripts/sprints.py` that
-manages `./docs/sprints/sprints.tsv` — a tab-separated ledger of
-every sprint, its status, and the models associated with it. Both
-`/sprint-plan` and `/sprint-work` call this skill internally to
-register, start, and complete sprints, but you can also invoke it
-directly at any time.
+A PR is rarely accepted on first review. Treat review and fix as a
+loop, not a single pass.
 
-### What it does
+### How the cycle works
 
-- Tracks status (`planned`, `in_progress`, `completed`, `skipped`).
-- Records the **recommended model** (set by `/sprint-plan`) and the
-  **actual model** that ran the sprint (set by `/sprint-work`).
-- Records the **model-fit verdict** from the retro.
-- Computes velocity statistics (mean, median, rolling, by model).
-- Syncs the ledger from existing sprint-plan files if you ever lose
-  it or adopt the workflow mid-project.
+1. **Review** — run `/review-pr-simple` or `/review-pr-comprehensive`
+   against the PR. Output: `REVIEW.md` with severity-tagged findings
+   (Blocker / High / Medium / Low / Nit).
 
-### Usage
+2. **Address feedback** — run `/review-address-feedback` pointed at
+   that `REVIEW.md` (or the live PR comments). For each finding the
+   user picks: **fix** / **skip** / **won't-fix** / **defer** /
+   **discuss**.
 
-```bash
-# Overview + velocity summary when data exists
-/sprints --stats
+3. **Re-review** — run a review skill again against the updated code.
 
-# Show the current in-progress sprint / next planned sprint
-/sprints --current
-/sprints --next
+4. **Stop when terminal:** the PR has zero Blocker / High findings and
+   only Low / Nit findings remain (or none at all).
 
-# List sprints (optionally filtered)
-/sprints --list
-/sprints --list --status=planned
+You can drive the cycle manually, alternating the two skills as many
+times as needed. `/loop` could automate the loop, but **a review/fix
+cycle should always have a terminal condition you check between
+iterations** — fully unattended loops hide regressions and waste
+budget. Review the output between iterations.
 
-# Velocity statistics across completed sprints
-/sprints --velocity
+### Deferring findings — route them to Obsidian or just record
 
-# Add / start / complete / skip a sprint
-/sprints --add 007 "Add rollback guardrails" --recommended-model=sonnet --participants=claude,codex
-/sprints --start 007 --model=sonnet
-/sprints --complete 007
-/sprints --skip 007
+Some findings are real but not in scope for the current PR. Defer them
+with `/review-address-feedback`'s **defer** action and choose either
+**Obsidian task** (creates a note in the vault via the `create-task`
+skill) or **just record** (notes the deferral in `ADDRESSED.md` only).
 
-# Arbitrary status edit
-/sprints --set-status 007 planned
+When the deferred work would live at a specific spot in the code, the
+skill also offers to leave a marker comment at that file:line:
 
-# Record model-fit from the retro
-/sprints --set-fit 007 right_sized        # or over_powered / under_powered
-
-# Rebuild the ledger from existing sprint docs in ./docs/sprints/
-/sprints --sync
-
-# Help
-/sprints --help
+```go
+// TODO: handle the empty-batch case once the upstream API
+// stops returning nil for empty queries.
 ```
 
-The ledger lives at `./docs/sprints/sprints.tsv` relative to the
-current working directory — always run from the project root.
+The marker makes the gap **discoverable at the code site** so future
+readers see it in context. A `grep -rn 'TODO:' .` produces a complete
+list of deferred items in the codebase.
+
+### ID Suppression Rule (applies across the cycle)
+
+Internal review-finding IDs (`R001`, `SR042`, `CR007`, `CX012`, etc.)
+are scratch artifacts of the review process. They live only in
+`REVIEW.md` and `ADDRESSED.md`. They **must never appear in**:
+
+- code, code comments, or commit messages
+- PR titles, PR bodies, or PR replies
+- any user-facing summary
+
+`/review-address-feedback` enforces this rule directly. Other skills
+in the cycle (`/review-pr-*`, `/polish-pull-request`) inherit it —
+when they generate or rewrite text that lands in code, commits, or
+PR replies, they must suppress internal review IDs.
+
+### Acceptable terminal states
+
+| State | Action |
+|---|---|
+| Zero findings | Merge. |
+| Only Low / Nit findings remaining, all triaged (fixed / won't-fix / deferred) | Merge. |
+| Medium findings remaining | Address or defer with explicit reason; don't merge. |
+| Any High / Blocker finding remaining | Don't merge — keep the cycle going. |
 
 ---
 
-## How the three skills fit together
+## Artifact map
+
+Everything lives under `~/Reports/<org>/<repo>/`, derived from
+`git remote get-url origin`. Nothing is written into the project repo.
 
 ```
-       ┌───────────────┐
-       │ /sprint-plan  │   produces SPRINT-NNN.md + intent + drafts + reviews
-       └───────┬───────┘   registers the sprint via /sprints --add
-               │
-               ▼
-       ┌───────────────┐
-       │   /sprints    │   ledger: status, models, velocity
-       └───────┬───────┘
-               │
-               ▼
-       ┌───────────────┐
-       │ /sprint-work  │   executes, writes retro, marks complete
-       └───────────────┘   sets --start, --set-fit, --complete via /sprints
+~/Reports/<org>/<repo>/
+├── ledger.tsv                                    # sprint index
+└── sprints/
+│   └── YYYY-MM-DDTHH-MM-SS/                      # one folder per planning session
+│       ├── intent.md
+│       ├── claude-draft.md
+│       ├── codex-draft.md                        # if Phase 5b ran
+│       ├── ...                                   # critiques, reviews
+│       ├── SPRINT.md                             # the plan
+│       └── RETRO.md                              # written by /sprint-work --retro
+└── pr-reviews/
+│   └── pr-N/
+│       ├── YYYY-MM-DDTHH-MM-SS/                  # one folder per review run
+│       │   └── REVIEW.md  diff.patch  ...
+│       └── YYYY-MM-DDTHH-MM-SS-addressed/        # one folder per address-feedback run
+│           └── ADDRESSED.md
+└── <TS>-audit-<lens>-{claude,codex,synthesis,devils-advocate,report}.md
+                                                  # audit artifacts, flat, timestamp-prefixed
 ```
 
-Everything lives in `./docs/sprints/` inside your project, so sprint
-history, retros, and the ledger travel with the repo.
+The ledger's `session` column points each sprint at its folder; the
+folder timestamp is the only identifier (sprint numbers live in the
+ledger and inside `SPRINT.md`, not in any path).
 
 ---
 
-## Setup
+## Common scenarios
 
-The skills are distributed via the `agent-config` repo at
-`~/Code/github.com/coreydaley/agent-config/`. The repo's
-`make all` target symlinks everything into place, but if you want
-to install them manually, here is exactly what goes where.
+**"I just finished an audit. What now?"**
+Run `/sprint-plan` with the audit report path as your seed prompt. The
+plan will use the audit findings as the basis for tasks.
 
-### What to copy
+**"I have a fuzzy idea I want to talk through first."**
+`/sprint-seed "<rough idea>"` → discuss → produces `SEED.md` →
+`/sprint-plan <path-to-SEED.md>`. Same session folder for both.
 
-| Source (in `agent-config/`) | Destination | Required? |
-|---|---|---|
-| `skills/sprint-plan/` | `~/.claude/skills/sprint-plan/` | Required |
-| `skills/sprint-work/` | `~/.claude/skills/sprint-work/` | Required |
-| `skills/sprints/`     | `~/.claude/skills/sprints/`     | Required |
-| `lib/sprint_ledger.py` | `~/.claude/lib/sprint_ledger.py` | **Required — without this, `/sprints` cannot run** |
+**"I don't know what to work on next."**
+`/sprint-seed` (no args, from a repo directory) → agent surveys
+`~/Reports/<org>/<repo>/` and proposes 2–3 next-step candidates
+based on past sprints / retros / git log.
 
-The `sprints` skill's script (`skills/sprints/scripts/sprints.py`)
-imports the shared data model from `~/.claude/lib/sprint_ledger.py`
-via:
+**"I'm starting fresh on a sprint."**
+`/sprint-plan` → review/approve → `/sprint-work` to execute.
 
-```python
-sys.path.insert(0, str(Path.home() / ".claude" / "lib"))
-from sprint_ledger import SprintEntry, SprintLedger, get_ledger_path
-```
+**"I'm picking up an in-flight sprint."**
+`/sprint-work` with no argument resolves the current in-progress
+sprint from the ledger; `/sprint-work <query>` resolves by
+session timestamp, prefix, or title fragment.
 
-So you must copy (or symlink) both the skill *and* the lib. Missing
-either one breaks the ledger.
+**"My PR has review comments to address."**
+`/review-address-feedback <PR-url>` and walk through them. If a
+finding is real but out of scope, defer to an Obsidian task or
+record-only with a code marker.
 
-### Recommended: symlink from the repo
+**"I want a fresh review on my PR."**
+`/review-pr-simple <PR-url>` for a quick check, or
+`/review-pr-comprehensive <PR-url>` for a dual-agent review with
+synthesis.
 
-Symlinking (instead of copying) keeps everything up to date when you
-`git pull` the `agent-config` repo. This mirrors what the repo's
-`scripts/symlink-claude.sh` does:
+**"I want to revise a sprint plan mid-flight."**
+For now, re-run `/sprint-plan` — it produces a new session folder.
+Mid-sprint amendment isn't a first-class flow yet (see Known Gaps).
 
-```bash
-AGENT_CONFIG="$HOME/Code/github.com/coreydaley/agent-config"
+---
 
-mkdir -p ~/.claude/skills ~/.claude/lib
+## Known gaps
 
-ln -sf "$AGENT_CONFIG/skills/sprint-plan" ~/.claude/skills/sprint-plan
-ln -sf "$AGENT_CONFIG/skills/sprint-work" ~/.claude/skills/sprint-work
-ln -sf "$AGENT_CONFIG/skills/sprints"     ~/.claude/skills/sprints
-ln -sf "$AGENT_CONFIG/lib/sprint_ledger.py" ~/.claude/lib/sprint_ledger.py
-```
+Future work that hasn't shipped:
 
-Or, from the repo root:
+- **Mid-sprint amend.** Re-running `/sprint-plan` produces a new
+  session folder rather than updating the existing one. Fine for short
+  sprints; bites if you find yourself wanting to revise mid-flight.
 
-```bash
-make symlinks   # symlinks skills/, lib/, commands/, subagents/, CLAUDE.md
-# or
-make all        # symlinks + git hooks
-```
+---
 
-### Manual copy (no symlinks)
+## Pointers
 
-If you'd rather copy the files in:
-
-```bash
-AGENT_CONFIG="$HOME/Code/github.com/coreydaley/agent-config"
-
-mkdir -p ~/.claude/skills ~/.claude/lib
-
-cp -R "$AGENT_CONFIG/skills/sprint-plan" ~/.claude/skills/
-cp -R "$AGENT_CONFIG/skills/sprint-work" ~/.claude/skills/
-cp -R "$AGENT_CONFIG/skills/sprints"     ~/.claude/skills/
-cp    "$AGENT_CONFIG/lib/sprint_ledger.py" ~/.claude/lib/
-```
-
-Re-run the copy whenever the repo updates.
-
-### Verify the install
-
-```bash
-# The three skills should be discoverable
-ls ~/.claude/skills/sprint-plan/SKILL.md
-ls ~/.claude/skills/sprint-work/SKILL.md
-ls ~/.claude/skills/sprints/SKILL.md
-
-# The shared lib must be importable from the skill script
-ls ~/.claude/lib/sprint_ledger.py
-
-# In a project directory, a no-op run should work:
-cd ~/some/project
-/sprints --help
-```
-
-### Requirements
-
-- Python 3 on `PATH` (the `sprints` script runs via
-  `python3 ${CLAUDE_SKILL_DIR}/scripts/sprints.py`).
-- A git repository with a `docs/` directory — sprint artifacts live
-  in `./docs/sprints/` relative to the cwd. The directory is
-  created automatically on first run.
-- For the opposite-side delegation in `/sprint-plan` to work, you
-  need the `codex` CLI on `PATH` when running from Claude (or the
-  `claude` CLI when running from Codex). Without it, skip the
-  opposite-side phases — `/sprint-plan --base` still works single-
-  agent.
+| Need details on... | Read |
+|---|---|
+| Pre-plan discussion / seed shaping | `skills/sprint-seed/SKILL.md` |
+| Phase-by-phase planning workflow | `skills/sprint-plan/SKILL.md` |
+| Sprint execution | `skills/sprint-work/SKILL.md` |
+| PR review (single agent) | `skills/review-pr-simple/SKILL.md` |
+| PR review (dual agent) | `skills/review-pr-comprehensive/SKILL.md` |
+| Address PR feedback | `skills/review-address-feedback/SKILL.md` |
+| Pre-merge PR polish | `skills/polish-pull-request/SKILL.md` |
+| Sprint ledger / velocity | `skills/sprints/SKILL.md` |
+| Audit lenses | `subagents/audit-*.md` |

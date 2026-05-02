@@ -2,10 +2,11 @@
 """
 Commit Planner - build a structured commit plan from the git working tree.
 
-Analyzes uncommitted changes and groups them for atomic commits. Sprint
-artifacts get dedicated groups with participant-driven Co-authored-by
-trailers (read from ./docs/sprints/sprints.tsv); everything else is
-flagged as "unclassified" for the agent to group by logical purpose.
+Analyzes uncommitted changes and groups them for atomic commits. Pre-staged
+files form one group; everything else is flagged as "unclassified" for the
+agent to group by logical purpose. Sprint artifacts are no longer specially
+detected — current sprints live outside the repo (~/Reports/...) so they
+never appear in `git status` anyway.
 
 Usage:
     python3 commit.py              # Emit JSON plan to stdout
@@ -34,7 +35,6 @@ from typing import Optional
 sys.path.insert(0, str(Path.home() / ".claude" / "lib"))
 
 from sprint_ledger import (  # noqa: E402
-    SprintLedger,
     _C,
     _colorize,
     _use_color,
@@ -128,71 +128,17 @@ def _discover_changes() -> dict:
     return {"staged": staged, "modified": modified, "untracked": untracked}
 
 
-# --- Sprint artifact detection --------------------------------------
+# --- Trailer helpers ------------------------------------------------
 
-SPRINT_ARTIFACT_RE = re.compile(
-    r"docs/sprints/.*sprint-plan-SPRINT-(\d{3})"
-)
-
-
-def _sprint_from_path(path: str) -> Optional[str]:
-    """If path matches the sprint-plan artifact pattern, return NNN. Else None.
-
-    Matches paths like:
-        docs/sprints/2026-04-22T14-30-00-sprint-plan-SPRINT-003.md
-        docs/sprints/2026-04-22T14-30-00-sprint-plan-SPRINT-003-intent.md
-        docs/sprints/2026-04-22T14-30-00-sprint-plan-SPRINT-003-claude-draft.md
-        docs/sprints/drafts/SPRINT-003-INTENT.md   (legacy layout — no match)
-
-    Retro files (*sprint-retro-SPRINT-NNN*) are INTENTIONALLY excluded —
-    those are execution artifacts, trailered with Claude only.
-    """
-    m = SPRINT_ARTIFACT_RE.search(path)
-    return m.group(1) if m else None
-
-
-# --- Ledger lookup --------------------------------------------------
-
-def _ledger_path() -> Path:
-    """Ledger location relative to the current working directory."""
-    return Path.cwd() / "docs" / "sprints" / "sprints.tsv"
-
-
-def _load_ledger() -> Optional[SprintLedger]:
-    """Load the ledger if it exists. Return None if no ledger is present
-    (meaning this repo doesn't use the sprints workflow; commit.py falls
-    back to single-trailer behavior for everything)."""
-    path = _ledger_path()
-    if not path.exists():
-        return None
-    try:
-        return SprintLedger(path).load()
-    except Exception:
-        # Malformed ledger: don't crash, just proceed without participant info.
-        return None
-
-
-def _participants_for_sprint(ledger: Optional[SprintLedger], sprint_id: str) -> list[str]:
-    """Return list of participants for sprint NNN. Defaults to ['claude']
-    if sprint not in ledger or ledger absent (safe fallback)."""
-    if ledger is None or sprint_id not in ledger.entries:
-        return ["claude"]
-    entry = ledger.entries[sprint_id]
-    participants = entry.participant_list
-    return participants if participants else ["claude"]
-
-
-def _trailers_for_participants(participants: list[str]) -> list[str]:
-    """Convert participant list to ordered Co-authored-by trailers.
-    Unknown names are silently skipped (defensive — shouldn't happen
-    because SprintEntry validates on write)."""
-    return [AGENT_TRAILERS[p] for p in participants if p in AGENT_TRAILERS]
+def _default_trailers() -> list[str]:
+    """Default Co-authored-by trailer set: just Claude."""
+    return [AGENT_TRAILERS["claude"]]
 
 
 # --- Plan assembly --------------------------------------------------
 
 def _build_plan() -> dict:
-    """Read git state + ledger, return a structured commit plan.
+    """Read git state, return a structured commit plan.
 
     Plan shape:
         {
@@ -201,9 +147,8 @@ def _build_plan() -> dict:
             "warnings": [str, ...],
             "groups": [
                 {
-                    "kind": "pre-staged" | "sprint-artifact" | "unclassified",
+                    "kind": "pre-staged" | "unclassified",
                     "label": "<short label for this group>",
-                    "sprint_id": "003" (sprint-artifact only, else absent),
                     "files": [str, ...],
                     "trailers": [str, ...],    # Co-authored-by lines
                     "needs_agent_decision": [str, ...],  # what agent must fill in
@@ -220,16 +165,13 @@ def _build_plan() -> dict:
 
     branch = _current_branch()
     ticket = _extract_ticket_id(branch)
-    ledger = _load_ledger()
 
     staged = changes["staged"]
     modified = changes["modified"]
     untracked = changes["untracked"]
 
     # Files that are staged should only appear in staged, even if also modified.
-    # Files that are modified-only or untracked are candidates for grouping.
     unstaged_candidates = list(dict.fromkeys(modified + untracked))
-    # Remove files that are already staged from the unstaged pool.
     unstaged_candidates = [f for f in unstaged_candidates if f not in set(staged)]
 
     groups: list[dict] = []
@@ -240,62 +182,20 @@ def _build_plan() -> dict:
             "kind": "pre-staged",
             "label": "pre-staged",
             "files": sorted(staged),
-            "trailers": [AGENT_TRAILERS["claude"]],
+            "trailers": _default_trailers(),
             "needs_agent_decision": ["type", "scope", "summary", "body"],
         })
 
-
-    # Group 2+: sprint-artifact groups (one per distinct sprint NNN)
-    sprint_buckets: dict[str, list[str]] = {}
-    leftover: list[str] = []
-    for path in unstaged_candidates:
-        sid = _sprint_from_path(path)
-        if sid is not None:
-            sprint_buckets.setdefault(sid, []).append(path)
-        else:
-            leftover.append(path)
-
-    # Emit sprint groups in NNN order.
-    for sprint_id in sorted(sprint_buckets.keys()):
-        files = sorted(sprint_buckets[sprint_id])
-        participants = _participants_for_sprint(ledger, sprint_id)
-
-        # Warn if the sprint is referenced by artifacts but missing from ledger.
-        if ledger is not None and sprint_id not in ledger.entries:
-            warnings.append(
-                f"Sprint {sprint_id} has artifacts in the working tree but no "
-                f"ledger entry; defaulting to single-agent trailer."
-            )
-        elif ledger is None and sprint_buckets:
-            # First time only
-            if not any("no ledger" in w for w in warnings):
-                warnings.append(
-                    "No ./docs/sprints/sprints.tsv found; sprint artifacts "
-                    "will use single-agent trailer (Claude only)."
-                )
-
-        groups.append({
-            "kind": "sprint-artifact",
-            "label": f"sprint-{sprint_id}",
-            "sprint_id": sprint_id,
-            "files": files,
-            "trailers": _trailers_for_participants(participants),
-            "needs_agent_decision": ["summary", "body"],
-            "suggested_type": "feat",
-            "suggested_scope": f"sprint-{sprint_id}",
-        })
-
-    # Final group: unclassified (everything else, if any)
-    if leftover:
+    # Group 2: unclassified (everything else, if any)
+    if unstaged_candidates:
         groups.append({
             "kind": "unclassified",
             "label": "unclassified",
-            "files": sorted(leftover),
-            "trailers": [AGENT_TRAILERS["claude"]],
+            "files": sorted(unstaged_candidates),
+            "trailers": _default_trailers(),
             "needs_agent_decision": ["grouping", "type", "scope", "summary", "body"],
         })
 
-    # Commit order: pre-staged first, then sprint groups (by NNN), then unclassified
     order = [g["label"] for g in groups]
 
     return {
@@ -339,17 +239,11 @@ def _render_dry(plan: dict) -> str:
         return "\n".join(lines)
 
     for i, g in enumerate(plan["groups"], start=1):
-        kind_label = {
-            "pre-staged": "pre-staged",
-            "sprint-artifact": f"sprint {g.get('sprint_id')}",
-            "unclassified": "unclassified",
-        }.get(g["kind"], g["kind"])
+        kind_label = g["kind"]
         lines.append(header(f"  [{i}] {kind_label}  ({len(g['files'])} file{'s' if len(g['files']) != 1 else ''})"))
         for f in g["files"]:
             lines.append(f"      {f}")
         lines.append("")
-        if "suggested_type" in g:
-            lines.append(f"      Suggested: {g['suggested_type']}({g.get('suggested_scope', '')}): ...")
         lines.append(f"      Trailers:")
         for t in g["trailers"]:
             lines.append(f"        {t}")
@@ -373,19 +267,15 @@ Usage:
   python3 commit.py --help       Show this help and exit
 
 This script NEVER commits, stages, or mutates state. It only reads
-git state and the sprint ledger, then outputs a plan describing how
-changes should be grouped for atomic commits.
+git state and outputs a plan describing how changes should be
+grouped for atomic commits.
 
 The JSON output shape is documented in the module docstring at the
-top of this file. Groups can be:
+top of this file. Groups are:
   pre-staged        — files already in the index (committed first)
-  sprint-artifact   — sprint planning artifacts (one group per sprint)
   unclassified      — everything else (agent must group by purpose)
 
-Sprint-artifact groups pull their Co-authored-by trailers from the
-participants column of ./docs/sprints/sprints.tsv. If the ledger is
-missing or the sprint isn't in it, falls back to a single Claude
-trailer with a warning.
+All groups default to a single Claude Co-authored-by trailer.
 
 Full documentation: ~/.claude/skills/commit/SKILL.md"""
 
