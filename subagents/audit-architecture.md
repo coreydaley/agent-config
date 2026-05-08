@@ -8,7 +8,7 @@ description: Dual-agent architecture audit — Claude and Codex review structura
 You are orchestrating a dual-agent architecture audit that produces an
 findings report. Claude and Codex review independently,
 findings are synthesized, Codex attacks the synthesis, and the final
-output is a sprint document written to `$REPORT_DIR/$REPORT_TS-audit-architecture-report.md`.
+output is a sprint document written to `$AUDIT_DIR/REPORT.md`.
 
 The scope to audit is provided in your input prompt. If no scope is
 specified, audit the current working directory.
@@ -52,7 +52,7 @@ This is a **5-phase workflow**:
 4. **Devil's Advocate** — Codex attacks the synthesis for false positives
    (including intentional design choices), severity miscalibrations,
    missing findings, and impractical alternatives
-5. **Report Output** — Produce `$REPORT_DIR/$REPORT_TS-audit-architecture-report.md` with findings as tasks for human review;
+5. **Report Output** — Produce `$AUDIT_DIR/REPORT.md` with findings as tasks for human review;
    present to user for review
 
 ---
@@ -130,20 +130,24 @@ for pre-existing audit artifacts, and determine the output location.
 
 3. **Determine output location**:
    ```bash
-   REPORT_DIR=~/Reports/$(pwd | sed 's|.*/Code/||')
+   REMOTE=$(git remote get-url upstream 2>/dev/null || git remote get-url origin 2>/dev/null || echo "")
+   ORG_REPO=$(echo "$REMOTE" | sed 's|.*github\.com[:/]||; s|\.git$||')
+   REPORTS_BASE="$HOME/Reports/$ORG_REPO"
    REPORT_TS=$(date +%Y-%m-%dT%H-%M-%S)
-   mkdir -p $REPORT_DIR
+   AUDIT_DIR="$REPORTS_BASE/audits/$REPORT_TS-architecture"
+   mkdir -p "$AUDIT_DIR"
    ```
-   Before proceeding: check whether `$REPORT_DIR/$REPORT_TS-audit-architecture-*.md`
-   files already exist. If they do, warn the user and stop — do not
-   silently overwrite a previous audit run.
+   Each audit run gets its own timestamped folder under
+   `~/Reports/<org>/<repo>/audits/`, matching the layout
+   `/sprint-plan` uses for sprint sessions. All audit artifacts
+   for this run live in `$AUDIT_DIR`.
 
 ### Orient Deliverable
 
 A brief orientation note (3-5 bullets) covering:
 - Resolved scope path(s) and what is included/excluded
 - Key module boundaries and structural patterns identified
-- The report output directory (`REPORT_DIR`) and timestamp prefix (`REPORT_TS`)
+- Audit output directory (`AUDIT_DIR`) — all artifacts for this audit run live here
 - Any immediately obvious high-priority structural areas
 
 ---
@@ -155,12 +159,12 @@ cross-contamination.
 
 ### Step 1 — Launch Codex in Background
 
-Run this command, substituting the resolved scope and the literal values of `REPORT_DIR` and `REPORT_TS`.
+Run this command, substituting the resolved scope and the literal value of `AUDIT_DIR`.
 The output path and resolved scope path must be embedded literally (not as shell variables):
 
 ```bash
 codex exec "Perform a thorough architecture review of [RESOLVED_SCOPE]. \
-  Write all findings to $REPORT_DIR/$REPORT_TS-audit-architecture-codex.md using this \
+  Write all findings to $AUDIT_DIR/codex.md using this \
   exact table format for each finding: \
   | ID | Severity | Title | Location | Pattern/Principle | Why It Matters | \
   Alternative | Migration Cost | Recommended Fix | Evidence/Notes | \
@@ -191,14 +195,14 @@ codex exec "Perform a thorough architecture review of [RESOLVED_SCOPE]. \
   extensibility, or create systematic debt? \
   Exclude from scope: build/, dist/, lockfiles, vendored/third-party code, \
   generated files, binary assets. \
-  Only write to $REPORT_DIR/. Do not run shell commands beyond \
+  Only write to $AUDIT_DIR/. Do not run shell commands beyond \
   reading files. Do not read or reference any other review file."
 ```
 
 ### Step 2 — Claude's Independent Review (Simultaneous)
 
 While Codex runs, write your own independent architecture review to
-`$REPORT_DIR/$REPORT_TS-audit-architecture-claude.md` using the same finding schema
+`$AUDIT_DIR/claude.md` using the same finding schema
 (ID prefix `A`). Cover the same 7 categories:
 
 1. **Module boundaries and separation of concerns**
@@ -243,7 +247,7 @@ severity and confidence.
      extensibility, defect rate
    - Do not automatically escalate because both reviewers flagged the same issue
 
-4. **Write synthesis** to `$REPORT_DIR/$REPORT_TS-audit-architecture-synthesis.md`:
+4. **Write synthesis** to `$AUDIT_DIR/synthesis.md`:
 
    ```markdown
    # Architecture Audit Synthesis — [REPORT_TS]
@@ -275,16 +279,16 @@ intentional design choices), severity miscalibrations, missed findings,
 and impractical alternatives.
 
 ```bash
-codex exec "Read $REPORT_DIR/$REPORT_TS-audit-architecture-synthesis.md. Your job is \
+codex exec "Read $AUDIT_DIR/synthesis.md. Your job is \
   to attack it, not improve it. Write your challenge to \
-  $REPORT_DIR/$REPORT_TS-audit-architecture-devils-advocate.md covering: \
+  $AUDIT_DIR/devils-advocate.md covering: \
   (1) False positives — 'violations' that are intentional design decisions \
   appropriate for this project's scale or constraints. \
   (2) Severity miscalibrations — findings rated too high or too low. \
   (3) Missing findings — structural issues both reviewers missed. \
   (4) Alternatives that are impractical or have misestimated migration cost. \
   Be specific. Every challenge must cite the finding ID. \
-  Only write to $REPORT_DIR/. Do not run shell commands beyond reading files."
+  Only write to $AUDIT_DIR/. Do not run shell commands beyond reading files."
 ```
 
 Incorporate valid challenges: remove false positives, recalibrate severity,
@@ -315,7 +319,7 @@ Tasks must be scoped to specific, enumerable changes.
 
 ### Write the Sprint
 
-Create `$REPORT_DIR/$REPORT_TS-audit-architecture-report.md`:
+Create `$AUDIT_DIR/REPORT.md`:
 
 ```markdown
 # Architecture Audit — [scope] ([YYYY-MM-DD])
@@ -360,30 +364,38 @@ validation before execution.]
 - P0 tasks with Migration Cost=High require team alignment before implementation
 
 ## Dependencies
-- Audit intermediate files: `$REPORT_DIR/$REPORT_TS-audit-architecture-*.md`
+- Audit intermediate files: `$AUDIT_DIR/{claude,codex,synthesis,devils-advocate}.md`
 ```
 
 ### Hand Off
 
-   > ✅ Architecture audit complete. Sprint at `$REPORT_DIR/$REPORT_TS-audit-architecture-report.md`.
+   > ✅ Architecture audit complete.
    >
-   > **Important**: architecture findings are LLM hypotheses — validate
-   > each P0/P1 finding against team knowledge before executing tasks.
+   > **Report:** <literal absolute path to $AUDIT_DIR/REPORT.md>
    >
-   > **Run /sprint-plan against this report to create an actionable sprint when ready.
-   > Migration Cost=High require team alignment before implementation.
+   > **Next:** Run `/sprint-plan` against the report to create an actionable sprint:
+   >
+   > ```
+   > /sprint-plan <literal absolute path>
+   > ```
+   >
+   > **Important**: architecture findings are LLM hypotheses — validate each P0/P1 finding against team knowledge before executing tasks. Migration Cost=High items require team alignment before implementation.
+
+Substitute the literal absolute path of `$AUDIT_DIR/REPORT.md`
+(e.g. `/Users/corey/Reports/myorg/myrepo/audits/2026-04-22T10-30-00-architecture/REPORT.md`)
+so the user can copy-paste the `/sprint-plan` command directly.
 
 ---
 
 ## Output Checklist
 
-- [ ] `$REPORT_DIR/$REPORT_TS-audit-architecture-claude.md` — finding schema with extension columns, ID prefix A
-- [ ] `$REPORT_DIR/$REPORT_TS-audit-architecture-codex.md` — finding schema with extension columns, ID prefix C
+- [ ] `$AUDIT_DIR/claude.md` — finding schema with extension columns, ID prefix A
+- [ ] `$AUDIT_DIR/codex.md` — finding schema with extension columns, ID prefix C
 - [ ] Both non-empty (or single-agent warning in synthesis)
-- [ ] `$REPORT_DIR/$REPORT_TS-audit-architecture-synthesis.md` — canonical S-prefix IDs, all extension columns preserved
-- [ ] `$REPORT_DIR/$REPORT_TS-audit-architecture-devils-advocate.md` — Codex challenge complete
+- [ ] `$AUDIT_DIR/synthesis.md` — canonical S-prefix IDs, all extension columns preserved
+- [ ] `$AUDIT_DIR/devils-advocate.md` — Codex challenge complete
 - [ ] Valid challenges incorporated; every rejection documented with reasoning
-- [ ] `$REPORT_DIR/$REPORT_TS-audit-architecture-report.md` — P0/P1/Deferred tiering
+- [ ] `$AUDIT_DIR/REPORT.md` — P0/P1/Deferred tiering
 - [ ] High + Migration Cost=High tasks include "requires team alignment" note
 - [ ] No-findings case handled
 - [ ] No raw user input text in any Codex exec prompt

@@ -1,0 +1,39 @@
+// Commit state machine.
+//
+// Source of truth for the /commit skill. The walker (Claude, per
+// SKILL.md) reads each node's prose from nodes/<id>.md, performs the
+// work, evaluates the outgoing edges' conditions, and transitions via
+// scripts/walk.sh.
+//
+// Render to SVG with scripts/render.sh. Validate with scripts/validate.py.
+
+digraph commit {
+    rankdir=TB;
+    bgcolor="white";
+    node  [fontname="Helvetica", fontsize=11];
+    edge  [fontname="Helvetica", fontsize=9];
+
+    // -- Process nodes (rounded boxes, light blue) ----------------------
+    init           [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                    label="init\n(set up walker state)"];
+    build_plan     [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                    label="build-plan\n(run commit.py, parse JSON,\nsurface warnings)"];
+    commit_groups  [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                    label="commit-groups\n(walk groups in commit_order,\nstage, write message, commit)"];
+    show_result    [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                    label="show-result\n(git log --oneline -50)"];
+
+    // -- Terminal node (green double-circle) ---------------------------
+    terminal       [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
+                    label="terminal"];
+
+    // -- Edges ---------------------------------------------------------
+    // Single-outgoing edges (no condition needed).
+    init          -> build_plan;
+    commit_groups -> show_result;
+    show_result   -> terminal;
+
+    // build-plan: any groups to commit?
+    build_plan -> commit_groups [label="groups_present"];
+    build_plan -> terminal      [label="no_groups"];
+}

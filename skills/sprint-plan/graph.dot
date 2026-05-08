@@ -1,0 +1,92 @@
+// Sprint Plan state machine.
+//
+// Source of truth for the /sprint-plan skill. Multi-agent collaborative
+// planning with strict orchestrator/worker separation. Drafts,
+// critiques, and reviews are delegated to fresh workers (orch-side
+// subagents and opposite-side codex/claude invocations) so no context
+// judges its own output. The walker (Claude, per SKILL.md) reads each
+// node's prose from nodes/<id>.md, performs the work, evaluates the
+// outgoing edges' conditions, and transitions via scripts/walk.sh.
+//
+// Render to SVG with scripts/render.sh. Validate with scripts/validate.py.
+
+digraph sprint_plan {
+    rankdir=TB;
+    bgcolor="white";
+    node  [fontname="Helvetica", fontsize=11];
+    edge  [fontname="Helvetica", fontsize=9];
+
+    // -- Process nodes (rounded boxes, light blue) ----------------------
+    init                 [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="init\n(parse args + flags)"];
+    orient               [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="orient\n(project state, ledger,\nrecent sprints, tier assessment)"];
+    intent               [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="intent\n(write intent.md;\nsurface area decisions baked in)"];
+    dry_exit             [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="dry-exit\n(--dry: print preview,\nstop)"];
+    draft                [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="draft\n(parallel orch + opposite\ndrafts, wait for both)"];
+    critique             [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="critique\n(parallel symmetric critiques\nof both drafts)"];
+    merge                [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="merge\n(synthesize SPRINT.md or promote;\nsizing gate inline)"];
+    reviews              [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="reviews\n(parallel enabled lenses,\nrouted by expert side)"];
+    incorporate_findings [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="incorporate-findings\n(patch review findings\ninto SPRINT.md)"];
+    recommend_execution  [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="recommend-execution\n(write Recommended Execution +\nDoR pre-flight)"];
+    discuss_finalize     [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="discuss-finalize\n(iterate on SPRINT.md,\nback to ask-approval)"];
+    register             [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="register\n(ledger entry +\nparticipants list)"];
+
+    // -- User-input node (escalate-shaped diamonds) --------------------
+    phase_selection      [shape=diamond, style=filled, fillcolor="#ffccbc",
+                          label="phase-selection\n(Auto / Full / Base / Custom;\nor flag-skip)"];
+    ask_spike            [shape=diamond, style=filled, fillcolor="#ffccbc",
+                          label="ask-spike\n(spike / accept-risk /\nnarrow-scope / cancel)"];
+    ask_approval         [shape=diamond, style=filled, fillcolor="#ffccbc",
+                          label="ask-approval\n(approve / revise / cancel)"];
+
+    // -- Terminal node (green double-circle) ---------------------------
+    terminal             [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
+                          label="terminal"];
+
+    // -- Edges ---------------------------------------------------------
+    // Single-outgoing edges (no condition needed).
+    init                -> orient;
+    orient              -> phase_selection;
+    phase_selection     -> intent;
+    dry_exit            -> terminal;
+    critique            -> merge;
+    merge               -> reviews;
+    reviews             -> incorporate_findings;
+    recommend_execution -> ask_approval;
+    register            -> terminal;
+
+    // intent: --dry exit or proceed to drafts.
+    intent -> dry_exit [label="dry_run"];
+    intent -> draft    [label="normal"];
+
+    // draft: 5b ran (merge mode) or skipped (promote mode).
+    draft -> critique [label="merge_mode"];
+    draft -> merge    [label="promote_mode"];
+
+    // incorporate-findings: spike escape hatch or proceed.
+    incorporate_findings -> ask_spike            [label="high_uncertainty"];
+    incorporate_findings -> recommend_execution  [label="normal"];
+
+    // ask-spike: user picks one of three (all → recommend) or cancels.
+    ask_spike -> recommend_execution [label="user_chose"];
+    ask_spike -> terminal            [label="user_cancel"];
+
+    // ask-approval: approve, revise (loop), or cancel.
+    ask_approval -> register         [label="user_approve"];
+    ask_approval -> discuss_finalize [label="user_revise"];
+    ask_approval -> terminal         [label="user_cancel"];
+
+    // discuss-finalize: loop back.
+    discuss_finalize -> ask_approval [label="discussion_done"];
+}

@@ -8,7 +8,7 @@ description: Dual-agent security audit — Claude and Codex review independently
 You are orchestrating a dual-agent security audit that produces an
 findings report. Claude and Codex review independently,
 findings are synthesized, Codex attacks the synthesis, and the final
-output is a sprint document written to `$REPORT_DIR/$REPORT_TS-audit-security-report.md`.
+output is a sprint document written to `$AUDIT_DIR/REPORT.md`.
 
 The scope to audit is provided in your input prompt. If no scope is
 specified, audit the current working directory.
@@ -34,7 +34,7 @@ This is a **5-phase workflow**:
    incorporate devil's advocate challenges
 4. **Devil's Advocate** — Codex attacks the synthesis for false positives,
    severity miscalibrations, and gaps
-5. **Report Output** — Produce `$REPORT_DIR/$REPORT_TS-audit-security-report.md` with findings as tasks for human review;
+5. **Report Output** — Produce `$AUDIT_DIR/REPORT.md` with findings as tasks for human review;
    present to user for review
 
 **Inherent limitations**: This is a workflow aid for human-reviewed
@@ -95,17 +95,24 @@ and determine the output location.
 
 3. **Determine output location**:
    ```bash
-   REPORT_DIR=~/Reports/$(pwd | sed 's|.*/Code/||')
+   REMOTE=$(git remote get-url upstream 2>/dev/null || git remote get-url origin 2>/dev/null || echo "")
+   ORG_REPO=$(echo "$REMOTE" | sed 's|.*github\.com[:/]||; s|\.git$||')
+   REPORTS_BASE="$HOME/Reports/$ORG_REPO"
    REPORT_TS=$(date +%Y-%m-%dT%H-%M-%S)
-   mkdir -p $REPORT_DIR
+   AUDIT_DIR="$REPORTS_BASE/audits/$REPORT_TS-security"
+   mkdir -p "$AUDIT_DIR"
    ```
+   Each audit run gets its own timestamped folder under
+   `~/Reports/<org>/<repo>/audits/`, matching the layout
+   `/sprint-plan` uses for sprint sessions. All audit artifacts
+   for this run live in `$AUDIT_DIR`.
 
 ### Orient Deliverable
 
 A brief orientation note (3-5 bullets) covering:
 - Resolved scope and what it includes/excludes
 - Key files and trust boundaries identified
-- The report output directory (`REPORT_DIR`) and timestamp prefix (`REPORT_TS`)
+- Audit output directory (`AUDIT_DIR`) — all artifacts for this audit run live here
 - Any immediately obvious high-priority areas
 
 ---
@@ -117,11 +124,11 @@ contamination.
 
 ### Step 1 — Launch Codex in Background
 
-Run this command, substituting the resolved scope and the literal values of `REPORT_DIR` and `REPORT_TS`:
+Run this command, substituting the resolved scope and the literal value of `AUDIT_DIR`:
 
 ```bash
 codex exec "Perform a thorough security review of [RESOLVED_SCOPE]. \
-  Write all findings to $REPORT_DIR/$REPORT_TS-audit-security-codex.md using this \
+  Write all findings to $AUDIT_DIR/codex.md using this \
   exact table format for each finding: \
   | ID | Severity | Title | Location | Why It Matters | Recommended Fix | Evidence/Notes | \
   where ID uses prefix C (e.g. C001, C002). \
@@ -146,7 +153,7 @@ codex exec "Perform a thorough security review of [RESOLVED_SCOPE]. \
 ### Step 2 — Claude's Independent Review (Simultaneous)
 
 While Codex runs, write your own independent security review to
-`$REPORT_DIR/$REPORT_TS-audit-security-claude.md` using the same finding schema
+`$AUDIT_DIR/claude.md` using the same finding schema
 (ID prefix `A`). Cover the same six categories:
 
 1. **Attack surface** — new inputs, APIs, trust boundaries
@@ -175,12 +182,12 @@ severity and confidence.
 ### Synthesis Steps
 
 1. **Verify both reviews exist and are non-empty**:
-   - Check `$REPORT_DIR/$REPORT_TS-audit-security-claude.md` and
-     `$REPORT_DIR/$REPORT_TS-audit-security-codex.md` exist and contain at least
+   - Check `$AUDIT_DIR/claude.md` and
+     `$AUDIT_DIR/codex.md` exist and contain at least
      one finding row
    - If one file is missing or empty: proceed with single-agent
      synthesis and add a prominent warning at the top of
-     `$REPORT_TS-audit-security-synthesis.md`: "⚠️ Single-agent synthesis — [agent]
+     `$AUDIT_DIR/synthesis.md`: "⚠️ Single-agent synthesis — [agent]
      review was unavailable. Coverage may be incomplete."
 
 2. **Deduplicate findings**:
@@ -201,7 +208,7 @@ severity and confidence.
 
 4. **Write synthesis**:
 
-   Write `$REPORT_DIR/$REPORT_TS-audit-security-synthesis.md`:
+   Write `$AUDIT_DIR/synthesis.md`:
 
    ```markdown
    # Security Audit Synthesis — [REPORT_TS]
@@ -225,7 +232,7 @@ severity and confidence.
    they are retained or dropped]
    ```
 
-Phase 3 is complete when `$REPORT_TS-audit-security-synthesis.md` is written.
+Phase 3 is complete when `$AUDIT_DIR/synthesis.md` is written.
 
 ---
 
@@ -237,9 +244,9 @@ miscalibrations, and missed findings.
 ### Step 1 — Launch Codex Devil's Advocate
 
 ```bash
-codex exec "Read $REPORT_DIR/$REPORT_TS-audit-security-synthesis.md. Your job is \
+codex exec "Read $AUDIT_DIR/synthesis.md. Your job is \
   to attack it, not improve it. Write your challenge to \
-  $REPORT_DIR/$REPORT_TS-audit-security-devils-advocate.md covering: \
+  $AUDIT_DIR/devils-advocate.md covering: \
   (1) False positives — findings that are not actually exploitable \
   in this specific codebase context. \
   (2) Severity miscalibrations — findings rated too high or too low \
@@ -251,14 +258,14 @@ codex exec "Read $REPORT_DIR/$REPORT_TS-audit-security-synthesis.md. Your job is
 
 ### Step 2 — Incorporate Valid Challenges
 
-Once `$REPORT_TS-audit-security-devils-advocate.md` is written, read it and:
+Once `$AUDIT_DIR/devils-advocate.md` is written, read it and:
 
 - **Remove** confirmed false positives from the working finding list
 - **Recalibrate** severity where the challenge is valid and evidence
   supports it
 - **Add** genuinely missed findings with new synthesis IDs
 - **Document every rejected challenge** in a "Rejected Challenges"
-  section at the bottom of `$REPORT_TS-audit-security-synthesis.md`:
+  section at the bottom of `$AUDIT_DIR/synthesis.md`:
 
   ```markdown
   ## Rejected Devil's Advocate Challenges
@@ -275,7 +282,7 @@ are documented.
 
 ## Phase 5: Report Output
 
-**Goal**: Produce an findings report at `$REPORT_DIR/$REPORT_TS-audit-security-report.md` with
+**Goal**: Produce an findings report at `$AUDIT_DIR/REPORT.md` with
 security findings as tasks.
 
 ### Sprint Mapping Rules
@@ -304,7 +311,7 @@ If the synthesis contains zero findings after Phase 4:
 
 ### Write the Sprint
 
-Create `$REPORT_DIR/$REPORT_TS-audit-security-report.md`:
+Create `$AUDIT_DIR/REPORT.md`:
 
 ```markdown
 # Security Audit — [scope] ([YYYY-MM-DD])
@@ -326,7 +333,7 @@ deployment-context-specific risk.]
 | Low | N |
 | Total | N |
 
-Intermediate audit artifacts: `$REPORT_DIR/$REPORT_TS-audit-security-claude.md`, `$REPORT_DIR/$REPORT_TS-audit-security-codex.md`, `$REPORT_DIR/$REPORT_TS-audit-security-synthesis.md`, `$REPORT_DIR/$REPORT_TS-audit-security-devils-advocate.md`
+Intermediate audit artifacts: `$AUDIT_DIR/claude.md`, `$AUDIT_DIR/codex.md`, `$AUDIT_DIR/synthesis.md`, `$AUDIT_DIR/devils-advocate.md`
 
 ## Implementation Plan
 
@@ -365,19 +372,28 @@ Intermediate audit artifacts: `$REPORT_DIR/$REPORT_TS-audit-security-claude.md`,
 
 ## Dependencies
 
-- Audit intermediate files: `$REPORT_DIR/$REPORT_TS-audit-security-claude.md`, `$REPORT_DIR/$REPORT_TS-audit-security-codex.md`, `$REPORT_DIR/$REPORT_TS-audit-security-synthesis.md`, `$REPORT_DIR/$REPORT_TS-audit-security-devils-advocate.md`
+- Audit intermediate files: `$AUDIT_DIR/claude.md`, `$AUDIT_DIR/codex.md`, `$AUDIT_DIR/synthesis.md`, `$AUDIT_DIR/devils-advocate.md`
 ```
 
 ### Register and Hand Off
 
 Inform the user:
 
-   > ✅ Security audit complete. The sprint document has been created at
-   > `$REPORT_DIR/$REPORT_TS-audit-security-report.md`.
+   > ✅ Security audit complete.
    >
-   > **Run /sprint-plan against this report to create an actionable sprint when ready.
-   > that file — some security remediations depend on others and
-   > must be sequenced correctly.
+   > **Report:** <literal absolute path to $AUDIT_DIR/REPORT.md>
+   >
+   > **Next:** Run `/sprint-plan` against the report to create an actionable sprint:
+   >
+   > ```
+   > /sprint-plan <literal absolute path>
+   > ```
+   >
+   > **Note:** Some security remediations depend on others and must be sequenced correctly — review the task ordering before executing.
+
+Substitute the literal absolute path of `$AUDIT_DIR/REPORT.md`
+(e.g. `/Users/corey/Reports/myorg/myrepo/audits/2026-04-22T10-30-00-security/REPORT.md`)
+so the user can copy-paste the `/sprint-plan` command directly.
 
 ---
 
@@ -385,14 +401,14 @@ Inform the user:
 
 At the end of this workflow, verify:
 
-- [ ] `$REPORT_DIR/$REPORT_TS-audit-security-claude.md` — written using finding schema, ID prefix A
-- [ ] `$REPORT_DIR/$REPORT_TS-audit-security-codex.md` — written using finding schema, ID prefix C
+- [ ] `$AUDIT_DIR/claude.md` — written using finding schema, ID prefix A
+- [ ] `$AUDIT_DIR/codex.md` — written using finding schema, ID prefix C
 - [ ] Both files are non-empty (or single-agent warning added to synthesis)
-- [ ] `$REPORT_DIR/$REPORT_TS-audit-security-synthesis.md` — unified findings with canonical S-prefix IDs
-- [ ] `$REPORT_DIR/$REPORT_TS-audit-security-devils-advocate.md` — Codex challenge complete
+- [ ] `$AUDIT_DIR/synthesis.md` — unified findings with canonical S-prefix IDs
+- [ ] `$AUDIT_DIR/devils-advocate.md` — Codex challenge complete
 - [ ] Valid devil's advocate challenges incorporated into synthesis
 - [ ] Rejected challenges documented with reasoning in synthesis
-- [ ] `$REPORT_DIR/$REPORT_TS-audit-security-report.md` — written with P0/P1/Deferred tiering
+- [ ] `$AUDIT_DIR/REPORT.md` — written with P0/P1/Deferred tiering
 - [ ] Each P0/P1 task has: finding ID, location, issue, remediation, verification
 - [ ] No-findings case handled if applicable
 - [ ] Task ordering note included in sprint Security Considerations
@@ -403,4 +419,4 @@ At the end of this workflow, verify:
 ## Reference
 
 - Report output: `~/Reports/<repo-path>/` (derived from pwd)
-- Security audit artifacts: `$REPORT_DIR/$REPORT_TS-audit-security-*.md`
+- Security audit artifacts: `$AUDIT_DIR/{claude,codex,synthesis,devils-advocate,REPORT}.md`

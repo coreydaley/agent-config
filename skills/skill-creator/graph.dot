@@ -1,0 +1,95 @@
+/*
+ * skill-creator state machine.
+ *
+ * Walks the user through authoring a new skill in agent-config:
+ *   1. Discuss what the skill does (examples, triggers, scope).
+ *   2. Decide pattern: graph-driven (multi-phase workflow) or
+ *      cli-wrapper (cheat sheet for a CLI tool).
+ *   3. For graph-driven: sketch topology, get approval, scaffold,
+ *      write graph.dot + nodes/* + SKILL.md, validate, smoke-test.
+ *   4. For cli-wrapper: scaffold SKILL.md skeleton, author content
+ *      and any references/.
+ *   5. Final approval gate with iterate-or-cancel; on approve,
+ *      hand off to the user (no auto-commit).
+ *
+ * Reference doc: docs/DOT-GRAPH-SKILL-PATTERN.md
+ */
+
+digraph skill_creator {
+  rankdir=TB;
+  node [fontname="Helvetica", fontsize=11];
+  edge [fontname="Helvetica", fontsize=10];
+
+  // ---- Process nodes (light blue) ----
+  init                 [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                        label="init\n(parse args, set paths)"];
+  discuss_skill        [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                        label="discuss-skill\n(kickoff + examples, triggers, scope)"];
+  sketch_topology      [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                        label="sketch-topology\n(propose nodes, edges, gates)"];
+  discuss_topology     [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                        label="discuss-topology\n(iterate on the proposal)"];
+  scaffold_graph       [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                        label="scaffold-graph\n(mkdir + copy walk.sh/render.sh/validate.py)"];
+  write_graph          [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                        label="write-graph\n(graph.dot, nodes/*.md, SKILL.md)"];
+  verify_graph         [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                        label="verify-graph\n(validate.py + render.sh + walker smoke-test)"];
+  scaffold_cli_wrapper [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                        label="scaffold-cli-wrapper\n(mkdir + SKILL.md skeleton)"];
+  write_cli_wrapper    [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                        label="write-cli-wrapper\n(SKILL.md content + optional references)"];
+  iterate              [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                        label="iterate\n(apply user-requested revisions)"];
+  summarize            [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                        label="summarize\n(hand-off message)"];
+
+  // ---- User-input nodes (coral) ----
+  ask_wrap_up           [shape=diamond, style=filled, fillcolor="#ffccbc",
+                         label="ask-wrap-up\n(continue / done / cancel)"];
+  decide_pattern        [shape=diamond, style=filled, fillcolor="#ffccbc",
+                         label="decide-pattern\n(graph / cli-wrapper / cancel)"];
+  ask_topology_approval [shape=diamond, style=filled, fillcolor="#ffccbc",
+                         label="ask-topology-approval\n(approve / discuss / cancel)"];
+  ask_final_approval    [shape=diamond, style=filled, fillcolor="#ffccbc",
+                         label="ask-final-approval\n(approve / iterate / cancel)"];
+
+  // ---- Terminal (green double-circle) ----
+  terminal             [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
+                        label="terminal"];
+
+  // ---- Edges ----
+  init -> discuss_skill;
+  discuss_skill -> ask_wrap_up;
+
+  ask_wrap_up -> discuss_skill   [label="user_continue"];
+  ask_wrap_up -> decide_pattern  [label="user_done"];
+  ask_wrap_up -> summarize       [label="user_cancel"];
+
+  decide_pattern -> sketch_topology       [label="graph_driven"];
+  decide_pattern -> scaffold_cli_wrapper  [label="cli_wrapper"];
+  decide_pattern -> summarize             [label="user_cancel"];
+
+  sketch_topology -> ask_topology_approval;
+
+  ask_topology_approval -> discuss_topology [label="user_discuss"];
+  ask_topology_approval -> scaffold_graph   [label="user_approve"];
+  ask_topology_approval -> summarize        [label="user_cancel"];
+
+  discuss_topology -> ask_topology_approval [label="discussion_done"];
+
+  scaffold_graph -> write_graph;
+  write_graph -> verify_graph;
+  verify_graph -> ask_final_approval;
+
+  scaffold_cli_wrapper -> write_cli_wrapper;
+  write_cli_wrapper -> ask_final_approval;
+
+  ask_final_approval -> iterate    [label="user_iterate"];
+  ask_final_approval -> summarize  [label="user_approve"];
+  ask_final_approval -> summarize  [label="user_cancel"];
+
+  iterate -> ask_final_approval [label="revisions_applied"];
+
+  summarize -> terminal;
+}

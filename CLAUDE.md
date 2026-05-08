@@ -75,6 +75,23 @@ from sprint_ledger import SprintEntry, SprintLedger, get_ledger_path  # etc.
 
 Currently:
 - `sprint_ledger.py` — shared data model and display helpers for the sprint ledger, used by the `sprints` skill and the `commit` skill.
+- `commit.py` — shared helpers for the `commit` skill.
+- `graph_walker.py` — generic graph walker used by all dot-graph skills (see `docs/DOT-GRAPH-SKILL-PATTERN.md`). Reads a skill's `graph.dot`, validates transitions against the graph, and persists per-run state to a JSON file. Skills wrap it via their own `scripts/walk.sh`.
+- `codex-invocation.md` — canonical pattern for `codex exec` invocations used in parallel-delegation nodes (sprint-plan, review-pr-comprehensive, sprint-self-review, audit-* subagents).
+- `external-content-handling.md` — copy-paste boilerplate that skills fetching untrusted external content (Linear, GitHub, web pages, etc.) include verbatim in their `SKILL.md`.
+- `test_sprint_ledger.py` — unit tests for `sprint_ledger.py`.
+
+## Skill patterns
+
+Skills with multi-phase workflows (review pipelines, sprint planning, address-feedback loops) use the **dot-graph skill pattern**: the flow is a `graph.dot` with per-node markdown sidecars under `nodes/`, walked deterministically by `lib/graph_walker.py`. The graph is the source of truth — drift between prose and routing is structurally impossible. Reference: [`docs/DOT-GRAPH-SKILL-PATTERN.md`](docs/DOT-GRAPH-SKILL-PATTERN.md).
+
+Skills currently on this pattern: `commit`, `polish-pull-request`, `review-address-feedback`, `review-pr-comprehensive`, `review-pr-simple`, `sprint-plan`, `sprint-plan-to-linear`, `sprint-seed`, `sprint-self-review`, `sprint-work`. CLI-wrapper skills (`gh`, `gws`, `linear`, `obsidian`, `orbstack`) are not on this pattern — they're cheat sheets for one-shot operations with no internal state machine.
+
+## Sprint workflow
+
+End-to-end lifecycle for planning, executing, reviewing, and shipping work — including the SPRINT.md vs. Linear execution paths, the self-review cycle, and the artifact layout under `~/Reports/<org>/<repo>/`. See [`docs/sprints/README.md`](docs/sprints/README.md).
+
+All sprint, review, and audit artifacts live under `~/Reports/<org>/<repo>/` (derived from `upstream` remote, falling back to `origin`). Nothing is written into the project repo.
 
 ## Subagents
 

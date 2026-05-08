@@ -8,7 +8,7 @@ description: Dual-agent design audit — Claude and Codex review UI/UX independe
 You are orchestrating a dual-agent design audit that produces an
 findings report. Claude and Codex review independently,
 findings are synthesized, Codex attacks the synthesis, and the final
-output is a sprint document written to `$REPORT_DIR/$REPORT_TS-audit-design-report.md`.
+output is a sprint document written to `$AUDIT_DIR/REPORT.md`.
 
 The scope to audit is provided in your input prompt. If no scope is
 specified, audit the current working directory.
@@ -44,7 +44,7 @@ This is a **5-phase workflow**:
    calibrate severity
 4. **Devil's Advocate** — Codex attacks the synthesis for false positives,
    severity miscalibrations, and gaps
-5. **Report Output** — Produce `$REPORT_DIR/$REPORT_TS-audit-design-report.md` with findings as tasks for human review;
+5. **Report Output** — Produce `$AUDIT_DIR/REPORT.md` with findings as tasks for human review;
    present to user for review
 
 ---
@@ -109,11 +109,18 @@ the output location.
 
 4. **Determine output location**:
    ```bash
-   REPORT_DIR=~/Reports/$(pwd | sed 's|.*/Code/||')
+   REMOTE=$(git remote get-url upstream 2>/dev/null || git remote get-url origin 2>/dev/null || echo "")
+   ORG_REPO=$(echo "$REMOTE" | sed 's|.*github\.com[:/]||; s|\.git$||')
+   REPORTS_BASE="$HOME/Reports/$ORG_REPO"
    REPORT_TS=$(date +%Y-%m-%dT%H-%M-%S)
-   mkdir -p $REPORT_DIR
+   AUDIT_DIR="$REPORTS_BASE/audits/$REPORT_TS-design"
+   mkdir -p "$AUDIT_DIR"
    ```
-   Create this before launching Codex in Phase 2.
+   Each audit run gets its own timestamped folder under
+   `~/Reports/<org>/<repo>/audits/`, matching the layout
+   `/sprint-plan` uses for sprint sessions. All audit artifacts
+   for this run live in `$AUDIT_DIR`. Create this before launching
+   Codex in Phase 2.
 
 ### Orient Deliverable
 
@@ -121,7 +128,7 @@ A brief orientation note (3-5 bullets) covering:
 - Resolved scope and what it includes/excludes
 - Frontend file types and count identified
 - Any design system or token files found
-- The report output directory (`REPORT_DIR`) and timestamp prefix (`REPORT_TS`)
+- Audit output directory (`AUDIT_DIR`) — all artifacts for this audit run live here
 
 ---
 
@@ -131,11 +138,11 @@ A brief orientation note (3-5 bullets) covering:
 
 ### Step 1 — Launch Codex in Background
 
-Run this command, substituting the resolved scope and the literal values of `REPORT_DIR` and `REPORT_TS`:
+Run this command, substituting the resolved scope and the literal value of `AUDIT_DIR`:
 
 ```bash
 codex exec "Perform a thorough design and UX review of [RESOLVED_SCOPE]. \
-  Write all findings to $REPORT_DIR/$REPORT_TS-audit-design-codex.md using this \
+  Write all findings to $AUDIT_DIR/codex.md using this \
   exact table format for each finding: \
   | ID | Severity | Title | Location | Heuristic | Why It Matters | Recommended Fix | Evidence/Notes | \
   where ID uses prefix C (e.g. C001, C002). \
@@ -165,7 +172,7 @@ codex exec "Perform a thorough design and UX review of [RESOLVED_SCOPE]. \
 ### Step 2 — Claude's Independent Review (Simultaneous)
 
 While Codex runs, write your own independent design review to
-`$REPORT_DIR/$REPORT_TS-audit-design-claude.md` using the same finding schema
+`$AUDIT_DIR/claude.md` using the same finding schema
 (ID prefix `A`). Cover the same seven categories:
 
 1. **Layout and visual hierarchy**
@@ -207,7 +214,7 @@ severity and confidence.
      severity, cost of inconsistency
    - Distinguish between aesthetic opinion and user-impact evidence
 
-4. **Write synthesis** to `$REPORT_DIR/$REPORT_TS-audit-design-synthesis.md`:
+4. **Write synthesis** to `$AUDIT_DIR/synthesis.md`:
 
    ```markdown
    # Design Audit Synthesis — [REPORT_TS]
@@ -235,9 +242,9 @@ severity and confidence.
 miscalibrations, and missed findings.
 
 ```bash
-codex exec "Read $REPORT_DIR/$REPORT_TS-audit-design-synthesis.md. Your job is \
+codex exec "Read $AUDIT_DIR/synthesis.md. Your job is \
   to attack it, not improve it. Write your challenge to \
-  $REPORT_DIR/$REPORT_TS-audit-design-devils-advocate.md covering: \
+  $AUDIT_DIR/devils-advocate.md covering: \
   (1) False positives — findings that reflect intentional design \
   choices rather than actual problems. \
   (2) Severity miscalibrations — findings rated too high or too low \
@@ -269,7 +276,7 @@ issue description, remediation, heuristic reference, verification step.
 
 ### Write the Sprint
 
-Create `$REPORT_DIR/$REPORT_TS-audit-design-report.md`:
+Create `$AUDIT_DIR/REPORT.md`:
 
 ```markdown
 # Design Audit — [scope] ([YYYY-MM-DD])
@@ -305,27 +312,38 @@ validate visual rendering or dynamic interaction without browser testing.]
 - [ ] No new design inconsistencies introduced
 
 ## Dependencies
-- Audit intermediate files: `$REPORT_DIR/$REPORT_TS-audit-design-*.md`
+- Audit intermediate files: `$AUDIT_DIR/{claude,codex,synthesis,devils-advocate}.md`
 ```
 
 ### Hand Off
 
-   > ✅ Design audit complete. Sprint at `$REPORT_DIR/$REPORT_TS-audit-design-report.md`.
+   > ✅ Design audit complete.
    >
-   > **Run /sprint-plan against this report to create an actionable sprint when ready.
-   > some design remediations may depend on shared tokens or components.
+   > **Report:** <literal absolute path to $AUDIT_DIR/REPORT.md>
+   >
+   > **Next:** Run `/sprint-plan` against the report to create an actionable sprint:
+   >
+   > ```
+   > /sprint-plan <literal absolute path>
+   > ```
+   >
+   > **Note:** Some design remediations may depend on shared tokens or components — review the task ordering before executing.
+
+Substitute the literal absolute path of `$AUDIT_DIR/REPORT.md`
+(e.g. `/Users/corey/Reports/myorg/myrepo/audits/2026-04-22T10-30-00-design/REPORT.md`)
+so the user can copy-paste the `/sprint-plan` command directly.
 
 ---
 
 ## Output Checklist
 
-- [ ] `$REPORT_DIR/$REPORT_TS-audit-design-claude.md` — finding schema, ID prefix A
-- [ ] `$REPORT_DIR/$REPORT_TS-audit-design-codex.md` — finding schema, ID prefix C
+- [ ] `$AUDIT_DIR/claude.md` — finding schema, ID prefix A
+- [ ] `$AUDIT_DIR/codex.md` — finding schema, ID prefix C
 - [ ] Both non-empty (or single-agent warning in synthesis)
-- [ ] `$REPORT_DIR/$REPORT_TS-audit-design-synthesis.md` — canonical S-prefix IDs
-- [ ] `$REPORT_DIR/$REPORT_TS-audit-design-devils-advocate.md` — Codex challenge complete
+- [ ] `$AUDIT_DIR/synthesis.md` — canonical S-prefix IDs
+- [ ] `$AUDIT_DIR/devils-advocate.md` — Codex challenge complete
 - [ ] Valid challenges incorporated; rejections documented
-- [ ] `$REPORT_DIR/$REPORT_TS-audit-design-report.md` — P0/P1/Deferred tiering
+- [ ] `$AUDIT_DIR/REPORT.md` — P0/P1/Deferred tiering
 - [ ] Each P0/P1 task has: finding ID, location, heuristic, issue, remediation, verification
 - [ ] No-findings case handled
 - [ ] No raw user input text in any Codex exec prompt
