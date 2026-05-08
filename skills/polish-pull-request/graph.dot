@@ -1,0 +1,103 @@
+// Polish PR state machine.
+//
+// Source of truth for the /polish-pull-request skill. Final-pass
+// cleanup before merge: title/body/threads (Prompt 1) and optional
+// commit + comment cleanup (Prompt 2, destructive — force-pushes).
+// The walker (Claude, per SKILL.md) reads each node's prose from
+// nodes/<id>.md, performs the work, evaluates the outgoing edges'
+// conditions, and transitions via scripts/walk.sh.
+//
+// Render to SVG with scripts/render.sh. Validate with scripts/validate.py.
+
+digraph polish_pull_request {
+    rankdir=TB;
+    bgcolor="white";
+    node  [fontname="Helvetica", fontsize=11];
+    edge  [fontname="Helvetica", fontsize=9];
+
+    // -- Process nodes (rounded boxes, light blue) ----------------------
+    init               [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                        label="init\n(parse args, set paths)"];
+    resolve_prs        [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                        label="resolve-prs\n(normalize ids,\nauto-detect multi-repo)"];
+    fetch_state        [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                        label="fetch-state\n(per-PR metadata,\nthreads, commits)"];
+    analyze            [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                        label="analyze\n(title, body, cross-links,\nthreads, commits, comments)"];
+    show_diff          [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                        label="show-diff\n(render proposals inline)"];
+    discuss_tbt        [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                        label="discuss-tbt\n(edit-first loop on\ntitle/body/threads)"];
+    apply_title_body   [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                        label="apply-title-body\n(gh pr edit + thread resolves)"];
+    apply_comments     [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                        label="apply-comments\n(Edit tool per comment,\nstage)"];
+    apply_commits      [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                        label="apply-commits\n(reset --soft, recommit groups,\nforce-with-lease)"];
+    summarize          [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                        label="summarize\n(per-PR final summary)"];
+
+    // -- Decision nodes (diamonds) -------------------------------------
+    check_state        [shape=diamond, style=filled, fillcolor="#ffe0b2",
+                        label="check-state\n(any merged/closed?)"];
+    preflight_cleanup  [shape=diamond, style=filled, fillcolor="#ffe0b2",
+                        label="preflight-cleanup\n(branch state still safe?)"];
+
+    // -- User-input nodes (escalate-shaped diamonds) -------------------
+    confirm_closed     [shape=diamond, style=filled, fillcolor="#ffccbc",
+                        label="confirm-closed\n(merged/closed PR —\nproceed?)"];
+    ask_title_body     [shape=diamond, style=filled, fillcolor="#ffccbc",
+                        label="ask-title-body\n(apply / pick / edit /\nskip / cancel)"];
+    ask_cleanup        [shape=diamond, style=filled, fillcolor="#ffccbc",
+                        label="ask-cleanup\n(both / commits-only /\ncomments-only / skip)"];
+
+    // -- Terminal node (green double-circle) ---------------------------
+    terminal           [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
+                        label="terminal"];
+
+    // -- Edges ---------------------------------------------------------
+    // Single-outgoing edges (no condition needed).
+    init        -> resolve_prs;
+    resolve_prs -> check_state;
+    fetch_state -> analyze;
+    analyze     -> show_diff;
+    show_diff   -> ask_title_body;
+    summarize   -> terminal;
+
+    // check-state: any PR merged/closed?
+    check_state -> confirm_closed [label="has_closed"];
+    check_state -> fetch_state    [label="no_closed"];
+
+    // confirm-closed: user picks proceed / cancel.
+    confirm_closed -> fetch_state [label="user_proceed"];
+    confirm_closed -> terminal    [label="user_cancel"];
+
+    // ask-title-body (Prompt 1): user picks among five.
+    ask_title_body -> discuss_tbt      [label="user_edit"];
+    ask_title_body -> apply_title_body [label="user_apply"];
+    ask_title_body -> ask_cleanup      [label="user_skip_tbt"];
+    ask_title_body -> terminal         [label="user_cancel"];
+
+    // discuss-tbt: edit loop — back to ask-title-body when done.
+    discuss_tbt -> ask_title_body [label="discussion_done"];
+
+    // apply-title-body: continue to cleanup or skip if no proposals.
+    apply_title_body -> ask_cleanup [label="has_cleanup"];
+    apply_title_body -> summarize   [label="no_cleanup"];
+
+    // ask-cleanup (Prompt 2): user picks among four.
+    ask_cleanup -> apply_comments    [label="comments_first"];
+    ask_cleanup -> preflight_cleanup [label="commits_only"];
+    ask_cleanup -> summarize         [label="user_skip"];
+
+    // apply-comments: do commits next, or wrap up?
+    apply_comments -> preflight_cleanup [label="do_commits"];
+    apply_comments -> summarize         [label="no_commits"];
+
+    // preflight-cleanup: branch state still safe to rewrite?
+    preflight_cleanup -> apply_commits [label="preflight_ok"];
+    preflight_cleanup -> summarize     [label="preflight_failed"];
+
+    // apply-commits: always to summarize.
+    apply_commits -> summarize;
+}

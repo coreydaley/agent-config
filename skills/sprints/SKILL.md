@@ -13,7 +13,7 @@ Manage the sprint ledger by running:
 python3 ${CLAUDE_SKILL_DIR}/scripts/sprints.py $ARGUMENTS
 ```
 
-The script resolves the ledger to `~/Reports/<org>/<repo>/ledger.tsv`, with `<org>/<repo>` derived from `git remote get-url origin` in the current directory. Run from a project worktree; `~/Reports/<org>/<repo>/` is created if it doesn't exist. Outside a git repo, falls back to `~/Reports/_no-repo/`.
+The script resolves the ledger to `~/Reports/<org>/<repo>/ledger.tsv`, with `<org>/<repo>` derived from the source repo (prefers `upstream`, falls back to `origin`). Run from a project worktree; `~/Reports/<org>/<repo>/` is created if it doesn't exist. Outside a git repo, falls back to `~/Reports/_no-repo/`.
 
 Sprint planning sessions live at `~/Reports/<org>/<repo>/sprints/<TS>/` where `<TS>` is `YYYY-MM-DDTHH-MM-SS`. **The session timestamp IS the sprint identifier** — there's no separate sprint number. Most commands accept a `<query>` that resolves via session-prefix or title-substring match (ambiguous queries error out with the matching list).
 

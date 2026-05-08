@@ -402,7 +402,7 @@ Modifier flags:
 
 Valid statuses: planned, in_progress, completed, skipped
 
-Ledger: ~/Reports/<org>/<repo>/ledger.tsv (org/repo from `git remote get-url origin`)
+Ledger: ~/Reports/<org>/<repo>/ledger.tsv (org/repo from upstream remote, falls back to origin)
 Sprint sessions: ~/Reports/<org>/<repo>/sprints/<TS>/
 
 Full documentation: ~/.claude/skills/sprints/SKILL.md"""

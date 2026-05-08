@@ -1,0 +1,57 @@
+// Sprint Seed state machine.
+//
+// Source of truth for the /sprint-seed skill. The walker (Claude, per
+// SKILL.md) reads each node's prose from nodes/<id>.md, performs the
+// work, evaluates the outgoing edges' conditions, and transitions via
+// scripts/walk.sh.
+//
+// Render to SVG with scripts/render.sh. Validate with scripts/validate.py.
+
+digraph sprint_seed {
+    rankdir=TB;
+    bgcolor="white";
+    node  [fontname="Helvetica", fontsize=11];
+    edge  [fontname="Helvetica", fontsize=9];
+
+    // -- Process nodes (rounded boxes, light blue) ----------------------
+    init        [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                 label="init\n(parse $ARGUMENTS, detect mode,\nResolve paths)"];
+    orient      [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                 label="orient\n(cursory mode-specific context)"];
+    kickoff     [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                 label="kickoff\n(mode-specific opening message)"];
+    discuss     [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                 label="discuss\n(free-form Q&A,\npull live context, push back)"];
+    synthesize  [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                 label="synthesize\n(refined 2-3 paragraph seed)"];
+    write_seed  [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                 label="write-seed\n(write $SESSION_DIR/SEED.md)"];
+    handoff     [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                 label="handoff\n(print path + seed + next command)"];
+
+    // -- User-input node (escalate-shaped diamond) ---------------------
+    ask_wrap_up [shape=diamond, style=filled, fillcolor="#ffccbc",
+                 label="ask-wrap-up\n(continue / wrap / cancel)"];
+
+    // -- Terminal node (green double-circle) ---------------------------
+    terminal    [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
+                 label="terminal"];
+
+    // -- Edges ---------------------------------------------------------
+    // Single-outgoing edges (no condition needed).
+    init       -> orient;
+    orient     -> kickoff;
+    kickoff    -> discuss;
+    synthesize -> write_seed;
+    write_seed -> handoff;
+    handoff    -> terminal;
+
+    // discuss: agent senses (or user signals) convergence; or user cancels.
+    discuss -> ask_wrap_up [label="wrap_up_signaled"];
+    discuss -> terminal    [label="user_cancel"];
+
+    // ask-wrap-up: user picks among three.
+    ask_wrap_up -> synthesize [label="user_wrap_up"];
+    ask_wrap_up -> discuss    [label="user_continue"];
+    ask_wrap_up -> terminal   [label="user_cancel"];
+}

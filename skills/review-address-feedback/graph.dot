@@ -1,0 +1,85 @@
+// Review Address Feedback state machine.
+//
+// Source of truth for the /review-address-feedback skill. The walker
+// (Claude, per SKILL.md) reads each node's prose from nodes/<id>.md,
+// performs the work, evaluates the outgoing edges' conditions, and
+// transitions via scripts/walk.sh.
+//
+// Render to SVG with scripts/render.sh. Validate with scripts/validate.py.
+
+digraph review_address_feedback {
+    rankdir=TB;
+    bgcolor="white";
+    node  [fontname="Helvetica", fontsize=11];
+    edge  [fontname="Helvetica", fontsize=9];
+
+    // -- Process nodes (rounded boxes, light blue) ----------------------
+    init             [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="init\n(parse args, detect mode A/B, set paths)"];
+    load_findings    [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="load-findings\n(PR comments OR REVIEW.md)"];
+    orient           [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="orient\n(print orientation summary)"];
+    address          [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="address\n(per-finding fix / skip / defer / discuss,\nrun targeted tests, record outcomes)"];
+    replies          [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="replies\n(draft, confirm, post on GitHub)"];
+    resolve_threads  [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="resolve-threads\n(graphql resolveReviewThread)"];
+    persist          [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="persist\n(write ADDRESSED.md)"];
+    finalize         [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="finalize\n(full test suite, summary, draft commit)"];
+
+    // -- Decision node (diamond) ---------------------------------------
+    verify_worktree  [shape=diamond, style=filled, fillcolor="#ffe0b2",
+                      label="verify-worktree"];
+
+    // -- User-input nodes (escalate-shaped diamonds) -------------------
+    choose_strategy        [shape=diamond, style=filled, fillcolor="#ffccbc",
+                            label="choose-strategy\n(fix-all / walk / group /\nseverity / pick / switch / cancel)"];
+    ask_replies            [shape=diamond, style=filled, fillcolor="#ffccbc",
+                            label="ask-replies\n(per-thread / summary /\nboth / nothing)"];
+    ask_resolve_threads    [shape=diamond, style=filled, fillcolor="#ffccbc",
+                            label="ask-resolve-threads\n(resolve / leave open)"];
+
+    // -- Terminal node (green double-circle) ---------------------------
+    terminal         [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
+                      label="terminal"];
+
+    // -- Edges ---------------------------------------------------------
+    // Single-outgoing edges (no condition needed).
+    init     -> verify_worktree;
+    orient   -> choose_strategy;
+    address  -> ask_replies;
+    persist  -> finalize;
+    finalize -> terminal;
+
+    // verify-worktree: are we on the PR head branch in a writable checkout?
+    verify_worktree -> load_findings [label="worktree_ok"];
+    verify_worktree -> terminal      [label="worktree_missing"];
+
+    // load-findings: did we get any addressable findings?
+    load_findings -> orient   [label="findings_loaded"];
+    load_findings -> terminal [label="no_findings"];
+
+    // choose-strategy: pick a strategy, switch input mode, or cancel.
+    choose_strategy -> address  [label="strategy_chosen"];
+    choose_strategy -> init     [label="switch_mode"];
+    choose_strategy -> terminal [label="user_cancel"];
+
+    // ask-replies: post replies on GitHub, or skip Phase 4 entirely.
+    ask_replies -> replies [label="user_reply"];
+    ask_replies -> persist [label="user_no_reply"];
+
+    // replies: did anything actually get posted?
+    replies -> ask_resolve_threads [label="posted"];
+    replies -> persist             [label="no_post"];
+
+    // ask-resolve-threads: resolve the threads we replied to, or leave open.
+    ask_resolve_threads -> resolve_threads [label="user_resolve"];
+    ask_resolve_threads -> persist         [label="user_no_resolve"];
+
+    // resolve-threads: always lands at persist.
+    resolve_threads -> persist;
+}

@@ -62,7 +62,9 @@ Invoke with `/command-name` in Claude Code. Commands with `disable-model-invocat
 | `/tag` | Analyze commits since last tag and propose the next semantic version |
 | `/sprint-seed` | Pre-plan exploratory discussion; produces a `SEED.md` |
 | `/sprint-plan` | Multi-agent collaborative sprint planning |
-| `/sprint-work` | Execute a planned sprint end-to-end and open PR(s) |
+| `/sprint-plan-to-linear` | Convert an approved `SPRINT.md` into Linear milestone + issues |
+| `/sprint-work` | Execute a planned sprint end-to-end and open draft PR(s) |
+| `/sprint-self-review` | Self-review cycle on a draft PR (review → address → test → decide) until terminal or escalation |
 | `/sprints` | Sprint ledger — status, velocity, add/start/complete |
 | `/review-pr-simple` | Single-agent PR review → `REVIEW.md` |
 | `/review-pr-comprehensive` | Dual-agent PR review (Claude + Codex) → `REVIEW.md` |
@@ -72,6 +74,8 @@ Invoke with `/command-name` in Claude Code. Commands with `disable-model-invocat
 | `/audit-design` | Dual-agent UI/UX review → findings report |
 | `/audit-accessibility` | Dual-agent WCAG 2.1/2.2 review → findings report |
 | `/audit-architecture` | Dual-agent architecture review → findings report |
+| `/audit-responsive` | Dual-agent responsive design review → findings report |
+| `/skill-creator` | Author a new skill (graph-driven or cli-wrapper) end-to-end with topology approval and validation |
 | `/create-task` | Create a new task note in the Obsidian vault |
 | `/create-knowledge` | Create a new knowledge note in the Obsidian vault |
 | `/create-draft` | Create a new draft note in the Obsidian vault |
@@ -88,12 +92,16 @@ Skills are auto-discovered from `~/.claude/skills/`. Each skill has a `SKILL.md`
 
 | Skill | Description |
 |---|---|
-| `gh` | `gh` CLI operations — issues, PRs, releases, branches |
+| `gh` | Clone/fork/worktree setup plus `gh` CLI operations — issues, PRs, releases, CI |
+| `gws` | Google Workspace operations — Gmail, Calendar, Drive, Docs, Sheets, Tasks |
+| `linear` | Linear CLI — issues, cycles, projects, milestones |
 | `obsidian` | Obsidian vault operations via the `obsidian` CLI |
 | `orbstack` | OrbStack management — Linux machines, Docker, Kubernetes |
 | `sprint-seed` | Pre-plan exploratory discussion; shapes fuzzy ideas into a `SEED.md` |
 | `sprint-plan` | Multi-agent collaborative planning with strict orchestrator/worker separation |
-| `sprint-work` | Execute a planned sprint end-to-end from a `SPRINT.md` |
+| `sprint-plan-to-linear` | Convert an approved `SPRINT.md` into a Linear milestone + issues |
+| `sprint-work` | Execute a planned sprint end-to-end from a `SPRINT.md` or Linear milestone |
+| `sprint-self-review` | Iterative self-review loop on a draft PR until terminal, capped, or escalated |
 | `sprints` | Sprint ledger — status, velocity, add/start/complete |
 | `review-pr-simple` | Single-agent PR review → `REVIEW.md` |
 | `review-pr-comprehensive` | Dual-agent PR review (Claude + Codex, synthesis, devil's advocate) → `REVIEW.md` |
@@ -102,7 +110,9 @@ Skills are auto-discovered from `~/.claude/skills/`. Each skill has a `SKILL.md`
 | `commit` | Analyze changes and create grouped conventional commits with sprint-aware co-author trailers |
 | `frontend-design` | Production-grade UI component creation |
 | `generate-post-image` | Hugo blog post image generation via DALL-E 3 |
-| `skill-creator` | Guide for creating new skills |
+| `skill-creator` | Walks the user through authoring a new skill: discusses scope, picks pattern (graph-driven or cli-wrapper), scaffolds, validates, hands off uncommitted |
+
+Most multi-phase skills (`commit`, `polish-pull-request`, `review-*`, `sprint-*`) are built on the [dot-graph skill pattern](docs/DOT-GRAPH-SKILL-PATTERN.md): the workflow lives in a `graph.dot` with per-node prose under `nodes/`, walked deterministically by `lib/graph_walker.py`. Drift between routing and prose is structurally impossible.
 
 ## Subagents
 
@@ -118,21 +128,23 @@ Subagents are specialized agents Claude delegates work to via the Agent tool. Th
 
 ### Audit output
 
-Each audit run writes timestamped artifacts to `~/Reports/<repo-path>/`:
+Each audit run gets its own timestamped folder under `~/Reports/<org>/<repo>/audits/` (org/repo derived from `upstream` remote, falling back to `origin`):
 
 ```
-$REPORT_TS-audit-security-claude.md          ← Claude's independent review
-$REPORT_TS-audit-security-codex.md           ← Codex's independent review
-$REPORT_TS-audit-security-synthesis.md       ← unified findings
-$REPORT_TS-audit-security-devils-advocate.md ← Codex challenge pass
-$REPORT_TS-audit-security-report.md          ← final findings report
+~/Reports/<org>/<repo>/audits/
+└── YYYY-MM-DDTHH-MM-SS-<lens>/         # one folder per run; <lens> = security|design|accessibility|architecture|responsive
+    ├── claude.md                       ← Claude's independent review
+    ├── codex.md                        ← Codex's independent review
+    ├── synthesis.md                    ← unified findings
+    ├── devils-advocate.md              ← Codex challenge pass
+    └── REPORT.md                       ← final findings report
 ```
 
-The report is a reference document. To act on findings, run `/sprint-plan` and use the report as the seed.
+The report is a reference document. To act on findings, run `/sprint-plan` and pass the `REPORT.md` path as the seed.
 
 ## Sprint workflow output
 
-All sprint artifacts live under `~/Reports/<org>/<repo>/` (derived from `git remote get-url origin`). Nothing is written into the project repo itself. See [`docs/sprints/README.md`](docs/sprints/README.md) for the full lifecycle and artifact map.
+All sprint, review, and audit artifacts live under `~/Reports/<org>/<repo>/`, derived from the source repo (`upstream` remote, falling back to `origin`). Nothing is written into the project repo itself. See [`docs/sprints/README.md`](docs/sprints/README.md) for the full lifecycle and artifact map.
 
 Files marked `*` are only created when the corresponding optional phase ran.
 
@@ -156,15 +168,22 @@ Files marked `*` are only created when the corresponding optional phase ran.
 │       ├── performance-review.md                     * (Phase 8f)
 │       ├── breaking-change-review.md                 * (Phase 8g)
 │       ├── SPRINT.md                                 # the approved plan
+│       ├── LINEAR.md                                 * (/sprint-plan-to-linear handoff)
 │       └── RETRO.md                                  * (/sprint-work --retro)
 ├── pr-reviews/
 │   └── pr-N/
-│       ├── YYYY-MM-DDTHH-MM-SS/                      # one folder per review run
+│       ├── YYYY-MM-DDTHH-MM-SS/                      # one folder per review run (/review-pr-*)
 │       │   └── REVIEW.md  diff.patch  ...
-│       └── YYYY-MM-DDTHH-MM-SS-addressed/            # one folder per address-feedback run
+│       └── YYYY-MM-DDTHH-MM-SS-addressed/            # one folder per /review-address-feedback run
 │           └── ADDRESSED.md
-└── <TS>-audit-<lens>-{claude,codex,synthesis,devils-advocate,report}.md
-                                                      # audit artifacts, flat, timestamp-prefixed
+├── self-reviews/
+│   └── pr-N/
+│       ├── findings.md                               # rolling ledger across all iterations
+│       └── iteration-N-YYYY-MM-DDTHH-MM-SS/          # one folder per /sprint-self-review iteration
+│           └── REVIEW.md  ADDRESSED.md  synthesis.md  ...
+└── audits/
+    └── YYYY-MM-DDTHH-MM-SS-<lens>/                   # one folder per audit run
+        └── claude.md  codex.md  synthesis.md  devils-advocate.md  REPORT.md
 ```
 
 ## Disclaimer

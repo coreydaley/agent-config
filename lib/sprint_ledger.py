@@ -431,24 +431,28 @@ class SprintLedger:
 
 
 def get_reports_base() -> Path:
-    """Resolve ~/Reports/<org>/<repo>/ from `git remote get-url origin`.
+    """Resolve ~/Reports/<org>/<repo>/ from the upstream source repo.
 
+    Prefers `upstream` over `origin` because `origin` typically points at a
+    personal fork when working on a forked repo. Using the upstream remote
+    keeps reports filed under the source repo's path rather than the fork's.
     Falls back to ~/Reports/_no-repo/ when the current directory isn't a git
-    repo or has no origin remote — keeps the ledger usable in scratch contexts
-    without crashing."""
+    repo or has no usable remote."""
     org_repo = "_no-repo"
-    try:
-        result = subprocess.run(
-            ["git", "remote", "get-url", "origin"],
-            capture_output=True, text=True, check=True,
-        )
+    for remote_name in ("upstream", "origin"):
+        try:
+            result = subprocess.run(
+                ["git", "remote", "get-url", remote_name],
+                capture_output=True, text=True, check=True,
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            continue
         remote = result.stdout.strip()
         # Strip leading host (handles both ssh and https forms) and trailing .git
         match = re.search(r"github\.com[:/](.+?)(?:\.git)?$", remote)
         if match:
             org_repo = match.group(1)
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        pass
+            break
     base = Path.home() / "Reports" / org_repo
     base.mkdir(parents=True, exist_ok=True)
     return base

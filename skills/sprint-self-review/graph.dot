@@ -1,0 +1,76 @@
+// Sprint Self-Review state machine.
+//
+// Source of truth for the /sprint-self-review skill's flow. The walker
+// (Claude, per SKILL.md) reads each node's prose from nodes/<id>.md,
+// performs the work, evaluates the outgoing edges' conditions against
+// the current state (primarily findings.md), and transitions.
+//
+// Per-iteration review pipeline mirrors /review-pr-comprehensive: two
+// fresh worker reviewers in parallel (Claude subagent + Codex exec),
+// orchestrator-side synthesis, Codex devil's-advocate pass, then the
+// final iteration REVIEW.md flows into address. The orchestrator
+// itself never reviews — it only synthesizes and incorporates.
+//
+// Render to SVG with scripts/render.sh. Validate with scripts/validate.py.
+
+digraph sprint_self_review {
+    rankdir=TB;
+    bgcolor="white";
+    node  [fontname="Helvetica", fontsize=11];
+    edge  [fontname="Helvetica", fontsize=9];
+
+    // -- Process nodes (rounded boxes, light blue) ----------------------
+    init                   [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                            label="init\n(detect draft PR, set paths,\nload findings.md if exists)"];
+    compute_diff           [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                            label="compute-diff\n(git diff origin/<base>..HEAD)"];
+    independent_reviews    [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                            label="independent-reviews\n(Claude subagent + Codex exec,\nparallel, on local diff)"];
+    synthesis              [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                            label="synthesis\n(dedup, calibrate severity,\nwrite synthesis.md)"];
+    devils_advocate        [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                            label="devils-advocate\n(Codex attacks synthesis,\norchestrator incorporates)"];
+    write_iteration_review [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                            label="write-iteration-review\n(write iteration-N/REVIEW.md)"];
+    address                [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                            label="address\n(dedup vs ledger, apply fixes,\nrun tests/lint, update findings.md,\nrecord commit SHAs)"];
+
+    // -- Decision nodes (diamonds) -------------------------------------
+    decide                 [shape=diamond, style=filled, fillcolor="#ffe0b2",
+                            label="decide"];
+    escalate               [shape=diamond, style=filled, fillcolor="#ffccbc",
+                            label="escalate\n(ask user, with\nin-memory context)"];
+
+    // -- Terminal node (green double-circle) ---------------------------
+    terminal               [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
+                            label="terminal"];
+
+    // -- Edges ---------------------------------------------------------
+    // Single-outgoing edges (no condition needed).
+    init                   -> compute_diff;
+    compute_diff           -> independent_reviews;
+    independent_reviews    -> synthesis;
+    synthesis              -> devils_advocate;
+    devils_advocate        -> write_iteration_review;
+    address                -> decide;
+
+    // write-iteration-review: branch on whether there's anything to address.
+    write_iteration_review -> address [label="addressable"];
+    write_iteration_review -> decide  [label="no_addressable"];
+
+    // decide: route based on findings state and iteration count.
+    // All gates that require user input go through escalate. The escalate
+    // node composes its in-memory prompt from findings.md — no persisted
+    // summary file, since findings.md is already the rolling ledger.
+    // keep_iterating loops through compute-diff so each iteration sees a
+    // fresh diff against the working tree (post-address fixes).
+    decide                 -> compute_diff [label="keep_iterating"];
+    decide                 -> escalate     [label="only_low_nit"];
+    decide                 -> escalate     [label="iter_cap"];
+    decide                 -> escalate     [label="needs_user_input"];
+
+    // escalate: user gates the next move. user_continue also goes through
+    // compute-diff so the next iteration's review reflects current state.
+    escalate               -> compute_diff [label="user_continue"];
+    escalate               -> terminal     [label="user_done"];
+}

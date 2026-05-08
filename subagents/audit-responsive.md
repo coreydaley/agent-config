@@ -8,7 +8,7 @@ description: Dual-agent responsive design audit — Claude and Codex review inde
 You are orchestrating a dual-agent responsive design audit that produces a
 findings report. Claude and Codex review independently for mobile and tablet
 issues, findings are synthesized, Codex attacks the synthesis, and the final
-output is a report written to `$REPORT_DIR/$REPORT_TS-audit-responsive-report.md`.
+output is a report written to `$AUDIT_DIR/REPORT.md`.
 
 The scope to audit is provided in your input prompt. If no scope is specified,
 audit the current working directory.
@@ -44,7 +44,7 @@ This is a **5-phase workflow**:
    calibrate severity
 4. **Devil's Advocate** — Codex attacks the synthesis for false positives,
    severity miscalibrations, and gaps
-5. **Report Output** — Produce `$REPORT_DIR/$REPORT_TS-audit-responsive-report.md`
+5. **Report Output** — Produce `$AUDIT_DIR/REPORT.md`
    with findings as tasks for human review; present to user
 
 ---
@@ -125,10 +125,18 @@ responsive tooling, and determine the output location.
 
 5. **Determine output location**:
    ```bash
-   REPORT_DIR=~/Reports/$(pwd | sed 's|.*/Code/||')
+   REMOTE=$(git remote get-url upstream 2>/dev/null || git remote get-url origin 2>/dev/null || echo "")
+   ORG_REPO=$(echo "$REMOTE" | sed 's|.*github\.com[:/]||; s|\.git$||')
+   REPORTS_BASE="$HOME/Reports/$ORG_REPO"
    REPORT_TS=$(date +%Y-%m-%dT%H-%M-%S)
-   mkdir -p $REPORT_DIR
+   AUDIT_DIR="$REPORTS_BASE/audits/$REPORT_TS-responsive"
+   mkdir -p "$AUDIT_DIR"
    ```
+   Each audit run gets its own timestamped folder under
+   `~/Reports/<org>/<repo>/audits/`, matching the layout
+   `/sprint-plan` uses for sprint sessions. All audit artifacts
+   for this run live in `$AUDIT_DIR`. Create this before launching
+   Codex in Phase 2.
    Create this before launching Codex in Phase 2.
 
 ### Orient Deliverable
@@ -137,7 +145,7 @@ A brief orientation note (3-5 bullets) covering:
 - Resolved scope and what it includes/excludes
 - Frontend file types and count identified
 - CSS framework and breakpoints detected
-- The report output directory (`REPORT_DIR`) and timestamp prefix (`REPORT_TS`)
+- The audit directory (`AUDIT_DIR`) for this run's artifacts
 
 ---
 
@@ -148,13 +156,13 @@ cross-contamination.
 
 ### Step 1 — Launch Codex in Background
 
-Run this command, substituting the resolved scope and the literal values of
-`REPORT_DIR` and `REPORT_TS`:
+Run this command, substituting the resolved scope and the literal value of
+`AUDIT_DIR`:
 
 ```bash
 codex exec "Perform a thorough responsive design audit of [RESOLVED_SCOPE] \
   for mobile and tablet viewports. \
-  Write all findings to $REPORT_DIR/$REPORT_TS-audit-responsive-codex.md using \
+  Write all findings to $AUDIT_DIR/codex.md using \
   this exact table format for each finding: \
   | ID | Severity | Title | Location | Breakpoint | Verification | Why It Matters | Recommended Fix | Evidence/Notes | \
   where ID uses prefix C (e.g. C001, C002). \
@@ -199,7 +207,7 @@ codex exec "Perform a thorough responsive design audit of [RESOLVED_SCOPE] \
 ### Step 2 — Claude's Independent Review (Simultaneous)
 
 While Codex runs, write your own independent responsive design review to
-`$REPORT_DIR/$REPORT_TS-audit-responsive-claude.md` using the same finding
+`$AUDIT_DIR/claude.md` using the same finding
 schema (ID prefix `A`). Cover the same 10 categories:
 
 1. **Viewport meta tag** — presence in layout templates; `width=device-width,
@@ -247,8 +255,8 @@ severity and confidence.
 ### Synthesis Steps
 
 1. **Verify both reviews exist and are non-empty**:
-   - Check `$REPORT_DIR/$REPORT_TS-audit-responsive-claude.md` and
-     `$REPORT_DIR/$REPORT_TS-audit-responsive-codex.md`
+   - Check `$AUDIT_DIR/claude.md` and
+     `$AUDIT_DIR/codex.md`
    - If one is missing or empty: proceed with single-agent synthesis and add
      warning: "⚠️ Single-agent synthesis — [agent] review was unavailable.
      Coverage may be incomplete."
@@ -267,7 +275,7 @@ severity and confidence.
    - Override based on: whether the issue blocks a primary user flow, how
      common the affected device size is, and breadth of affected components
 
-4. **Write synthesis** to `$REPORT_DIR/$REPORT_TS-audit-responsive-synthesis.md`:
+4. **Write synthesis** to `$AUDIT_DIR/synthesis.md`:
 
    ```markdown
    # Responsive Design Audit Synthesis — [REPORT_TS]
@@ -294,7 +302,7 @@ severity and confidence.
    retained or dropped]
    ```
 
-Phase 3 is complete when `$REPORT_TS-audit-responsive-synthesis.md` is written.
+Phase 3 is complete when `synthesis.md` is written.
 
 ---
 
@@ -304,9 +312,9 @@ Phase 3 is complete when `$REPORT_TS-audit-responsive-synthesis.md` is written.
 miscalibrations, and missed findings.
 
 ```bash
-codex exec "Read $REPORT_DIR/$REPORT_TS-audit-responsive-synthesis.md. Your job \
+codex exec "Read $AUDIT_DIR/synthesis.md. Your job \
   is to attack it, not improve it. Write your challenge to \
-  $REPORT_DIR/$REPORT_TS-audit-responsive-devils-advocate.md covering: \
+  $AUDIT_DIR/devils-advocate.md covering: \
   (1) False positives — findings that are actually correct responsive behavior \
   (e.g. an intentional fixed-width component, a desktop-only admin panel, or \
   a pattern that degrades gracefully on mobile). \
@@ -318,13 +326,13 @@ codex exec "Read $REPORT_DIR/$REPORT_TS-audit-responsive-synthesis.md. Your job 
   Be specific. Every challenge must cite the finding ID."
 ```
 
-Once `$REPORT_TS-audit-responsive-devils-advocate.md` is written, read it and:
+Once `devils-advocate.md` is written, read it and:
 
 - **Remove** confirmed false positives from the working finding list
 - **Recalibrate** severity where the challenge is valid and evidence supports it
 - **Add** genuinely missed findings with new synthesis IDs
 - **Document every rejected challenge** in a "Rejected Challenges" section at
-  the bottom of `$REPORT_TS-audit-responsive-synthesis.md`:
+  the bottom of `synthesis.md`:
 
   ```markdown
   ## Rejected Devil's Advocate Challenges
@@ -341,7 +349,7 @@ Phase 4 is complete when challenges are incorporated and rejections are document
 ## Phase 5: Report Output
 
 **Goal**: Produce a findings report at
-`$REPORT_DIR/$REPORT_TS-audit-responsive-report.md` with responsive findings
+`$AUDIT_DIR/REPORT.md` with responsive findings
 as prioritized tasks.
 
 ### Sprint Mapping Rules
@@ -373,7 +381,7 @@ If the synthesis contains zero findings after Phase 4:
 
 ### Write the Report
 
-Create `$REPORT_DIR/$REPORT_TS-audit-responsive-report.md`:
+Create `$AUDIT_DIR/REPORT.md`:
 
 ```markdown
 # Responsive Design Audit — [scope] ([YYYY-MM-DD])
@@ -398,10 +406,10 @@ and device testing.]
 CSS framework: [name + version]
 Breakpoints reviewed: [list]
 
-Intermediate audit artifacts: `$REPORT_DIR/$REPORT_TS-audit-responsive-claude.md`,
-`$REPORT_DIR/$REPORT_TS-audit-responsive-codex.md`,
-`$REPORT_DIR/$REPORT_TS-audit-responsive-synthesis.md`,
-`$REPORT_DIR/$REPORT_TS-audit-responsive-devils-advocate.md`
+Intermediate audit artifacts: `$AUDIT_DIR/claude.md`,
+`$AUDIT_DIR/codex.md`,
+`$AUDIT_DIR/synthesis.md`,
+`$AUDIT_DIR/devils-advocate.md`
 
 ## Implementation Plan
 
@@ -441,7 +449,7 @@ not a cross-device compatibility certification.
 
 ## Dependencies
 
-- Audit intermediate files: `$REPORT_DIR/$REPORT_TS-audit-responsive-*.md`
+- Audit intermediate files: `$AUDIT_DIR/{claude,codex,synthesis,devils-advocate}.md`
 ```
 
 ### Hand Off
@@ -449,7 +457,7 @@ not a cross-device compatibility certification.
 Inform the user:
 
 > ✅ Responsive design audit complete. Report at
-> `$REPORT_DIR/$REPORT_TS-audit-responsive-report.md`.
+> `$AUDIT_DIR/REPORT.md`.
 >
 > **Note**: Findings marked `runtime` require browser/device testing to
 > confirm — at minimum use Chrome DevTools at 375px, 768px, and 1024px.
@@ -460,13 +468,13 @@ Inform the user:
 
 ## Output Checklist
 
-- [ ] `$REPORT_DIR/$REPORT_TS-audit-responsive-claude.md` — finding schema, ID prefix A
-- [ ] `$REPORT_DIR/$REPORT_TS-audit-responsive-codex.md` — finding schema, ID prefix C
+- [ ] `$AUDIT_DIR/claude.md` — finding schema, ID prefix A
+- [ ] `$AUDIT_DIR/codex.md` — finding schema, ID prefix C
 - [ ] Both non-empty (or single-agent warning in synthesis)
-- [ ] `$REPORT_DIR/$REPORT_TS-audit-responsive-synthesis.md` — canonical S-prefix IDs
-- [ ] `$REPORT_DIR/$REPORT_TS-audit-responsive-devils-advocate.md` — Codex challenge complete
+- [ ] `$AUDIT_DIR/synthesis.md` — canonical S-prefix IDs
+- [ ] `$AUDIT_DIR/devils-advocate.md` — Codex challenge complete
 - [ ] Valid challenges incorporated; rejections documented
-- [ ] `$REPORT_DIR/$REPORT_TS-audit-responsive-report.md` — P0/P1/Deferred tiering
+- [ ] `$AUDIT_DIR/REPORT.md` — P0/P1/Deferred tiering
 - [ ] Each P0/P1 task has: finding ID, breakpoint, verification mode, location,
       issue, remediation, verification guidance
 - [ ] No-findings case handled if applicable
@@ -477,8 +485,8 @@ Inform the user:
 
 ## Reference
 
-- Report output: `~/Reports/<repo-path>/` (derived from pwd)
-- Responsive audit artifacts: `$REPORT_DIR/$REPORT_TS-audit-responsive-*.md`
+- Report output: `~/Reports/<org>/<repo>/audits/<TS>-responsive/REPORT.md` (org/repo from upstream remote, falls back to origin)
+- Responsive audit artifacts: `$AUDIT_DIR/{claude,codex,synthesis,devils-advocate}.md`
 - MDN Responsive Design: https://developer.mozilla.org/en-US/docs/Learn/CSS/CSS_layout/Responsive_Design
 - WCAG 1.4.4 (Resize Text): https://www.w3.org/WAI/WCAG21/Understanding/resize-text.html
 - WCAG 1.4.10 (Reflow): https://www.w3.org/WAI/WCAG21/Understanding/reflow.html

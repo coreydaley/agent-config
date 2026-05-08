@@ -1,0 +1,90 @@
+// Sprint to Linear state machine.
+//
+// Source of truth for the /sprint-plan-to-linear skill. Converts a
+// SPRINT.md plan into a populated Linear milestone with attached
+// logical-PR issues. The walker (Claude, per SKILL.md) reads each
+// node's prose from nodes/<id>.md, performs the work, evaluates the
+// outgoing edges' conditions, and transitions via scripts/walk.sh.
+//
+// Render to SVG with scripts/render.sh. Validate with scripts/validate.py.
+
+digraph sprint_plan_to_linear {
+    rankdir=TB;
+    bgcolor="white";
+    node  [fontname="Helvetica", fontsize=11];
+    edge  [fontname="Helvetica", fontsize=9];
+
+    // -- Process nodes (rounded boxes, light blue) ----------------------
+    init             [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="init\n(parse args, resolve project,\nset paths)"];
+    parse_sprint     [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="parse-sprint\n(read SPRINT.md, extract sections)"];
+    fetch_project    [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="fetch-project\n(linear project view,\nmilestones, issues)"];
+    build_plan       [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="build-plan\n(compose description,\ngroup issues, match existing)"];
+    show_plan        [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="show-plan\n(render proposals inline)"];
+    discuss_plan     [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="discuss-plan\n(iterate on plan,\nback to ask-approval)"];
+    create_milestone [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="create-milestone\n(linear milestone create/update/lookup,\nrerun_mode-aware)"];
+    create_issues    [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="create-issues\n(create new + augment/replace/link,\nBlocked-by relationships)"];
+    finalize         [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="finalize\n(write LINEAR.md + summary)"];
+
+    // -- Decision node (diamond) ---------------------------------------
+    decide_rerun     [shape=diamond, style=filled, fillcolor="#ffe0b2",
+                      label="decide-rerun\n(LINEAR.md exists OR\nname similar to existing?)"];
+
+    // -- User-input nodes (escalate-shaped diamonds) -------------------
+    ask_milestone_name        [shape=diamond, style=filled, fillcolor="#ffccbc",
+                               label="ask-milestone-name\n(keep / proposed / custom /\ncancel)"];
+    ask_rerun_mode            [shape=diamond, style=filled, fillcolor="#ffccbc",
+                               label="ask-rerun-mode\n(create-only-new / update /\nstart-fresh / cancel)"];
+    ask_approval              [shape=diamond, style=filled, fillcolor="#ffccbc",
+                               label="ask-approval\n(approve / discuss / cancel)"];
+    ask_per_match_decisions   [shape=diamond, style=filled, fillcolor="#ffccbc",
+                               label="ask-per-match-decisions\n(per match: skip / augment /\nreplace / link / create)"];
+
+    // -- Terminal node (green double-circle) ---------------------------
+    terminal         [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
+                      label="terminal"];
+
+    // -- Edges ---------------------------------------------------------
+    // Single-outgoing edges (no condition needed).
+    init             -> parse_sprint;
+    parse_sprint     -> fetch_project;
+    fetch_project    -> ask_milestone_name;
+    build_plan       -> show_plan;
+    show_plan        -> ask_approval;
+    create_milestone -> create_issues;
+    create_issues    -> finalize;
+    finalize         -> terminal;
+
+    // ask-milestone-name: user picks a name or cancels.
+    ask_milestone_name -> decide_rerun [label="name_chosen"];
+    ask_milestone_name -> terminal     [label="user_cancel"];
+
+    // decide-rerun: LINEAR.md exists or name highly similar?
+    decide_rerun -> ask_rerun_mode [label="rerun_detected"];
+    decide_rerun -> build_plan     [label="no_rerun"];
+
+    // ask-rerun-mode: user picks mode or cancels.
+    ask_rerun_mode -> build_plan [label="mode_chosen"];
+    ask_rerun_mode -> terminal   [label="user_cancel"];
+
+    // ask-approval: approve (with or without matches) / discuss / cancel.
+    ask_approval -> ask_per_match_decisions [label="user_approve_with_matches"];
+    ask_approval -> create_milestone        [label="user_approve_no_matches"];
+    ask_approval -> discuss_plan            [label="user_discuss"];
+    ask_approval -> terminal                [label="user_cancel"];
+
+    // discuss-plan: iterate on the plan, then back to ask-approval.
+    discuss_plan -> ask_approval [label="discussion_done"];
+
+    // ask-per-match-decisions: per-match decisions made or cancelled.
+    ask_per_match_decisions -> create_milestone [label="decisions_made"];
+    ask_per_match_decisions -> terminal         [label="user_cancel"];
+}

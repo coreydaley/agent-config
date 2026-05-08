@@ -1,0 +1,77 @@
+// Review PR Simple state machine.
+//
+// Source of truth for the /review-pr-simple skill. The walker
+// (Claude, per SKILL.md) reads each node's prose from nodes/<id>.md,
+// performs the work, evaluates the outgoing edges' conditions, and
+// transitions via scripts/walk.sh.
+//
+// Render to SVG with scripts/render.sh. Validate with scripts/validate.py.
+
+digraph review_pr_simple {
+    rankdir=TB;
+    bgcolor="white";
+    node  [fontname="Helvetica", fontsize=11];
+    edge  [fontname="Helvetica", fontsize=9];
+
+    // -- Process nodes (rounded boxes, light blue) ----------------------
+    init                   [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                            label="init\n(parse PR id, set paths)"];
+    fetch_context          [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                            label="fetch-context\n(PR metadata, diff, CI status)"];
+    show_existing          [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                            label="show-existing\n(print prior REVIEW.md)"];
+    review                 [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                            label="review\n(write REVIEW.md from diff)"];
+    display                [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                            label="display\n(output REVIEW.md inline)"];
+    discuss                [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                            label="discuss\n(free-form Q&A on findings)"];
+    post                   [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                            label="post\n(gh api: review +/- inline comments)"];
+
+    // -- Decision node (diamond) ---------------------------------------
+    decide_prior           [shape=diamond, style=filled, fillcolor="#ffe0b2",
+                            label="decide-prior"];
+
+    // -- User-input nodes (escalate-shaped diamonds) -------------------
+    confirm_prior_review   [shape=diamond, style=filled, fillcolor="#ffccbc",
+                            label="confirm-prior-review\n(re-review / show / cancel)"];
+    ask_next_action        [shape=diamond, style=filled, fillcolor="#ffccbc",
+                            label="ask-next-action\n(post / discuss / nothing)"];
+    ask_post_style         [shape=diamond, style=filled, fillcolor="#ffccbc",
+                            label="ask-post-style\n(comment / request / approve / inline)"];
+
+    // -- Terminal node (green double-circle) ---------------------------
+    terminal               [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
+                            label="terminal"];
+
+    // -- Edges ---------------------------------------------------------
+    // Single-outgoing edges (no condition needed).
+    init           -> fetch_context;
+    fetch_context  -> decide_prior;
+    show_existing  -> terminal;
+    review         -> display;
+    display        -> ask_next_action;
+    post           -> terminal;
+
+    // decide-prior: route based on whether a prior REVIEW.md exists for this PR.
+    decide_prior -> confirm_prior_review [label="prior_exists"];
+    decide_prior -> review                [label="no_prior"];
+
+    // confirm-prior-review: user picks among three.
+    confirm_prior_review -> review        [label="user_re_review"];
+    confirm_prior_review -> show_existing [label="user_show_existing"];
+    confirm_prior_review -> terminal      [label="user_cancel"];
+
+    // ask-next-action: user picks among three.
+    ask_next_action -> ask_post_style [label="user_post"];
+    ask_next_action -> discuss         [label="user_discuss"];
+    ask_next_action -> terminal        [label="user_nothing"];
+
+    // discuss: after free-form Q&A, loop back to ask the user what now.
+    discuss -> ask_next_action [label="discussion_done"];
+
+    // ask-post-style: user picks a style (comment / request-changes / approve / inline+comment) or cancels.
+    ask_post_style -> post     [label="style_chosen"];
+    ask_post_style -> terminal [label="user_cancel"];
+}

@@ -1,0 +1,103 @@
+// Sprint Work state machine.
+//
+// Source of truth for the /sprint-work skill. Three execution paths
+// (sprintmd / linear-issue / linear-walk) plus three flag-driven
+// modes (--review / --retro / normal) merging at terminal. The
+// walker (Claude, per SKILL.md) reads each node's prose from
+// nodes/<id>.md, performs the work, evaluates the outgoing edges'
+// conditions, and transitions via scripts/walk.sh.
+//
+// Render to SVG with scripts/render.sh. Validate with scripts/validate.py.
+
+digraph sprint_work {
+    rankdir=TB;
+    bgcolor="white";
+    node  [fontname="Helvetica", fontsize=11];
+    edge  [fontname="Helvetica", fontsize=9];
+
+    // -- Process nodes (rounded boxes, light blue) ----------------------
+    init                 [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="init\n(parse args + flags,\nhandle --help inline)"];
+    resolve_target       [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="resolve-target\n(detect sprintmd / linear-issue /\nlinear-walk)"];
+    load_context         [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="load-context\n(Linear issue/milestone +\nSPRINT.md/LINEAR.md)"];
+    render_plan_and_exit [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="render-plan-and-exit\n(--review: print plan,\nstop)"];
+    verify_merged        [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="verify-merged\n(--retro: confirm PRs merged,\nuser can override)"];
+    write_retro          [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="write-retro\n(RETRO.md, ledger fit,\nmark complete)"];
+    detect_repo          [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="detect-repo\n(single-repo or multi-repo)"];
+    detect_inflight      [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="detect-inflight\n(existing PR + sprint state,\nask user)"];
+    show_plan            [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="show-plan\n(render proposals inline)"];
+    discuss_plan         [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="discuss-plan\n(iterate before approval)"];
+    implement            [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="implement\n(mark in_progress + tasks,\ntargeted tests, per-issue loop)"];
+    validate_success     [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="validate-success\n(full tests + Success Criteria,\nask if not met)"];
+    open_prs             [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="open-prs\n(draft PR(s),\nmulti-repo cross-link)"];
+    summarize            [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="summarize\n(final summary +\nnext-step suggestion)"];
+
+    // -- Decision nodes (diamonds) -------------------------------------
+    dispatch_mode        [shape=diamond, style=filled, fillcolor="#ffe0b2",
+                          label="dispatch-mode\n(review / retro / normal)"];
+    verify_worktree      [shape=diamond, style=filled, fillcolor="#ffe0b2",
+                          label="verify-worktree\n(pushable + on right branch?)"];
+
+    // -- User-input nodes (escalate-shaped diamonds) -------------------
+    ask_approval         [shape=diamond, style=filled, fillcolor="#ffccbc",
+                          label="ask-approval\n(approve / discuss / cancel)"];
+
+    // -- Terminal node (green double-circle) ---------------------------
+    terminal             [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
+                          label="terminal"];
+
+    // -- Edges ---------------------------------------------------------
+    // Single-outgoing edges (no condition needed).
+    init                 -> resolve_target;
+    resolve_target       -> load_context;
+    load_context         -> dispatch_mode;
+    render_plan_and_exit -> terminal;
+    write_retro          -> terminal;
+    detect_repo          -> verify_worktree;
+    show_plan            -> ask_approval;
+    implement            -> validate_success;
+    open_prs             -> summarize;
+    summarize            -> terminal;
+
+    // dispatch-mode: route on flags.
+    dispatch_mode -> render_plan_and_exit [label="review"];
+    dispatch_mode -> verify_merged        [label="retro"];
+    dispatch_mode -> detect_repo          [label="normal"];
+
+    // verify-merged (--retro): confirm or user-override / cancel.
+    verify_merged -> write_retro [label="proceed"];
+    verify_merged -> terminal    [label="user_cancel"];
+
+    // verify-worktree: pushable + right branch?
+    verify_worktree -> detect_inflight [label="worktree_ok"];
+    verify_worktree -> terminal        [label="worktree_missing"];
+
+    // detect-inflight: continue, exit (cancel or address-feedback hint).
+    detect_inflight -> show_plan [label="user_continue"];
+    detect_inflight -> terminal  [label="user_exit"];
+
+    // ask-approval: approve / discuss / cancel.
+    ask_approval -> implement    [label="user_approve"];
+    ask_approval -> discuss_plan [label="user_discuss"];
+    ask_approval -> terminal     [label="user_cancel"];
+
+    // discuss-plan: loop back.
+    discuss_plan -> ask_approval [label="discussion_done"];
+
+    // validate-success: criteria satisfied / user blocks.
+    validate_success -> open_prs [label="criteria_satisfied"];
+    validate_success -> terminal [label="user_blocked"];
+}
