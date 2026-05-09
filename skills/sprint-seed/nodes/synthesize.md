@@ -11,6 +11,7 @@ Produce a refined seed prompt (2-3 paragraphs, tight, action-oriented) capturing
 
 - **Core goal / outcome** — what done looks like
 - **Scope** — what's in, what's out
+- **Repos implicated** — name the repo(s) the work touches if the discussion made it clear (single-repo or cross-cutting). If the user mentioned `web-app`, `mono`, etc., or the discussion talked about cross-repo coupling, list them. If it stayed abstract and you genuinely don't know, leave it out — `/sprint-plan` will resolve from cwd / orient evidence.
 - **Key constraints** discovered in discussion (technical, organizational, deadlines)
 - **Approach direction** if decided (or explicitly "left open for `/sprint-plan` to evaluate")
 - **Open questions** for `/sprint-plan`'s Phase 4 interview to surface

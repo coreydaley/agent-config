@@ -4,39 +4,53 @@ Codex attacks the synthesis. Goal: surface false positives, severity miscalibrat
 
 ## Inputs
 
-- `iter_dir`, `pr_dir`, `current_iter` from walker state
+- `iter_dir`, `self_review_dir`, `current_iter`, `worktree_paths` from walker state
 - `$ITER_DIR/synthesis.md` (the file Codex will attack)
-- The current working tree (for context-checking challenges)
+- All worktrees (for context-checking challenges across repos)
 
 ```bash
-STATE="$PR_DIR/.walk-state.json"
+# The walker passes $STATE on every transition; derive everything else
+# from it.
+SESSION_DIR=$(dirname "$(dirname "$STATE")")
 ITER_DIR=$(scripts/walk.sh get --state "$STATE" --key iter_dir)
-PR_DIR=$(scripts/walk.sh get --state "$STATE" --key pr_dir)
+SELF_REVIEW_DIR=$(scripts/walk.sh get --state "$STATE" --key self_review_dir)
 CURRENT_ITER=$(scripts/walk.sh get --state "$STATE" --key current_iter)
-WORKING_DIR=$(pwd)
+WORKTREE_PATHS=$(scripts/walk.sh get --state "$STATE" --key worktree_paths)
 ```
 
 ## Step 1 — Run Codex's challenge
 
-Same flag rationale as `independent-reviews` (see [`lib/codex-invocation.md`](../../../lib/codex-invocation.md)).
+Same flag rationale as `independent-reviews` (see [`lib/codex-invocation.md`](../../../lib/codex-invocation.md)). Add `--add-dir` for every worktree so Codex can verify cross-repo claims.
 
 ```bash
+ADD_DIRS=(--add-dir "$ITER_DIR")
+for ORG_REPO in $(echo "$WORKTREE_PATHS" | jq -r 'keys[]'); do
+  WT=$(echo "$WORKTREE_PATHS" | jq -r ".[\"$ORG_REPO\"]")
+  ADD_DIRS+=(--add-dir "$WT")
+done
+PRIMARY_WT=$(echo "$WORKTREE_PATHS" | jq -r '.[]' | head -1)
+
 codex exec \
   -s workspace-write \
-  --add-dir "$ITER_DIR" \
-  -C "$WORKING_DIR" \
+  "${ADD_DIRS[@]}" \
+  -C "$PRIMARY_WT" \
   -- "Read $ITER_DIR/synthesis.md. This is a synthesized self-review for \
-  iteration $CURRENT_ITER of an open draft PR. Your job is to attack it, \
-  not improve it. Write your challenge to $ITER_DIR/devils-advocate.md \
-  covering: \
+  iteration $CURRENT_ITER of a sprint's draft change set spanning multiple \
+  repos. Your job is to attack it, not improve it. Write your challenge \
+  to $ITER_DIR/devils-advocate.md covering: \
   (1) False positives — findings that reflect intentional, correct choices \
   rather than actual problems. \
   (2) Severity miscalibrations — findings rated too high or too low given \
   actual impact. \
-  (3) Missing findings — real issues both reviewers missed. \
+  (3) Missing findings — real issues both reviewers missed, especially \
+  cross-repo coupling problems. \
   (4) Suggestions that are impractical or would introduce new problems. \
+  (5) Cross-repo findings to scrutinize especially: a flagged caller/callee \
+  mismatch may turn out to be intentional version-skew handling, or the \
+  coupling may already be handled by a shared schema. Verify by reading \
+  both repos before challenging. \
   Be specific. Every challenge must cite the synthesis finding ID (SR001, etc.). \
-  Read files at $WORKING_DIR if you need context beyond the diff." \
+  Read files at any worktree if you need context beyond the diff." \
   < /dev/null
 ```
 

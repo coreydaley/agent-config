@@ -37,7 +37,7 @@ state of the changes — not the original plan.]
 
 ## Linear
 
-[CON-1234 — Issue Title](https://linear.app/<workspace>/issue/CON-1234)
+[PROJ-1234 — Issue Title](https://linear.app/<workspace>/issue/PROJ-1234)
 
 ## Companion PR
 
@@ -99,7 +99,7 @@ Scan each commit's title and body for **internal review-process artifacts** that
 
 **Keep** (do not strip):
 
-- Linear/Jira IDs (e.g. `CON-1234`) in `Addresses <ID>` trailers and PR-title prefixes.
+- Linear/Jira IDs (e.g. `PROJ-1234`) in `Addresses <ID>` trailers and PR-title prefixes.
 - `Co-authored-by:` trailers (per global git convention).
 - File paths inside the repo.
 
@@ -124,7 +124,7 @@ Persist the skip reason if any: `cleanup_skip_reason` in walker state. `ask-clea
 
 ### Code-comment cleanup check
 
-Backstop for the **Comment Hygiene Rule** in `SPRINT-WORKFLOW.md`. Diff added/modified lines in this branch, filtered to known languages:
+Backstop for the **Comment Hygiene Rule** in `docs/sprints/README.md`. Diff added/modified lines in this branch, filtered to known languages:
 
 ```bash
 git diff "origin/$BASE"..HEAD -- '*.go' '*.py' '*.js' '*.ts' '*.tsx' '*.sh' '*.yaml' '*.yml' '*.md'

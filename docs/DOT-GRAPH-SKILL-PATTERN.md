@@ -612,8 +612,8 @@ The pattern earns its overhead when a skill has:
 
 It's overkill when:
 
-- The skill is a thin CLI wrapper (`linear`, `gh`, `obsidian`, `gws`,
-  `orbstack`). These have one-shot operations with no internal state
+- The skill is a thin CLI wrapper (`linear`, `gh`, `vault`,
+  `gws`). These have one-shot operations with no internal state
   machine.
 - The skill is a single-prompt formatter (`commit` is borderline; we
   graph-converted it for consistency, but the walker is genuinely
@@ -655,6 +655,6 @@ hardcoded.
 |---|---|
 | Walker internals (state file, transitions, refusal) | `lib/graph_walker.py` |
 | Codex invocation pattern (used in parallel-delegation nodes) | `lib/codex-invocation.md` |
-| Sprint workflow (the sequence skills compose into) | `sprints/README.md` |
+| Sprint workflow (the sequence skills compose into) | `docs/sprints/README.md` |
 | Any specific skill's flow | `skills/<skill>/SKILL.md` and `graph.svg` |
 | Any specific node's prose | `skills/<skill>/nodes/<id>.md` |

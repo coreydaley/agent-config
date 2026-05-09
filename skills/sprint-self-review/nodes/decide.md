@@ -13,7 +13,7 @@ From `$FINDINGS`, count:
 
 - **`high_open`** — entries with status `*open*` or `*regression after iter-N*` and Severity in {Blocker, High, Medium}
 - **`low_open`** — entries with status `*open*` or `*regression after iter-N*` and Severity in {Low, Nit}
-- **`escalation_pending`** — entries with status `*escalated, awaiting user*`, `*escalated: fix failed verification*`, `*escalated: cannot verify fix*`, or `*pending-dedup-check*`
+- **`escalation_pending`** — entries whose status **starts with** `*escalated:` or `*escalated, awaiting`, plus `*pending-dedup-check*`. **Use prefix match, not exact match.** `address.md` writes status strings with cross-repo suffixes like `*escalated: fix failed verification in <repo>*` and `*escalated: cannot verify cross-repo fix in <repo>*` and `*escalated: cross-repo fix could not be applied atomically*`. Exact-match against the no-suffix variants would silently miss those, leaving cross-repo fixes half-applied while `decide` routes via `only_low_nit` (clean terminal) — a real bug. Prefix-match catches the full family.
 - **`fixed`** — entries with status `*fixed in iter-N*`
 - **`triaged`** — entries with status `*won't-fix*`, `*deferred*`, or `*skipped*`
 
@@ -52,20 +52,28 @@ No Blocker/High/Medium open. We're at terminal-ish state. Even if `low_open > 0`
 
 ## Recording the transition
 
-Pick exactly one based on the evaluation above:
+Pick exactly one based on the evaluation above. **Before each escalate transition, persist the entry condition** so `escalate.md` can apply different reset semantics for end-state vs. mid-iteration entries:
+
+```bash
+# Before transitioning to escalate, record which condition triggered it.
+# escalate.md reads this to decide whether to reset cycles_in_run (yes for
+# end-state triggers, no for needs_user_input).
+scripts/walk.sh set --state "$SELF_REVIEW_DIR/.walk-state.json" \
+  --key escalate_entry_condition --value "<needs_user_input|iter_cap|only_low_nit>"
+```
 
 ```bash
 # needs_user_input (escalation pending in ledger):
-scripts/walk.sh transition --state "$PR_DIR/.walk-state.json" --from decide --to escalate --condition needs_user_input
+scripts/walk.sh transition --state "$SELF_REVIEW_DIR/.walk-state.json" --from decide --to escalate --condition needs_user_input
 
 # iter_cap (out of cycles):
-scripts/walk.sh transition --state "$PR_DIR/.walk-state.json" --from decide --to escalate --condition iter_cap
+scripts/walk.sh transition --state "$SELF_REVIEW_DIR/.walk-state.json" --from decide --to escalate --condition iter_cap
 
 # keep_iterating (Blocker/High/Medium open, cycles_in_run < max_cycles):
-scripts/walk.sh transition --state "$PR_DIR/.walk-state.json" --from decide --to compute_diff --condition keep_iterating
+scripts/walk.sh transition --state "$SELF_REVIEW_DIR/.walk-state.json" --from decide --to compute_diff --condition keep_iterating
 
 # only_low_nit (no Blocker/High/Medium open):
-scripts/walk.sh transition --state "$PR_DIR/.walk-state.json" --from decide --to escalate --condition only_low_nit
+scripts/walk.sh transition --state "$SELF_REVIEW_DIR/.walk-state.json" --from decide --to escalate --condition only_low_nit
 ```
 
 The escalate node reads the condition from `.walk-state.json` history to pick its prompt mode. The keep_iterating path goes through compute-diff (loop entry point) so the next iteration starts with a fresh diff against the working tree (post-address fixes).

@@ -57,9 +57,9 @@ If `match_count > 0`, render the matches:
 ```
 Matches found:
   proposed "Add full tag support for python"
-    ↔ existing CON-1148 "Add full tag support for python" (sim 0.92)
+    ↔ existing PROJ-1148 "Add full tag support for python" (sim 0.92)
   proposed "Wire up cache warmer"
-    ↔ existing CON-1162 "Cache warmer scaffolding" (sim 0.61)
+    ↔ existing PROJ-1162 "Cache warmer scaffolding" (sim 0.61)
 ```
 
 Per-match decisions happen in `ask-per-match-decisions`, not here.
@@ -92,4 +92,4 @@ scripts/walk.sh transition --state "$STATE" --from show_plan --to ask_approval
 
 - **Render the description inline as markdown** (not just a path). The user is going to be asked to approve in the next node; they need the full content in this conversation.
 - **Don't ask anything yet.** The user-input gate is `ask-approval`.
-- **Don't show post-creation coaching feedback.** Any automated quality feedback from Linear arrives async after creation; orient the user to the plan, not to coaching.
+- **Don't show automated coaching tips.** Any post-creation feedback from Linear's quality bots is async; orient the user to the plan, not to coaching.

@@ -39,10 +39,22 @@ For Linear milestone-walk + `--retro`: write **one** retrospective per milestone
 
 ### 2. Record the tier-fit verdict
 
-When `$SPRINT_QUERY` is recoverable:
+When `$SPRINT_QUERY` is recoverable. If walker state's `sprint_query` is empty (e.g., the sprint was resolved by session path rather than by a query string), derive a re-resolvable query from the session timestamp:
 
 ```bash
-/sprints --set-fit "$SPRINT_QUERY" <over_powered|right_sized|under_powered>
+# Use ledger_query (the session timestamp persisted by resolve-target) for
+# all /sprints CLI calls. sprint_query may be a Linear ID that doesn't
+# resolve in the session-keyed ledger.
+REPORTS_ROOT=$(scripts/walk.sh get --state "$STATE" --key reports_root)
+LEDGER_QUERY=$(scripts/walk.sh get --state "$STATE" --key ledger_query)
+
+# Fallback: if ledger_query is empty (rare — session_dir wasn't resolved
+# at target-resolution time), derive from SESSION_DIR.
+if [ -z "$LEDGER_QUERY" ]; then
+  LEDGER_QUERY=$(basename "$SESSION_DIR")
+fi
+
+/sprints --set-fit "$LEDGER_QUERY" <over_powered|right_sized|under_powered> --root "$REPORTS_ROOT"
 ```
 
 Make the verdict based on the model fit assessment in RETRO.md.
@@ -50,7 +62,7 @@ Make the verdict based on the model fit assessment in RETRO.md.
 ### 3. Mark sprint completed in the ledger
 
 ```bash
-/sprints --complete "$SPRINT_QUERY"
+/sprints --complete "$LEDGER_QUERY" --root "$REPORTS_ROOT"
 ```
 
 ### 4. Empty session-dir handling

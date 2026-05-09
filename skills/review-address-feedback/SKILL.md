@@ -114,14 +114,14 @@ comment IDs, etc.) **must never appear in**:
 IDs live only in `ADDRESSED.md` for internal tracking. Describe each
 fix in its own terms — what changed and why — not by reference.
 
-Linear issue IDs (`CON-1234`) are an exception: they're public team
+Linear issue IDs (`PROJ-1234`) are an exception: they're public team
 identifiers and are explicitly allowed in code (e.g.
-`// TODO(CON-1234): ...`).
+`// TODO(PROJ-1234): ...`).
 
 ## Comment Hygiene Rule (applies to code edits)
 
 When a fix adds or rewrites a code comment, follow the Comment
-Hygiene Rule in `SPRINT-WORKFLOW.md`:
+Hygiene Rule in `docs/sprints/README.md`:
 
 - Only when the *why* is non-obvious. Never restate what the code does.
 - One line by default; multi-line only when genuinely warranted.

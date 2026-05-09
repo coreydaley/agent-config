@@ -3,7 +3,7 @@ name: sprint-work
 description: >-
   State-machine-driven sprint execution end-to-end: implement, test,
   open PR(s), stop. Auto-detects whether to drive from Linear (issue
-  ID, milestone name, or current branch in Linear's `con-1234` format)
+  ID, milestone name, or current branch in Linear's `proj-1234` format)
   or directly from a SPRINT.md (session resolved via the ledger by
   timestamp, prefix, or title fragment). Multi-repo aware when work
   spans repos. PR(s) reference Linear issues when relevant; the
@@ -33,8 +33,12 @@ This skill picks the right path automatically based on what
 `$ARGUMENTS` points at and what's in the session folder. The user
 runs `/sprint-work` the same way regardless.
 
-**This skill writes code.** It must run from a checkout where the
-sprint's branch is checked out and pushable.
+**This skill writes code.** It runs cwd-independent: the SPRINT.md
+**Repositories** manifest names the repos involved, and `verify-worktree`
+finds-or-creates a worktree per repo on the sprint's branch. The user
+approves create-or-select; the skill does the mechanical work. For
+sandbox-style regular clones (no bare repo, no upstream), the repo's
+checkout dir is the workspace and worktree creation is skipped.
 
 **Linear state transitions are managed by Linear's GitHub integration.**
 This skill never sets issue state; opening the PR moves the issue to
@@ -55,7 +59,7 @@ Usage:
 
 Target (auto-detected):
   empty                    Detect from current branch (Linear-style
-                           con-1234 → Linear single-issue) or fall back
+                           proj-1234 → Linear single-issue) or fall back
                            to the current in-progress sprint in the
                            ledger.
   <query>                  Session timestamp, prefix, or title fragment
@@ -119,7 +123,7 @@ Eighteen nodes:
 - **`verify-merged`** — `--retro`: confirm PRs merged, user can override
 - **`write-retro`** — write RETRO.md + ledger fit + mark complete
 - **`detect-repo`** — Phase 3: single-repo or multi-repo
-- **`verify-worktree`** *(decision)* — Phase 4: pushable worktree on right branch?
+- **`verify-worktree`** *(decision)* — Phase 4: per-repo find-or-create worktree on the sprint's branch (with user approval); sandbox repos skip worktree logic
 - **`detect-inflight`** — Phase 5: existing PR + sprint state, ask user how to proceed
 - **`show-plan`** — Phase 6 inline render
 - **`ask-approval`** — approve / discuss / cancel
@@ -142,6 +146,7 @@ Edge condition codes:
 - `user_continue`, `user_exit` (from `detect-inflight`)
 - `user_approve`, `user_discuss`, `user_cancel` (from `ask-approval`)
 - `discussion_done` (from `discuss-plan`)
+- `non_linear_walk`, `linear_walk_complete` (from `implement`)
 - `criteria_satisfied`, `user_blocked` (from `validate-success`)
 
 ## Walker semantics
@@ -220,17 +225,25 @@ $TMPDIR/.claude-walker/sprint-work/<TS>.test-logs/  # validate-success logs
   PRs automatically.
 - **Don't run `git push` outside what `gh pr create` does.** No
   extra branch shuffling.
-- **Don't auto-create or auto-cd worktrees.** `verify-worktree` prints
-  instructions; the user creates them.
+- **Don't create or select worktrees without explicit user approval.**
+  `verify-worktree` always asks (create-or-select-or-cancel) before
+  acting. The skill performs the mechanical step; the user owns the
+  decision.
 - **Don't reference internal review IDs in code.** ID Suppression Rule
-  applies (CR/CX/SR/etc.). Linear issue IDs (`CON-1234`) are fine.
+  applies (CR/CX/SR/etc.). Linear issue IDs (`PROJ-1234`) are fine.
 - **Don't parallelize across repos in v1.** Multi-repo work is
   sequential.
 - **Don't write RETRO.md without verify-merged confirming** (or user
   override).
 - **Don't update the ledger** unless `--retro`. Normal runs go through
-  `/sprints --start` (sprintmd path); `--retro` goes through
-  `/sprints --set-fit` and `/sprints --complete`.
+  `/sprints --start --root <REPORTS_ROOT>` (sprintmd path); `--retro`
+  goes through `/sprints --set-fit --root <REPORTS_ROOT>` and
+  `/sprints --complete --root <REPORTS_ROOT>`. Always pass `--root`
+  derived from `session_dir` so cross-cutting sprints under
+  `~/Reports/seeds/` update the right ledger. (For query-based
+  `/sprints` calls without `--root`, the CLI auto-detects the root by
+  searching across all discovered roots — but explicit `--root` is
+  still preferred when `session_dir` is already known.)
 
 ## ARGUMENTS
 

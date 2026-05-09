@@ -18,6 +18,7 @@ SESSION_DIR=$(scripts/walk.sh get --state "$STATE" --key session_dir)
 
 2. **Extract structured sections:**
    - **Title** — the first `# Title` heading (no sprint number prefix; the session timestamp is the sprint identifier).
+   - **Repositories** — the `## Repositories` manifest. Parse each entry as `{org, repo, primary}` (primary is whichever has the `(primary)` tag, else the first entry). **Required.** This is the authoritative scope for downstream `/sprint-work` and any tooling that needs to know which repos the sprint touches; the Linear bridge must preserve it.
    - **Overview** — the "why" + high-level approach.
    - **Use Cases** — numbered list.
    - **Architecture** — text or ASCII diagram.
@@ -37,7 +38,10 @@ SESSION_DIR=$(scripts/walk.sh get --state "$STATE" --key session_dir)
    echo "$PARSED_JSON" > "$PARSED"
    scripts/walk.sh set --state "$STATE" --key parsed_sprint_path --value "$PARSED"
    scripts/walk.sh set --state "$STATE" --key sprint_title --value "<title from heading>"
+   scripts/walk.sh set --state "$STATE" --key repositories --value "<JSON list from Repositories section>"
    ```
+
+   `finalize.md` writes the manifest verbatim into LINEAR.md so the mapping survives without depending on SPRINT.md being reachable. Future `/sprint-work` reads the manifest from LINEAR.md alone.
 
 ## Outputs
 
@@ -56,5 +60,6 @@ scripts/walk.sh transition --state "$STATE" --from parse_sprint --to fetch_proje
 
 ## Failure modes
 
-- SPRINT.md missing required sections (no title, no Definition of Done) → surface a warning but continue with what we have. Downstream nodes (`build-plan`) decide how to handle missing inputs.
+- **SPRINT.md missing `## Repositories` section → bail before any Linear mutation.** The manifest is authoritative for downstream tooling; without it `/sprint-work` and any post-Linear consumer can't route to the right repos. Bail with: "SPRINT.md at `<path>` has no `## Repositories` section — re-run `/sprint-plan` (which now requires the manifest) or add the section manually before retrying."
+- SPRINT.md missing other required sections (no title, no Definition of Done) → surface a warning but continue with what we have. Downstream nodes (`build-plan`) decide how to handle missing inputs.
 - Parsing fails badly (corrupted markdown, encoding issues) → bail with the error and route to terminal. Easiest: surface and bail before transitioning; the user fixes the SPRINT.md and re-runs.

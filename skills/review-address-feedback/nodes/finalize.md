@@ -70,5 +70,5 @@ scripts/walk.sh transition --state "$STATE" --from finalize --to terminal
 ## Notes
 
 - **Tests fail → no commit draft.** Don't draft a commit message and put the user in the awkward position of either committing red code or having to manually rewrite. Surface the failure cleanly and let them drive.
-- **Linear IDs in the commit body are fine** when relevant ("Fixes the issue tracked in CON-1234"). Internal review IDs (`R001` etc.) are not.
+- **Linear IDs in the commit body are fine** when relevant ("Fixes the issue tracked in PROJ-1234"). Internal review IDs (`R001` etc.) are not.
 - **Don't commit, don't push.** Per the global git rule, those wait for the user's explicit "commit" / "push."

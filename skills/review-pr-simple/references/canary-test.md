@@ -121,7 +121,7 @@ And the differential:
 
 Sprint 1 canaries only test the `/review-pr-simple` ingestion
 path (PR body). Other paths (`gws`, `linear`, `obsidian`, `gh
-issue`, web fetches) are covered by the global guard text
+issue`, Glean snippets) are covered by the global guard text
 but not exercised by canary. Sprint 2 extends canary coverage.
 
 The canary is **manual, not CI**, for Sprint 1.

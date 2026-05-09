@@ -2,7 +2,7 @@
 Sprint ledger — shared library for sprint tracking.
 
 Provides SprintEntry/SprintLedger data model and display helpers used by:
-- ~/.claude/skills/sprints/scripts/sprints.py — sprint manager CLI
+- ~/.claude/skills/sprints/scripts/cli.py — sprint manager CLI
 - ~/.claude/lib/commit.py — commit planner (reads participants for sprint-artifact commits)
 
 Sprints are keyed by their session timestamp (e.g. "2026-05-01T14-30-00"),
@@ -354,7 +354,12 @@ class SprintLedger:
         entry = self.entries[session]
         now = self._now()
         if status == "in_progress":
-            entry.started_at = now
+            # Only stamp started_at on the FIRST transition into in_progress.
+            # Re-running --start on an already-in-progress sprint (resume after
+            # crash, manual re-invocation) shouldn't reset the timer — that
+            # corrupts duration and velocity stats.
+            if entry.status != "in_progress" or not entry.started_at:
+                entry.started_at = now
             entry.completed_at = ""
         elif status == "completed":
             entry.completed_at = now
@@ -430,15 +435,30 @@ class SprintLedger:
         return changes
 
 
-def get_reports_base() -> Path:
-    """Resolve ~/Reports/<org>/<repo>/ from the upstream source repo.
+def get_reports_base(override: Optional[Path] = None) -> Path:
+    """Resolve the reports base directory.
+
+    Resolution order:
+    1. `override` argument (used by callers that already know the root, e.g.
+       /sprint-work passing --root derived from the sprint's session_dir).
+    2. SPRINT_REPORTS_ROOT env var.
+    3. ~/Reports/<org>/<repo>/ from the cwd's upstream/origin remote.
+    4. ~/Reports/no-repo/ fallback when cwd isn't a git repo or has no
+       usable remote.
 
     Prefers `upstream` over `origin` because `origin` typically points at a
-    personal fork when working on a forked repo. Using the upstream remote
-    keeps reports filed under the source repo's path rather than the fork's.
-    Falls back to ~/Reports/_no-repo/ when the current directory isn't a git
-    repo or has no usable remote."""
-    org_repo = "_no-repo"
+    personal fork under our GitHub workflow, which would land reports under
+    the fork's path rather than the source repo's."""
+    if override is not None:
+        base = Path(override).expanduser()
+        base.mkdir(parents=True, exist_ok=True)
+        return base
+    env_override = os.environ.get("SPRINT_REPORTS_ROOT")
+    if env_override:
+        base = Path(env_override).expanduser()
+        base.mkdir(parents=True, exist_ok=True)
+        return base
+    org_repo = "no-repo"
     for remote_name in ("upstream", "origin"):
         try:
             result = subprocess.run(
@@ -458,16 +478,84 @@ def get_reports_base() -> Path:
     return base
 
 
-def get_ledger_path() -> Path:
-    """Resolve the sprint ledger to ~/Reports/<org>/<repo>/ledger.tsv."""
-    return get_reports_base() / "ledger.tsv"
+def get_ledger_path(reports_base: Optional[Path] = None) -> Path:
+    """Resolve ledger.tsv under the given reports base (or auto-detected)."""
+    return get_reports_base(reports_base) / "ledger.tsv"
 
 
-def get_sprints_dir() -> Path:
-    """Resolve ~/Reports/<org>/<repo>/sprints/ — the parent of all session folders."""
-    sprints_dir = get_reports_base() / "sprints"
+def get_sprints_dir(reports_base: Optional[Path] = None) -> Path:
+    """Resolve sprints/ under the given reports base (or auto-detected)."""
+    sprints_dir = get_reports_base(reports_base) / "sprints"
     sprints_dir.mkdir(parents=True, exist_ok=True)
     return sprints_dir
+
+
+def discover_reports_roots() -> list[Path]:
+    """Find every ledger-bearing root under ~/Reports/.
+
+    Used by /sprints when no explicit --root is passed. Supports two layouts:
+    - `<root>/ledger.tsv` for the bare-name roots (seeds/, linear/, no-repo/)
+    - `<org>/<repo>/ledger.tsv` for standard repo-scoped roots
+
+    Returns absolute paths to the ledger-bearing directories. Empty list if
+    ~/Reports/ doesn't exist yet.
+    """
+    base = Path.home() / "Reports"
+    if not base.is_dir():
+        return []
+    roots: list[Path] = []
+    for level1 in sorted(base.iterdir()):
+        if not level1.is_dir():
+            continue
+        if (level1 / "ledger.tsv").exists():
+            roots.append(level1)
+            continue
+        # Two-level <org>/<repo>/ledger.tsv
+        for level2 in sorted(level1.iterdir()):
+            if level2.is_dir() and (level2 / "ledger.tsv").exists():
+                roots.append(level2)
+    return roots
+
+
+def find_across_roots(
+    query: str,
+    *,
+    prefer_in_progress: bool = True,
+    prefer_recent: bool = True,
+) -> list[tuple["SprintEntry", Path]]:
+    """Search every discovered root for entries matching `query`.
+
+    Returns list of (entry, root_path) tuples, **sorted by canonical
+    tie-break order**:
+    1. `prefer_in_progress`: entries whose status is `in_progress` first.
+    2. `prefer_recent`: among ties, most-recent session timestamp first
+       (lexicographic on session — works because session is YYYY-MM-DDTHH-MM-SS).
+
+    Both preferences are on by default — the canonical workflow assumes
+    "the active sprint, then the most-recent." Callers that want unsorted
+    results pass `prefer_in_progress=False, prefer_recent=False`. Empty
+    list if no match.
+
+    Centralizing tie-break here means every consumer (CLI auto-detect,
+    self-review init's LINEAR.md walker, sprint-work's load-context) gets
+    the same order without reimplementing the logic.
+    """
+    matches: list[tuple["SprintEntry", Path]] = []
+    for root in discover_reports_roots():
+        ledger = SprintLedger(root / "ledger.tsv").load()
+        for entry in ledger.find(query):
+            matches.append((entry, root))
+
+    if not matches:
+        return matches
+
+    # Stable sort: secondary key first (recent), then primary (in_progress).
+    if prefer_recent:
+        matches.sort(key=lambda m: m[0].session, reverse=True)
+    if prefer_in_progress:
+        matches.sort(key=lambda m: 0 if m[0].status == "in_progress" else 1)
+
+    return matches
 
 
 # --- Shared display helpers for entry formatting ---------------------

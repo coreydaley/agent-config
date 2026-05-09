@@ -33,7 +33,7 @@ EOF
 )"
 ```
 
-**`--target-date` is intentionally omitted by default.** SPRINT.md doesn't have a target-date concept, and inventing one (e.g. "two weeks from today") would impose an arbitrary org convention. The user sets a target date manually in Linear when they have a real one.
+**`--target-date` is intentionally omitted by default.** SPRINT.md doesn't have a target-date concept, and inventing one (e.g. "two weeks from today") would impose an arbitrary org convention. The user sets it manually in Linear when they have a real one.
 
 If the SPRINT.md or seed *does* explicitly state a target date (e.g. "ship by 2026-05-15"), pass it via `--target-date YYYY-MM-DD`. Otherwise omit.
 

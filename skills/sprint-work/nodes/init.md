@@ -20,13 +20,16 @@ Parse arguments and flags, validate flag combinations, init walker state. Handle
    - `--review` and `--retro` are mutually exclusive — `--review` wins. (Surface the override.)
    - `--continue` only applies to `linear-walk`; ignored elsewhere with a note.
 
-4. **Set up walker state** (per-run, in a temp dir since the artifact is the PR/RETRO.md, not a per-run report):
+4. **Set up walker state.** At init time, `$SESSION_DIR` isn't known yet — it gets resolved by `resolve-target` / `load-context`. So init creates a transient state file under `$TMPDIR`. Once `session_dir` is known and stored, downstream callers can resume from `$SESSION_DIR/.work-state.json` if they have it (durable across reboots and `$TMPDIR` cleanup).
+
    ```bash
    STATE_BASE="${TMPDIR:-/tmp}/.claude-walker/sprint-work"
    mkdir -p "$STATE_BASE"
    STATE="$STATE_BASE/$(date +%Y-%m-%dT%H-%M-%S).walk-state.json"
    scripts/walk.sh init --state "$STATE"
    ```
+
+   When `resolve-target` / `load-context` resolve `session_dir`, they should additionally **mirror the walker state** to `$SESSION_DIR/.work-state.json` so a `$TMPDIR` cleanup mid-sprint doesn't lose iteration history. The mirror is best-effort: copy on every persist after `session_dir` becomes available, and use it for resume on next-run if the `$TMPDIR` copy is gone.
 
 5. **Persist run-scoped state:**
    ```bash

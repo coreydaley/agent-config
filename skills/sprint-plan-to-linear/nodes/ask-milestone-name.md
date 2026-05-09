@@ -71,5 +71,5 @@ scripts/walk.sh transition --state "$STATE" --from ask_milestone_name --to termi
 
 ## Notes
 
-- **Default to "use proposed"** when ambiguous and the proposed differs from the bare. Completion-framing is the user's stated preference and mirrors the project description style.
+- **Default to "use proposed"** when ambiguous and the proposed differs from the bare. Completion-framing is the user's stated preference (mirrors the project description style and any quality-coaching guidance).
 - **The choice is the confirmation.** No follow-up "are you sure?" prompts.

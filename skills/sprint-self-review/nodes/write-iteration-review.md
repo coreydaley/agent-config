@@ -4,13 +4,15 @@ Write the iteration's final `REVIEW.md` from the (post-devils-advocate) synthesi
 
 ## Inputs
 
-- `iter_dir`, `pr_dir`, `current_iter` from walker state
+- `iter_dir`, `self_review_dir`, `current_iter` from walker state
 - `$ITER_DIR/synthesis.md` (with devils-advocate updates incorporated)
 
 ```bash
-STATE="$PR_DIR/.walk-state.json"
+# The walker passes $STATE on every transition; derive everything else
+# from it.
+SESSION_DIR=$(dirname "$(dirname "$STATE")")
 ITER_DIR=$(scripts/walk.sh get --state "$STATE" --key iter_dir)
-PR_DIR=$(scripts/walk.sh get --state "$STATE" --key pr_dir)
+SELF_REVIEW_DIR=$(scripts/walk.sh get --state "$STATE" --key self_review_dir)
 CURRENT_ITER=$(scripts/walk.sh get --state "$STATE" --key current_iter)
 ```
 
@@ -28,9 +30,10 @@ issues / single deal-breaker / nothing of concern.]
 
 ## Findings
 
-| ID | Severity | Category | File:Line | Issue | Suggestion |
-|----|----------|----------|-----------|-------|------------|
-[All SR-prefix Blocker/High/Medium findings — main table]
+| ID | Severity | Category | Repo | File:Line | Issue | Suggestion |
+|----|----------|----------|------|-----------|-------|------------|
+[All SR-prefix Blocker/High/Medium findings — main table; Repo column is
+ single-repo (`org/repo`) or cross-repo (`org/repo-a + org/repo-b`)]
 
 ## Nits
 
@@ -52,7 +55,7 @@ attacked by Codex devils-advocate, incorporated by orchestrator.*
 
 - **SR-prefix IDs appear in REVIEW.md** — they're fine here, REVIEW.md is internal to this skill (consumed by `address`, not posted to GitHub).
 - **CR / CX prefixes don't appear in REVIEW.md** — those are scoped to synthesis input.
-- **No internal IDs leak into code, commits, or PR comments.** That's `address`'s job to enforce when it applies fixes (mirrors the ID Suppression Rule from `SPRINT-WORKFLOW.md`).
+- **No internal IDs leak into code, commits, or PR comments.** That's `address`'s job to enforce when it applies fixes (mirrors the ID Suppression Rule from `docs/sprints/README.md`).
 
 ## "What's Well Done" is required
 

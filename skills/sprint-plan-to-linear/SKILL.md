@@ -8,8 +8,8 @@ description: >-
   Context / Implementation / Success Criteria sections, sets priority
   from P0/P1, matches against existing Linear issues with per-match
   decisions (skip / augment / replace / link / create), and records
-  the mapping in a LINEAR.md sidecar so a future /sprint-work-linear
-  can find its way back. The Linear project description is never
+  the mapping in a LINEAR.md sidecar so /sprint-work (Linear path) can
+  resolve back to the SPRINT.md scope, manifest, and recommended model. The Linear project description is never
   touched.
 argument-hint: "<project-url> [<query> | path/to/SPRINT.md] [--help]"
 disable-model-invocation: true
@@ -29,11 +29,12 @@ work for this phase.
 **The Linear project itself is the user's domain** — this skill does
 not touch its name, description, or other fields.
 
-**Generate to a high quality bar from the start.** Project descriptions
-should be outcome-framed with quantitative success measures where
-possible. Issues should include Context, Success Criteria, and detailed
-implementation guidance. Iterating on Linear content after the fact is
-high-friction; getting it right at creation pays off.
+**Aim for high-quality output from the start.** Frame milestones and
+issues with clear outcomes, quantitative success measures where
+possible, and a Context / Success Criteria / Implementation
+structure on issues. If your Linear workspace has automated quality
+coaching, generate to that bar up-front — iterating with the bot
+afterward is more expensive than getting it right the first time.
 
 **Linear-visible content avoids the word "sprint."** The milestone gets
 a descriptive, completion-framed name; issues reference the milestone
@@ -262,8 +263,9 @@ the trigger for `decide-rerun`.
 - **Don't reference the milestone name in issue titles.** Titles
   describe the work; the milestone is the umbrella.
 - **Don't use `--target-date` by default.** Only when SPRINT.md
-  explicitly states one. The user sets a target date manually in Linear
-  when they have a real one.
+  explicitly states one. Inventing one (e.g. "two weeks from today")
+  imposes an arbitrary convention — the user sets it manually when
+  they have a real one.
 - **Don't auto-create labels.** If `eng:<team>` doesn't exist,
   surface a warning and tell the user to create it.
 - **Don't fabricate metrics.** If SPRINT.md doesn't supply them,

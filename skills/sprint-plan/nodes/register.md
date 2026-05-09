@@ -42,10 +42,17 @@ This list is what the `/commit` skill reads to build multi-agent `Co-authored-by
 ## Step 3: Register in the ledger
 
 ```bash
-/sprints --add "$REPORT_TS" "$TITLE" --recommended-model="$RECOMMENDED_MODEL" --participants="$PARTICIPANTS"
+# reports_root was persisted by init alongside session_dir; read it from
+# walker state so cross-cutting sprints under ~/Reports/seeds/ register
+# in the right ledger.
+REPORTS_ROOT=$(scripts/walk.sh get --state "$STATE" --key reports_root)
+/sprints --add "$REPORT_TS" "$TITLE" \
+  --recommended-model="$RECOMMENDED_MODEL" \
+  --participants="$PARTICIPANTS" \
+  --root "$REPORTS_ROOT"
 ```
 
-`$REPORT_TS` is the sprint identifier. `$RECOMMENDED_MODEL` is the model name (`opus` / `sonnet` / `haiku`) from Recommended Execution. `$PARTICIPANTS` is the comma-separated list from Step 2.
+`$REPORT_TS` is the sprint identifier. `$RECOMMENDED_MODEL` is the model name (`opus` / `sonnet` / `haiku`) from Recommended Execution. `$PARTICIPANTS` is the comma-separated list from Step 2. `--root` is required for `--add` because there's no query the CLI can use to auto-detect the root.
 
 ## Step 4: Final message
 
@@ -61,8 +68,10 @@ Sprint registered:
 
 To run the sprint:
     /model $RECOMMENDED_MODEL
-    /sprint-work
+    /sprint-work $REPORT_TS
 ```
+
+**Always emit the explicit session timestamp** in the `/sprint-work` command, not the bare `/sprint-work`. The bare form falls back to `/sprints --current` (cwd's ledger only) — for cross-cutting sprints under `~/Reports/seeds/`, that misses entirely. The explicit timestamp resolves correctly via `/sprints --path` (multi-root capable). For repo-scoped sprints in cwd, both work, but emitting the explicit form is consistently correct.
 
 Repeat the **Recommended Execution** block fully so the exact `/model` and `/sprint-work` commands are the last thing the user sees.
 

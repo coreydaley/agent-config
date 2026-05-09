@@ -67,7 +67,7 @@ Usage
 Examples
   /sprint-seed
   /sprint-seed "explore caching for python images"
-  /sprint-seed https://linear.app/<workspace>/project/full-tag-...
+  /sprint-seed https://linear.app/your-workspace/project/full-tag-...
   /sprint-seed https://linear.app/.../project/... focus on rollout
 
 What you'll see while it runs
@@ -78,8 +78,8 @@ What you'll see while it runs
 
   Output lives at:
     ~/Reports/<org>/<repo>/sprints/<TS>/SEED.md
-    (or ~/Reports/_linear/sprints/<TS>/ for pure-Linear contexts,
-     or ~/Reports/_seed/sprints/<TS>/ for pure-Seed contexts)
+    (or ~/Reports/linear/sprints/<TS>/ for pure-Linear contexts,
+     or ~/Reports/seeds/sprints/<TS>/ for pure-Seed contexts)
 
 What this skill won't do
   - Draft tasks, files, or DoD content (that's /sprint-plan).
@@ -177,8 +177,8 @@ session timestamp:
 
 `<org>/<repo>` derives from the source repo (prefers `upstream`, falls
 back to `origin`). For Linear-only contexts (no git remote), output
-lives at `~/Reports/_linear/sprints/<TS>/`. For pure-Seed contexts
-without a repo, `~/Reports/_seed/sprints/<TS>/`.
+lives at `~/Reports/linear/sprints/<TS>/`. For pure-Seed contexts
+without a repo, `~/Reports/seeds/sprints/<TS>/`.
 
 The session folder is reused by `/sprint-plan` — running
 `/sprint-plan $SESSION_DIR/SEED.md` next will write `SPRINT.md` into the

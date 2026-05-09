@@ -29,7 +29,7 @@ Persist each decision in `$PLAN_PATH` so `create-issues` reads them:
 ```json
 {
   "proposed_title": "...",
-  "existing_id": "CON-1148",
+  "existing_id": "PROJ-1148",
   "decision": "augment | skip | replace | link | create"
 }
 ```

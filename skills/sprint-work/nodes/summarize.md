@@ -4,7 +4,10 @@ Phase 11: per-repo / per-issue summary, suggested next step, stop.
 
 ## Inputs
 
-- All result fields: `implement_results`, `tests_passed`, `criteria_results`, `pr_results`, `path_mode`, `repos`, `issue_ids` from walker state
+- Result fields from walker state, shape depending on `path_mode`:
+  - **sprintmd / linear-issue:** `implement_results`, `tests_passed`, `criteria_results`, `pr_results` (singular per-sprint values)
+  - **linear-walk:** `linear_walk_results` (object map keyed by issue_id, each entry containing `{tests, criteria, prs}` from validate-success and open-prs invocations) plus `implement_results` (per-task) and `skipped_issue_ids`
+- Plus: `path_mode`, `repos`, `issue_ids`, `active_issue_ids`
 
 ```bash
 STATE="<path>"
@@ -15,7 +18,7 @@ STATE="<path>"
 Print a concise summary:
 
 ```
-Target:      <Linear ID + title | Sprint <number> + title>
+Target:      <Linear ID + title | Sprint <session-TS> + title>
 Path mode:   <sprintmd | linear-issue | linear-walk>
 Repos:       <single | multi: repo1, repo2>
 
@@ -63,7 +66,7 @@ If the path was `linear-walk` and any issue failed (with `--continue`), surface 
 
 ## Don'ts
 
-- **Don't run `git commit` / `git push`** beyond what `gh pr create` did.
+- **Don't run `git push`** at this phase. (`gh pr create --draft` auto-pushes the branch when it opens the PR — that's the only push from this skill.) Per-task commits already landed in `implement`; nothing to commit here either.
 - **Don't set Linear issue state** — Linear's GitHub integration handles the transition when the PR opens.
 - **Don't comment on the Linear issue** — same.
 - **Don't merge.** Always the user's call.

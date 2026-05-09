@@ -24,12 +24,6 @@ If $TARGET is empty:
     → sprintmd path; resolve via /sprints --current
        (fall through to /sprints --next if no in-progress sprint).
 
-Else if matches /^\d{3}$/ (sprint number):
-  → Run /sprints --path <query> to resolve $SESSION_DIR.
-    If $SESSION_DIR/LINEAR.md exists → linear-walk against the
-       milestone recorded there.
-    Else → sprintmd path with $SESSION_DIR/SPRINT.md.
-
 Else if matches /^[A-Z]+-\d+$/i:
   → linear-issue, ID = uppercased input.
 
@@ -39,10 +33,20 @@ Else if starts with "https://linear.app/" and contains "/issue/":
 Else if starts with "https://linear.app/" and contains "/project/":
   → list milestones in that project, pick → linear-walk.
 
-Else (treat as milestone name):
-  → search active projects in default team for a milestone with that
-    name. Unique match → linear-walk. Multiple → ask user. Zero →
-    fail loudly.
+Else (sprint reference — timestamp, prefix, or title fragment, OR a
+       milestone name):
+  → First, try /sprints --path <query>. The CLI auto-detects the
+    right root across all four scoping layers (multi-root default).
+    If a unique sprint matches:
+      If $SESSION_DIR/LINEAR.md exists → linear-walk against the
+         milestone recorded there.
+      Else → sprintmd path with $SESSION_DIR/SPRINT.md.
+    If no sprint matches, fall through to milestone-name search:
+      → search active projects in default team for a milestone with
+        that name. Unique match → linear-walk. Multiple → ask user.
+        Zero → fail loudly with both lookup attempts surfaced
+        (sprint-not-found AND milestone-not-found, so the user can
+        diagnose).
 ```
 
 ## Steps
@@ -65,7 +69,31 @@ Else (treat as milestone name):
    ```bash
    scripts/walk.sh set --state "$STATE" --key path_mode    --value "<sprintmd|linear-issue|linear-walk>"
    scripts/walk.sh set --state "$STATE" --key session_dir  --value "<path or empty>"
-   scripts/walk.sh set --state "$STATE" --key sprint_query --value "<sprint number or empty>"
+   # Persist reports_root once, derived from session_dir (<root>/sprints/<TS>/).
+   # Downstream nodes (implement, write-retro, detect-inflight) read this rather
+   # than re-deriving via dirname-dirname, which is fragile across path edge cases.
+   if [ -n "$SESSION_DIR" ]; then
+     scripts/walk.sh set --state "$STATE" --key reports_root --value "$(dirname "$(dirname "$SESSION_DIR")")"
+   fi
+   # Two distinct query fields with different consumers:
+   #
+   # sprint_query: user-facing context. May be a Linear ID (PROJ-1234), a
+   #   session timestamp/title fragment, or empty. Display only — don't
+   #   pass to /sprints --set-fit / --complete unconditionally because
+   #   Linear IDs don't resolve in the ledger (which is keyed by session
+   #   timestamp + title).
+   #
+   # ledger_query: the canonical /sprints CLI key. Always set to the
+   #   session basename (timestamp) when session_dir is known — that's
+   #   what the ledger's session column matches. If session_dir is empty
+   #   (some Linear paths before load-context resolves it), persist empty
+   #   and let downstream callers fall back.
+   scripts/walk.sh set --state "$STATE" --key sprint_query --value "<original target_args>"
+   if [ -n "$SESSION_DIR" ]; then
+     scripts/walk.sh set --state "$STATE" --key ledger_query --value "$(basename "$SESSION_DIR")"
+   else
+     scripts/walk.sh set --state "$STATE" --key ledger_query --value ""
+   fi
    scripts/walk.sh set --state "$STATE" --key issue_ids    --value "<JSON list>"
    scripts/walk.sh set --state "$STATE" --key milestone_id --value "<id or empty>"
    ```

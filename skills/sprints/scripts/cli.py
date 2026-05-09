@@ -9,17 +9,17 @@ Most commands accept a session timestamp, a session prefix (e.g.
 to a single entry, with an error if the query is ambiguous.
 
 Usage:
-    python3 sprints.py --stats                      # Show overview
-    python3 sprints.py --current                    # Show in-progress sprint
-    python3 sprints.py --next                       # Show next planned sprint
-    python3 sprints.py --add <TS> "Title"           # Register an existing session
-    python3 sprints.py --start <query>              # Mark as in_progress
-    python3 sprints.py --complete <query>           # Mark as completed
-    python3 sprints.py --skip <query>               # Mark as skipped
-    python3 sprints.py --set-status <query> <status>
-    python3 sprints.py --list [--status planned]
-    python3 sprints.py --sync                       # Sync from sprints/<TS>/SPRINT.md
-    python3 sprints.py --path <query>               # Print absolute session folder path
+    python3 cli.py --stats                      # Show overview
+    python3 cli.py --current                    # Show in-progress sprint
+    python3 cli.py --next                       # Show next planned sprint
+    python3 cli.py --add <TS> "Title"           # Register an existing session
+    python3 cli.py --start <query>              # Mark as in_progress
+    python3 cli.py --complete <query>           # Mark as completed
+    python3 cli.py --skip <query>               # Mark as skipped
+    python3 cli.py --set-status <query> <status>
+    python3 cli.py --list [--status planned]
+    python3 cli.py --sync                       # Sync from sprints/<TS>/SPRINT.md
+    python3 cli.py --path <query>               # Print absolute session folder path
 
 Data model and display helpers are imported from ~/.claude/lib/sprint_ledger.py.
 """
@@ -33,6 +33,7 @@ sys.path.insert(0, str(Path.home() / ".claude" / "lib"))
 from sprint_ledger import (  # noqa: E402
     SprintEntry,
     SprintLedger,
+    find_across_roots,
     get_ledger_path,
     get_sprints_dir,
     _symbol,
@@ -46,6 +47,41 @@ from sprint_ledger import (  # noqa: E402
     _short_session,
     _WHEN_LABELS,
 )
+
+
+# Flags that take a sprint query as their first positional. When --root isn't
+# explicitly passed, we search every discovered root so cross-cutting sprints
+# under ~/Reports/seeds/ resolve without the caller knowing the root.
+QUERY_BASED_FLAGS = frozenset({
+    "--start", "--complete", "--skip", "--set-status",
+    "--set-fit", "--set-participants", "--path",
+})
+
+
+def _auto_detect_root(query: str) -> Optional[Path]:
+    """Search every discovered root for a sprint matching `query`; return the
+    root containing it. Raises on ambiguity (matches in multiple roots).
+    Returns None if no match — the caller's normal _resolve will surface the
+    'no match' error against the cwd-default ledger."""
+    matches = find_across_roots(query)
+    if not matches:
+        return None
+    if len(matches) > 1:
+        home = Path.home()
+        lines = []
+        for entry, root in matches:
+            try:
+                rel = root.relative_to(home)
+                root_label = f"~/{rel}"
+            except ValueError:
+                root_label = str(root)
+            lines.append(f"  {entry.session}  {entry.title}  ({root_label})")
+        raise ValueError(
+            f"Ambiguous query {query!r} — {len(matches)} matches across roots:\n"
+            + "\n".join(lines)
+            + "\nUse --root <path> to narrow, or use a more specific query."
+        )
+    return matches[0][1]
 
 
 def _resolve(ledger: SprintLedger, query: str) -> SprintEntry:
@@ -274,10 +310,10 @@ def cmd_status(ledger: SprintLedger, query: str, status: str) -> None:
     print(f"Updated {entry.session} to {entry.status}")
 
 
-def cmd_path(ledger: SprintLedger, query: str) -> None:
+def cmd_path(ledger: SprintLedger, query: str, root_override: Optional[Path] = None) -> None:
     """Print the absolute session folder path for the resolved entry."""
     entry = _resolve(ledger, query)
-    print(get_sprints_dir() / entry.session)
+    print(get_sprints_dir(root_override) / entry.session)
 
 
 def cmd_sync(ledger: SprintLedger) -> None:
@@ -399,6 +435,18 @@ Modifier flags:
                                          Pairs with --add.
   --participants=<list>                Who participated in planning (claude, codex).
                                          Pairs with --add.
+  --root <path>                        Override the reports root (e.g. for sprints
+                                         under ~/Reports/seeds/ or ~/Reports/linear/).
+                                         Defaults to cwd's git remote, with the
+                                         SPRINT_REPORTS_ROOT env var as fallback.
+                                         For query-based flags (--path / --start /
+                                         --complete / --set-fit / --set-status /
+                                         --set-participants / --skip), when --root
+                                         isn't given, the query is searched across
+                                         every discovered ~/Reports/*/ledger.tsv
+                                         and the matching entry's root is used —
+                                         so cross-cutting sprints just work without
+                                         the caller knowing the root.
 
 Valid statuses: planned, in_progress, completed, skipped
 
@@ -423,6 +471,7 @@ def main() -> int:
     model_modifier: Optional[str] = None
     recommended_model_modifier: Optional[str] = None
     participants_modifier: Optional[str] = None
+    root_override: Optional[Path] = None
     i = 2
     while i < len(sys.argv):
         arg = sys.argv[i]
@@ -446,11 +495,28 @@ def main() -> int:
         elif arg == "--participants" and i + 1 < len(sys.argv):
             participants_modifier = sys.argv[i + 1]
             i += 1
+        elif arg.startswith("--root="):
+            root_override = Path(arg.split("=", 1)[1]).expanduser()
+        elif arg == "--root" and i + 1 < len(sys.argv):
+            root_override = Path(sys.argv[i + 1]).expanduser()
+            i += 1
         else:
             positional.append(arg)
         i += 1
 
-    ledger = SprintLedger(get_ledger_path()).load()
+    # Auto-detect root for query-based flags when --root wasn't explicit.
+    # This makes /sprints --path / --start / --complete / --set-fit etc. work
+    # cwd-independently for cross-cutting sprints under ~/Reports/seeds/, etc.
+    if root_override is None and flag in QUERY_BASED_FLAGS and positional:
+        try:
+            detected = _auto_detect_root(positional[0])
+            if detected is not None:
+                root_override = detected
+        except ValueError as e:
+            print(f"Error: {e}")
+            return 1
+
+    ledger = SprintLedger(get_ledger_path(root_override)).load()
 
     try:
         if flag == "--stats":
@@ -466,7 +532,7 @@ def main() -> int:
         elif flag == "--add":
             if len(positional) < 2:
                 print(
-                    "Usage: sprints.py --add <session-TS> <title> "
+                    "Usage: cli.py --add <session-TS> <title> "
                     "[--recommended-model=<n>] [--participants=<list>]"
                 )
                 return 1
@@ -477,39 +543,39 @@ def main() -> int:
             )
         elif flag == "--start":
             if not positional:
-                print("Usage: sprints.py --start <query> [--model=<n>]")
+                print("Usage: cli.py --start <query> [--model=<n>]")
                 return 1
             cmd_start(ledger, positional[0], model_modifier)
         elif flag == "--complete":
             if not positional:
-                print("Usage: sprints.py --complete <query> [--model=<n>]")
+                print("Usage: cli.py --complete <query> [--model=<n>]")
                 return 1
             cmd_complete(ledger, positional[0], model_modifier)
         elif flag == "--skip":
             if not positional:
-                print("Usage: sprints.py --skip <query>")
+                print("Usage: cli.py --skip <query>")
                 return 1
             cmd_skip(ledger, positional[0])
         elif flag == "--set-status":
             if len(positional) < 2:
-                print("Usage: sprints.py --set-status <query> <status>")
+                print("Usage: cli.py --set-status <query> <status>")
                 return 1
             cmd_status(ledger, positional[0], positional[1])
         elif flag == "--set-fit":
             if len(positional) < 2:
-                print("Usage: sprints.py --set-fit <query> <over_powered|right_sized|under_powered>")
+                print("Usage: cli.py --set-fit <query> <over_powered|right_sized|under_powered>")
                 return 1
             cmd_set_fit(ledger, positional[0], positional[1])
         elif flag == "--set-participants":
             if len(positional) < 2:
-                print("Usage: sprints.py --set-participants <query> <comma-separated list>")
+                print("Usage: cli.py --set-participants <query> <comma-separated list>")
                 return 1
             cmd_set_participants(ledger, positional[0], positional[1])
         elif flag == "--path":
             if not positional:
-                print("Usage: sprints.py --path <query>")
+                print("Usage: cli.py --path <query>")
                 return 1
-            cmd_path(ledger, positional[0])
+            cmd_path(ledger, positional[0], root_override)
         elif flag == "--sync":
             cmd_sync(ledger)
         else:

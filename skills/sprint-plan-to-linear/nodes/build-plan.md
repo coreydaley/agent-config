@@ -18,7 +18,7 @@ Compose the description in memory (not yet written to Linear):
 
    > "When complete, [the system / users / the catalog] will [observable end state], enabling [value]. Success will be measured by [quantitative measure if SPRINT.md provides one — otherwise a qualitative completion signal]."
 
-   **Don't fabricate metrics.** If SPRINT.md doesn't supply them, write the success signal qualitatively. Quantified is better when grounded in real targets, but invented numbers are worse than honest qualitative signals.
+   **Don't fabricate metrics.** If SPRINT.md doesn't supply them, write the success signal qualitatively. A qualitative signal scores lower against quantitative-leaning quality coaches, but invented numbers are worse.
 
 2. **Acceptance Criteria checklist.** Pull every `- [ ]` line from SPRINT.md's Definition of Done verbatim into:
 
@@ -51,13 +51,15 @@ Compose the description in memory (not yet written to Linear):
 
    Issue-specific considerations (narrow scope) go on the relevant issue (Substep 2), not here.
 
-5. **Footer** (Linear-visible — keep neutral, don't say "sprint"):
+5. **Footer** (Linear-visible — keep neutral, don't say "sprint"). **Don't embed local filesystem paths.** The Linear milestone description is visible to the team and shouldn't leak `/Users/<name>/...` paths from anyone's machine. Use portable session metadata only:
 
    ```markdown
    ---
 
-   *Planning notes: $SESSION_DIR/SPRINT.md*
+   *Planning session: <YYYY-MM-DDTHH-MM-SS>*
    ```
+
+   The session timestamp is the sprint identifier — anyone on the team can resolve it via `/sprints --path <ts>` against their own `~/Reports/` tree. The absolute SPRINT.md path stays in `LINEAR.md` (sidecar, machine-local) where it's correct context, not in Linear's team-visible body.
 
 ## Substep 2: Group tasks into issues
 
@@ -96,7 +98,7 @@ For each surfaced match, record:
 ```json
 {
   "proposed_title": "Add full tag support for python",
-  "existing_id": "CON-1148",
+  "existing_id": "PROJ-1148",
   "existing_title": "Add full tag support for python",
   "similarity": 0.92
 }

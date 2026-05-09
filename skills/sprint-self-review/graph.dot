@@ -21,19 +21,19 @@ digraph sprint_self_review {
 
     // -- Process nodes (rounded boxes, light blue) ----------------------
     init                   [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
-                            label="init\n(detect draft PR, set paths,\nload findings.md if exists)"];
+                            label="init\n(resolve sprint, read manifest,\nfind draft PRs, load findings.md)"];
     compute_diff           [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
-                            label="compute-diff\n(git diff origin/<base>..HEAD)"];
+                            label="compute-diff\n(per-repo: git diff origin/<base>..HEAD\nfrom each repo's worktree)"];
     independent_reviews    [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
-                            label="independent-reviews\n(Claude subagent + Codex exec,\nparallel, on local diff)"];
+                            label="independent-reviews\n(Claude subagent + Codex exec, parallel,\non the per-repo diff bundle)"];
     synthesis              [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
-                            label="synthesis\n(dedup, calibrate severity,\nwrite synthesis.md)"];
+                            label="synthesis\n(dedup, calibrate severity, repo-tag,\nwrite synthesis.md)"];
     devils_advocate        [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
                             label="devils-advocate\n(Codex attacks synthesis,\norchestrator incorporates)"];
     write_iteration_review [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
-                            label="write-iteration-review\n(write iteration-N/REVIEW.md)"];
+                            label="write-iteration-review\n(write iteration-N/REVIEW.md\nwith repo: per finding)"];
     address                [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
-                            label="address\n(dedup vs ledger, apply fixes,\nrun tests/lint, update findings.md,\nrecord commit SHAs)"];
+                            label="address\n(per-finding: dedup vs ledger,\napply fix in right worktree,\nrun tests/lint, record SHAs)"];
 
     // -- Decision nodes (diamonds) -------------------------------------
     decide                 [shape=diamond, style=filled, fillcolor="#ffe0b2",

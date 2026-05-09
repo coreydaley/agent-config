@@ -4,32 +4,45 @@ Phase 9: full test suite per repo + Success Criteria walk. If any criteria aren'
 
 ## Inputs
 
-- `path_mode`, `repos`, `context_dir`, `implement_results` from walker state
+- `path_mode`, `repos`, `worktree_paths`, `context_dir`, `implement_results` from walker state
 
 ```bash
 STATE="<path>"
 PATH_MODE=$(scripts/walk.sh get --state "$STATE" --key path_mode)
 REPOS=$(scripts/walk.sh get --state "$STATE" --key repos)
+WORKTREE_PATHS=$(scripts/walk.sh get --state "$STATE" --key worktree_paths)
 ```
+
+For `linear-walk`, `worktree_paths` is the **active issue's** map (rotated per iteration by `implement`'s loop). validate-success treats it transparently — same code path as sprintmd.
 
 ## Steps
 
 ### 1. Run the full test suite per repo
 
-For each repo in `$REPOS`:
+The skill is cwd-independent. **Run every test command inside the resolved per-repo worktree** via `worktree_paths`. Never assume cwd is in any of the manifest's repos.
 
-```bash
-# Go: go test ./...
-# Python: pytest (or make test if Makefile defines it)
-# Node: npm test (or yarn / pnpm equivalent)
-```
-
-Capture pass/fail. Save full output to a per-repo log:
+**Iterate the active-set's keys** (`keys(worktree_paths)`), not the full `repos` manifest. For sprintmd / linear-issue paths these are the same set; for linear-walk's per-issue active-set rotation, `worktree_paths` is the subset of repos the active issue actually touches. Iterating `repos` would test against worktrees that don't exist (issue X doesn't touch repo Y, but repo Y is in the milestone manifest).
 
 ```bash
 TEST_LOG_DIR="${STATE%.walk-state.json}.test-logs"
 mkdir -p "$TEST_LOG_DIR"
-# write per-repo log files
+
+for ORG_REPO in $(echo "$WORKTREE_PATHS" | jq -r 'keys[]'); do
+  WT=$(echo "$WORKTREE_PATHS" | jq -r ".[\"$ORG_REPO\"]")
+  LOG="$TEST_LOG_DIR/$(echo "$ORG_REPO" | tr / -).log"
+
+  # Detect the right command per worktree from CLAUDE.md / AGENTS.md /
+  # manifest heuristics (same detection as `implement.md`'s targeted-tests
+  # block). Detection is cheap (read one or two project files); no need
+  # to cache across runs.
+  #
+  # Examples:
+  #   Go:     ( cd "$WT" && go test ./... )
+  #   Python: ( cd "$WT" && pytest ) or `make test` if Makefile defines it
+  #   Node:   ( cd "$WT" && npm test ) or yarn/pnpm equivalent
+
+  ( cd "$WT" && <test cmd> ) > "$LOG" 2>&1
+done
 ```
 
 Surface failures immediately.
@@ -50,10 +63,29 @@ For "Fix before PR", route the skill to `terminal` via `user_blocked` after reco
 
 ### 3. Persist results
 
+The persistence shape depends on path mode. linear-walk runs validate-success per issue inside implement's loop; each iteration would otherwise overwrite the prior issue's results, leaving summarize with only the last issue's data.
+
+**sprintmd / linear-issue (one branch unit):** singular fields.
+
 ```bash
 scripts/walk.sh set --state "$STATE" --key tests_passed     --value "<true|false>"
 scripts/walk.sh set --state "$STATE" --key criteria_results --value "<JSON: per-criterion met/ship/defer>"
 ```
+
+**linear-walk:** namespace under the active issue ID. Read existing `linear_walk_results`, merge in the active issue's slice, write back:
+
+```bash
+ACTIVE_ISSUE=$(scripts/walk.sh get --state "$STATE" --key active_issue_id)
+EXISTING=$(scripts/walk.sh get --state "$STATE" --key linear_walk_results)
+# Build updated map: linear_walk_results.<issue_id>.tests = <true|false>,
+#                    linear_walk_results.<issue_id>.criteria = <JSON>
+UPDATED=$(echo "$EXISTING" | jq --arg id "$ACTIVE_ISSUE" \
+  --argjson tests "<true|false>" --argjson crit "<JSON>" \
+  '.[$id] = {tests: $tests, criteria: $crit}')
+scripts/walk.sh set --state "$STATE" --key linear_walk_results --value "$UPDATED"
+```
+
+`summarize` reads the appropriate shape per path mode.
 
 ## Outputs
 

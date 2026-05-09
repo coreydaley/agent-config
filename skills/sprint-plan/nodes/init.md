@@ -17,17 +17,33 @@ Parse arguments and flags. Handle `--help` inline.
 
 3. **Resolve the seed.** The remaining argument is the seed prompt — either inline text or a path to a SEED.md (typically produced by `/sprint-seed`). If a path, verify it exists.
 
-4. **Set up paths:**
+4. **Set up paths.** Two cases — reuse the seed's session folder when applicable, otherwise derive a fresh root that respects the four-root model:
+
+   **Case A: SEED.md is inside an existing sprint session folder** (`<root>/sprints/<TS>/SEED.md`):
+
+   ```bash
+   SESSION_DIR=$(dirname "$SEED_PATH")
+   REPORTS_BASE=$(dirname "$(dirname "$SESSION_DIR")")    # <root>/
+   REPORT_TS=$(basename "$SESSION_DIR")                    # <TS>
+   ```
+
+   This honors the seed's chosen scoping root. A SEED.md at `~/Reports/seeds/sprints/<TS>/SEED.md` keeps SPRINT.md under `seeds/`; a SEED.md under `~/Reports/<org>/<repo>/sprints/<TS>/` stays repo-scoped.
+
+   **Case B: inline seed text or a SEED.md path outside any session folder** — fall through to repo-derived defaults, with a `no-repo` fallback when cwd has no usable remote:
+
    ```bash
    REMOTE=$(git remote get-url upstream 2>/dev/null || git remote get-url origin 2>/dev/null || echo "")
    ORG_REPO=$(echo "$REMOTE" | sed 's|.*github\.com[:/]||; s|\.git$||')
+   if [ -z "$ORG_REPO" ]; then
+     ORG_REPO="no-repo"      # matches sprint_ledger.get_reports_base() behavior
+   fi
    REPORTS_BASE="$HOME/Reports/$ORG_REPO"
    REPORT_TS=$(date +%Y-%m-%dT%H-%M-%S)
    SESSION_DIR="$REPORTS_BASE/sprints/$REPORT_TS"
    mkdir -p "$SESSION_DIR"
    ```
 
-   If the seed is a SEED.md path inside an existing sprint session folder, **reuse that folder** as `$SESSION_DIR` (so SEED.md and SPRINT.md live together). Don't create a new timestamp folder in that case.
+   Never produce a `REPORTS_BASE` with empty `$ORG_REPO` — that lands sessions at `$HOME/Reports/sprints/<TS>/` which collides across users.
 
 5. **Initialize walker state:**
    ```bash
@@ -40,6 +56,9 @@ Parse arguments and flags. Handle `--help` inline.
    scripts/walk.sh set --state "$STATE" --key seed_text     --value "<original seed text or SEED.md content>"
    scripts/walk.sh set --state "$STATE" --key seed_path     --value "<path to SEED.md or empty>"
    scripts/walk.sh set --state "$STATE" --key session_dir   --value "$SESSION_DIR"
+   # reports_root is <root>/ given session_dir = <root>/sprints/<TS>/. Downstream
+   # nodes (register) read this rather than re-deriving via dirname-dirname.
+   scripts/walk.sh set --state "$STATE" --key reports_root  --value "$REPORTS_BASE"
    scripts/walk.sh set --state "$STATE" --key report_ts     --value "$REPORT_TS"
    scripts/walk.sh set --state "$STATE" --key flag_auto     --value "<true|false>"
    scripts/walk.sh set --state "$STATE" --key flag_full     --value "<true|false>"

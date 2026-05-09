@@ -30,7 +30,7 @@ linear issue query --team CON --assignee @me --sort priority
 
 ### View an issue
 ```bash
-linear issue view CON-123
+linear issue view PROJ-123
 ```
 
 ### Create an issue
@@ -40,9 +40,9 @@ linear issue create --team CON --title "Title" --description "Description"
 
 ### Update an issue
 ```bash
-linear issue update CON-123 --state started
-linear issue update CON-123 --priority high
-linear issue update CON-123 --assignee @me
+linear issue update PROJ-123 --state started
+linear issue update PROJ-123 --priority high
+linear issue update PROJ-123 --assignee @me
 ```
 
 ### Query with filters
@@ -72,7 +72,7 @@ linear project list --team CON
 
 ### Add a comment
 ```bash
-linear issue comment add CON-123 --body "Comment text"
+linear issue comment add PROJ-123 --body "Comment text"
 ```
 
 ## Notes

@@ -49,7 +49,7 @@ digraph sprint_work {
     dispatch_mode        [shape=diamond, style=filled, fillcolor="#ffe0b2",
                           label="dispatch-mode\n(review / retro / normal)"];
     verify_worktree      [shape=diamond, style=filled, fillcolor="#ffe0b2",
-                          label="verify-worktree\n(pushable + on right branch?)"];
+                          label="verify-worktree\n(per-repo: find/create\nworktree on sprint branch)"];
 
     // -- User-input nodes (escalate-shaped diamonds) -------------------
     ask_approval         [shape=diamond, style=filled, fillcolor="#ffccbc",
@@ -68,7 +68,6 @@ digraph sprint_work {
     write_retro          -> terminal;
     detect_repo          -> verify_worktree;
     show_plan            -> ask_approval;
-    implement            -> validate_success;
     open_prs             -> summarize;
     summarize            -> terminal;
 
@@ -96,6 +95,13 @@ digraph sprint_work {
 
     // discuss-plan: loop back.
     discuss_plan -> ask_approval [label="discussion_done"];
+
+    // implement: route on path mode. linear-walk runs validate-success
+    // and open-prs internally per issue (active-set rotation), so it
+    // short-circuits to summarize. Other paths flow through the regular
+    // graph-level validate-success → open-prs.
+    implement -> validate_success [label="non_linear_walk"];
+    implement -> summarize        [label="linear_walk_complete"];
 
     // validate-success: criteria satisfied / user blocks.
     validate_success -> open_prs [label="criteria_satisfied"];

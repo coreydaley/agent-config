@@ -4,14 +4,26 @@ Phase 10: open draft PR(s). Multi-repo: one per repo, cross-link bodies. Skip cr
 
 ## Inputs
 
-- `path_mode`, `repos`, `merge_order`, `context_dir`, `issue_ids`, `skip_pr_open`, `criteria_results` from walker state
+- `path_mode`, `repos`, `worktree_paths`, `merge_order`, `context_dir`, `issue_ids`, `skip_pr_open`, `criteria_results` from walker state
 
 ```bash
 STATE="<path>"
 SKIP_PR_OPEN=$(scripts/walk.sh get --state "$STATE" --key skip_pr_open)
 REPOS=$(scripts/walk.sh get --state "$STATE" --key repos)
+WORKTREE_PATHS=$(scripts/walk.sh get --state "$STATE" --key worktree_paths)
 PATH_MODE=$(scripts/walk.sh get --state "$STATE" --key path_mode)
 ```
+
+## Cwd-independence
+
+Run `gh pr create` inside each repo's worktree:
+
+```bash
+WT="$(echo "$WORKTREE_PATHS" | jq -r '.["<org>/<repo>"]')"
+( cd "$WT" && gh pr create --draft --title "..." --body "..." )
+```
+
+`gh` reads the upstream / origin remote from the worktree's git config to resolve the target repo. Never invoke `gh` from outside a worktree.
 
 ## Push-more skip
 
@@ -48,7 +60,7 @@ Imperative-style summary, sentence case, max ~70 chars total. Completion-framed 
 
 ## Linear            (omit if no Linear issue)
 
-[CON-1234 — Issue Title](https://linear.app/<workspace>/issue/CON-1234)
+[PROJ-1234 — Issue Title](https://linear.app/<workspace>/issue/PROJ-1234)
 
 ## Companion PR      (multi-repo only)
 
@@ -64,14 +76,18 @@ If any Success Criteria were marked "ship without" or "defer" in `validate-succe
 
 ## Multi-repo
 
-Open one PR per repo. Order of opening follows the issue's / SPRINT.md's **Merge order** if specified; otherwise alphabetical. After both open, update each PR's body to add the companion-PR cross-link to the other.
+Open one PR per repo, each from inside that repo's worktree path. Order of opening follows the issue's / SPRINT.md's **Merge order** if specified; otherwise alphabetical by `<org>/<repo>`. After both open, update each PR's body to add the companion-PR cross-link to the other.
 
 ```bash
-gh pr edit <PR_A> --body "$NEW_BODY_A_WITH_LINK_TO_PR_B"
-gh pr edit <PR_B> --body "$NEW_BODY_B_WITH_LINK_TO_PR_A"
+WT_A="$(echo "$WORKTREE_PATHS" | jq -r '.["<org_a>/<repo_a>"]')"
+WT_B="$(echo "$WORKTREE_PATHS" | jq -r '.["<org_b>/<repo_b>"]')"
+( cd "$WT_A" && gh pr create --draft --title "..." --body "..." )
+( cd "$WT_B" && gh pr create --draft --title "..." --body "..." )
+( cd "$WT_A" && gh pr edit <PR_A> --body "$NEW_BODY_A_WITH_LINK_TO_PR_B" )
+( cd "$WT_B" && gh pr edit <PR_B> --body "$NEW_BODY_B_WITH_LINK_TO_PR_A" )
 ```
 
-Both PRs reference the same Linear issue ID (when applicable) so Linear's GitHub integration attaches both to the issue.
+Both PRs reference the same Linear issue ID (when applicable) so Linear's GitHub integration attaches both to the issue. The shared branch name across repos makes the change set discoverable from either side.
 
 ## Don'ts
 
@@ -83,10 +99,24 @@ Both PRs reference the same Linear issue ID (when applicable) so Linear's GitHub
 ## Outputs
 
 - Draft PR(s) opened on GitHub
-- Persist for `summarize`:
+- Persist for `summarize`. Shape depends on path mode (mirrors validate-success):
+
+  **sprintmd / linear-issue:**
   ```bash
-  scripts/walk.sh set --state "$STATE" --key pr_results --value "<JSON: per-repo PR URL or skip-reason>"
+  scripts/walk.sh set --state "$STATE" --key pr_results --value "<JSON: {<org>/<repo>: PR URL or skip-reason}>"
   ```
+
+  **linear-walk:** namespace under active issue ID; merge into `linear_walk_results`:
+  ```bash
+  ACTIVE_ISSUE=$(scripts/walk.sh get --state "$STATE" --key active_issue_id)
+  EXISTING=$(scripts/walk.sh get --state "$STATE" --key linear_walk_results)
+  UPDATED=$(echo "$EXISTING" | jq --arg id "$ACTIVE_ISSUE" \
+    --argjson prs "<JSON: {<org>/<repo>: PR URL or skip-reason}>" \
+    '.[$id] = (.[$id] // {}) + {prs: $prs}')
+  scripts/walk.sh set --state "$STATE" --key linear_walk_results --value "$UPDATED"
+  ```
+
+  Without the namespace, each issue's open-prs invocation overwrites the prior issue's URLs — by the time summarize runs, only the last issue's PRs are visible.
 
 ## Outgoing edges
 

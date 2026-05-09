@@ -36,7 +36,7 @@ What next?
 
 Ask via AskUserQuestion. Map the answer:
 - "Done" / "1" → `user_done` → terminal
-- "Continue" / "2" → `user_continue` → review (and reset the iteration cap window for the next batch)
+- "Continue" / "2" → `user_continue` → compute-diff (and reset the iteration cap window for the next batch)
 
 ### Mode B: `iter_cap` (out of cycles, came from decide)
 
@@ -56,7 +56,7 @@ What next?
 ```
 
 Map:
-- "Continue" / "1" → `user_continue` → review (reset cap window)
+- "Continue" / "1" → `user_continue` → compute-diff (reset cap window)
 - "Done" / "2" → `user_done` → terminal
 
 ### Mode C: `needs_user_input` (mid-iteration, came from decide)
@@ -83,8 +83,8 @@ What is this?
 ```
 
 Map:
-- "Same" / "1" → update ledger (merge), → `user_continue` → review
-- "New" / "2" → create new ledger entry with status `*open*`, → `user_continue` → review
+- "Same" / "1" → update ledger (merge), → `user_continue` → compute-diff
+- "New" / "2" → create new ledger entry with status `*open*`, → `user_continue` → compute-diff
 - "Done" / "3" → `user_done` → terminal
 
 For a **fix-verification failure** (`*escalated: fix failed verification*`):
@@ -115,23 +115,28 @@ If multiple findings are pending, present them sequentially. The user resolves e
 
 ## Outgoing edges
 
-- **`user_continue`** → `review` — user wants to keep iterating. If we came from `iter_cap` or a Mode A "continue", reset the iteration counter window so the next `MAX_CYCLES` cycles count from now (don't immediately re-trip the cap).
+- **`user_continue`** → `compute-diff` — user wants to keep iterating. If we came from `iter_cap` or a Mode A "continue", reset the iteration counter window so the next `MAX_CYCLES` cycles count from now (don't immediately re-trip the cap).
 - **`user_done`** → `terminal` — user is satisfied or wants to take over manually.
 
-If the user chose to continue and we came from `iter_cap` (or any end-state cause), reset `cycles_in_run` so the next batch of `max_cycles` cycles counts from now:
+If the user chose to continue, reset `cycles_in_run` **only when the entry condition was an end-state trigger** (`iter_cap` or `only_low_nit`). For `needs_user_input` continuations the user resolved a mid-iteration ambiguity, not "I want a fresh batch of N" — keep the existing batch's cap intact so the user doesn't blow through `max_cycles` without warning.
 
 ```bash
-scripts/walk.sh set --state "$PR_DIR/.walk-state.json" --key cycles_in_run --value 0
+ENTRY=$(scripts/walk.sh get --state "$SELF_REVIEW_DIR/.walk-state.json" --key escalate_entry_condition)
+if [ "$ENTRY" = "iter_cap" ] || [ "$ENTRY" = "only_low_nit" ]; then
+  scripts/walk.sh set --state "$SELF_REVIEW_DIR/.walk-state.json" --key cycles_in_run --value 0
+fi
 ```
+
+`decide.md` persists `escalate_entry_condition` when it transitions to escalate, so this node knows which path it came in on.
 
 Record the transition (pick exactly one):
 
 ```bash
 # user chose to continue (loops through compute-diff for a fresh iteration):
-scripts/walk.sh transition --state "$PR_DIR/.walk-state.json" --from escalate --to compute_diff --condition user_continue
+scripts/walk.sh transition --state "$SELF_REVIEW_DIR/.walk-state.json" --from escalate --to compute_diff --condition user_continue
 
 # user chose to end:
-scripts/walk.sh transition --state "$PR_DIR/.walk-state.json" --from escalate --to terminal --condition user_done
+scripts/walk.sh transition --state "$SELF_REVIEW_DIR/.walk-state.json" --from escalate --to terminal --condition user_done
 ```
 
 ## Notes

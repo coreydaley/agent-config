@@ -27,7 +27,7 @@ For **each PR** in `pr_set`:
    - Commits: messages, SHAs, file lists per commit (cheap if `gh` returned them)
    - Review threads (resolved + unresolved, with comment chains)
    - Labels
-   - Linked Linear issue (look for `CON-1234` style IDs in title or body)
+   - Linked Linear issue (look for `PROJ-1234` style IDs in title or body)
 
 3. **For unresolved threads, fetch file/line/diff context** so `analyze` can reason about whether subsequent commits addressed them:
    ```bash

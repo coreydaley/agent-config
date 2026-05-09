@@ -28,7 +28,7 @@ Mode detection:
    mkdir -p "$SESSION_DIR"
    ```
 
-   For Linear-only contexts (no git remote), `ORG_REPO` may be empty. In that case, fall back to `$HOME/Reports/_linear/sprints/` so the SEED.md still has a home.
+   For Linear-only contexts (no git remote), `ORG_REPO` may be empty. In that case, fall back to `$HOME/Reports/linear/sprints/` so the SEED.md still has a home.
 
 4. **Initialize the walker state file:**
    ```bash
@@ -69,6 +69,6 @@ scripts/walk.sh transition --state "$STATE" --from init --to orient
 
 ## Failure modes
 
-- `git remote` lookup fails AND mode is Linear → fine, use the fallback `$HOME/Reports/_linear/sprints/` path.
+- `git remote` lookup fails AND mode is Linear → fine, use the fallback `$HOME/Reports/linear/sprints/` path.
 - `git remote` lookup fails AND mode is Repo → downgrade to Seed mode (set `repo_fallback=true`); kickoff asks the user what to discuss instead of pulling repo history.
-- `git remote` lookup fails AND mode is Seed → also fine. The user is talking through a rough idea; we don't need a repo to do that. Use `$HOME/Reports/_seed/sprints/`.
+- `git remote` lookup fails AND mode is Seed → also fine. The user is talking through a rough idea; we don't need a repo to do that. Use `$HOME/Reports/seeds/sprints/`.

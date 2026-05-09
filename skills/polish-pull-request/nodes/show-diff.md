@@ -47,23 +47,23 @@ Commit cleanup (optional — REQUIRES force-push):
   Verbose bodies to tighten:
     - <SHA> "<title>" — current: <N> lines → proposed: 1 line
   Proposed regrouping (<orig N> commits → <new M> groups):
-    1. fix(api/handler): guard ResultLimit overflow
-       files: pkg/api/handler.go
-              pkg/api/handler_test.go
-       trailers: Addresses CON-1148
+    1. fix(api/sdk): guard ResultLimit overflow
+       files: pkg/api/groups.go
+              pkg/api/groups_test.go
+       trailers: Addresses ISSUE-1148
                  Co-authored-by: Claude <noreply@anthropic.com>
-    2. docs(api/handler): clarify ListItems auto-iterate semantics
-       files: pkg/api/handler.go
+    2. docs(api/sdk): clarify ListGroups auto-iterate semantics
+       files: pkg/api/groups.go
        trailers: Co-authored-by: Claude <noreply@anthropic.com>
   (or "Skipped: <reason>" — see cleanup_skip_reason)
 
 Code comment cleanup:
   Strip (contain internal refs):
-    - pkg/api/handler.go:153
+    - pkg/api/groups.go:153
       current:  "// addresses SR001 — guard against int32 overflow"
       proposed: "// guard against int32 overflow"
   Shorten (verbose):
-    - pkg/api/handler.go:79-82 (4-line block)
+    - pkg/api/groups.go:79-82 (4-line block)
       proposed: 1 line
   Strip entirely (restates code):
     - foo/bar.go:42 "// increment counter"  → DELETE

@@ -30,6 +30,21 @@ SESSION_DIR=$(scripts/walk.sh get --state "$STATE" --key session_dir)
    **Created:** <YYYY-MM-DD>
    **Source:** $SESSION_DIR/SPRINT.md
 
+   ## Repositories
+
+   Read `repositories` from walker state (set by `parse-sprint`) and render each entry verbatim. **Pin the rendering** — don't rely on the agent reading SPRINT.md and re-paraphrasing. Concretely:
+
+   ```python
+   for entry in repositories:
+       primary = " (primary)" if entry["primary"] else ""
+       print(f"- {entry['org']}/{entry['repo']}{primary}")
+   ```
+
+   Order matches `parse-sprint`'s parse order; primary-tagged entry stays in its original position. Example output:
+
+   - <org>/<repo> (primary)
+   - <org>/<repo2>
+
    ## Activity-framed rename
 
    [Skip section if no rename. Otherwise:]
@@ -42,16 +57,23 @@ SESSION_DIR=$(scripts/walk.sh get --state "$STATE" --key session_dir)
 
    ## Issues created
 
-   | Linear ID | Title | Priority | SPRINT.md source | Blocked by |
-   |-----------|-------|----------|------------------|------------|
-   | CON-1234 | ... | High | "Implementation Plan / P0 / Tasks 1-3" | - |
+   | Linear ID | Title | Priority | branchName | Files (repos) | SPRINT.md source | Blocked by |
+   |-----------|-------|----------|------------|---------------|------------------|------------|
+   | PROJ-1234 | ... | High | `coreydaley/proj-1234-add-foo` | acme/web-app; acme/api | "Implementation Plan / P0 / Tasks 1-3" | - |
+
+   The `branchName` and `Files (repos)` columns are required for downstream consumers:
+   - `/sprint-self-review`'s PR-shortcut search matches `branchName` against `headRefName` (PR-shortcut → sprint resolution).
+   - `/sprint-work/verify-merged`'s expected-PR matrix (linear-walk) uses `Files (repos)` to know which (issue, repo) cells should produce a PR.
+   - `/sprint-self-review/init.md` (linear-issue mode) narrows worktree resolution to the issue's actual repos.
+
+   `Files (repos)` is the deduplicated set of `<org>/<repo>` prefixes from each issue's Files section, joined by `; `.
 
    ## Existing issues touched
 
    | Linear ID | Action | Notes |
    |-----------|--------|-------|
-   | CON-789 | augmented | added milestone context comment |
-   | CON-101 | linked as related to CON-1234 | |
+   | PROJ-789 | augmented | added milestone context comment |
+   | PROJ-101 | linked as related to PROJ-1234 | |
 
    ## Labels applied
 
@@ -72,16 +94,16 @@ SESSION_DIR=$(scripts/walk.sh get --state "$STATE" --key session_dir)
    Milestone:      <name> — <URL>
                    <created / updated / re-used>
    Issues created: N
-                   - CON-1234: <title>
-                   - CON-1235: <title>
+                   - PROJ-1234: <title>
+                   - PROJ-1235: <title>
    Existing touched: M
-                     - CON-789: augmented (comment posted)
-                     - CON-101: linked as related to CON-1234
+                     - PROJ-789: augmented (comment posted)
+                     - PROJ-101: linked as related to PROJ-1234
    Labels applied: eng:<team>
    Sidecar:        $SESSION_DIR/LINEAR.md
 
-   Reminder: any automated quality coaching from Linear arrives async;
-             check Linear for suggestions on the milestone or issues.
+   Reminder: any automated coaching bots in Linear will post feedback async;
+             check Linear for quality suggestions on the milestone or issues.
    ```
 
 5. **Don't run `git commit` or `git push`.** This skill doesn't touch git. Linear is the artifact system.
@@ -109,5 +131,5 @@ scripts/walk.sh transition --state "$STATE" --from finalize --to terminal
 
 ## Notes
 
-- **LINEAR.md is the canonical mapping.** A future `/sprint-work-linear` (when it exists) reads this to walk back from Linear → SPRINT.md.
-- **Don't include automated coaching feedback inline.** Any feedback from Linear's quality tooling arrives async; the user will see it in Linear when it lands.
+- **LINEAR.md is the canonical mapping.** A future `/sprint-work` (when it exists) reads this to walk back from Linear → SPRINT.md.
+- **Don't include automated coaching feedback inline.** That's async; the user will see it on Linear when it lands.

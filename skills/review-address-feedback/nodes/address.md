@@ -36,11 +36,11 @@ For each finding (or finding-group, depending on strategy), do:
    Surface failures immediately. If the fix broke a test, work with the user before continuing — don't silently move on.
 
 5. **Defer routing** (when action is `defer`):
-   - **Linear issue** — use the `linear` skill. Title and description describe the problem in its own terms (no internal review IDs). Capture the resulting issue ID (e.g. `CON-1234`).
+   - **Linear issue** — use the `linear` skill. Title and description describe the problem in its own terms (no internal review IDs). Capture the resulting issue ID (e.g. `PROJ-1234`).
 
      After the issue is created, ask whether to leave a code marker:
      ```
-     // TODO(CON-1234): <one-line reason — what's missing and why deferred>
+     // TODO(PROJ-1234): <one-line reason — what's missing and why deferred>
      ```
 
      Match the comment style to the language (`//` for Go/JS, `#` for Python/Bash, etc.). Linear issue IDs are public team identifiers and are **explicitly allowed in code** — the ID Suppression Rule applies only to internal review artifacts (`R001`, `SR042`, `CR007`, etc.).
@@ -57,8 +57,8 @@ For each finding (or finding-group, depending on strategy), do:
      "file_line": "path/to/file.go:42",
      "action": "fixed|won't-fix|deferred|skipped",
      "note": "<one short line>",
-     "defer_target": "linear:CON-1234 | vault:Tasks/foo.md | record-only",
-     "linear_id": "CON-1234"
+     "defer_target": "linear:PROJ-1234 | vault:Tasks/foo.md | record-only",
+     "linear_id": "PROJ-1234"
    }
    ```
 
@@ -81,7 +81,7 @@ Internal IDs (`R001`, `SR042`, `CR007`, `CX012`, GitHub comment IDs) **never app
 
 The IDs exist only in `ADDRESSED.md` for traceability. Describe each fix in its own terms.
 
-Linear IDs (`CON-1234`) are an exception — they're public team identifiers and are explicitly allowed in code.
+Linear IDs (`PROJ-1234`) are an exception — they're public team identifiers and are explicitly allowed in code.
 
 ## Outputs
 
