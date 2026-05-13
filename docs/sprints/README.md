@@ -22,14 +22,14 @@ flowchart TD
     Path -->|SPRINT.md path| Work["/sprint-work"]
     Path -->|Linear path| ToLinear["/sprint-plan-to-linear"]
     ToLinear -->|milestone + issues<br/>+ LINEAR.md| Work
-    Work -->|opens draft PR(s)<br/>per repo in manifest| PR((PR(s) opened<br/>draft))
+    Work -->|"opens draft PR(s)<br/>per repo in manifest"| PR(("PR(s) opened<br/>draft"))
 
     PR --> SelfCycle
     subgraph SelfCycle ["/sprint-self-review (sprint-scoped)"]
         direction LR
         SR["review<br/>(per-repo diff bundle,<br/>iteration-N/REVIEW.md)"]
         SA["address<br/>(per finding: fix in right<br/>worktree, run tests/lint;<br/>cross-repo fixes apply atomically)"]
-        SR -->|findings<br/>(tagged repo:)| SA
+        SR -->|"findings<br/>(tagged repo:)"| SA
         SA -->|loop: fresh diff bundle<br/>after fixes| SR
     end
 
