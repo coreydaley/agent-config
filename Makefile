@@ -9,7 +9,7 @@ symlinks: ## Symlink all Claude configuration into ~/.claude/
 .PHONY: symlinks
 
 ## Hook Targets
-hooks: ## Install git pre-commit hooks (requires: brew install gitleaks)
+hooks: ## Install git hooks (requires: brew install gitleaks mermaid-cli)
 	@bash scripts/setup-hooks.sh
 .PHONY: hooks
 
