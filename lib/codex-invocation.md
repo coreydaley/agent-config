@@ -78,14 +78,33 @@ changes:
 - `skills/review-pr-comprehensive/nodes/devils-advocate.md`
 - `skills/sprint-self-review/nodes/independent-reviews.md`
 - `skills/sprint-self-review/nodes/devils-advocate.md`
-- `subagents/audit-accessibility-web.md`
-- `subagents/audit-accessibility-apple.md`
+
+General audits:
 - `subagents/audit-architecture.md`
 - `subagents/audit-design.md`
-- `subagents/audit-responsive.md`
-- `subagents/audit-security-web-application.md`
-- `subagents/audit-security-apple.md`
 - `subagents/audit-test-coverage.md`
+
+Web audits:
+- `subagents/audit-web-accessibility.md`
+- `subagents/audit-web-responsive.md`
+- `subagents/audit-web-security.md`
+
+Apple audits:
+- `subagents/audit-apple-accessibility.md`
+- `subagents/audit-apple-adaptivity.md`
+- `subagents/audit-apple-app-store-review.md`
+- `subagents/audit-apple-architecture.md`
+- `subagents/audit-apple-design.md`
+- `subagents/audit-apple-localization.md`
+- `subagents/audit-apple-performance.md`
+- `subagents/audit-apple-persistence.md`
+- `subagents/audit-apple-privacy.md`
+- `subagents/audit-apple-security.md`
+- `subagents/audit-apple-testing.md`
+
+All audit subagents reference [`audit-framework.md`](audit-framework.md)
+for the shared 5-phase pattern and only specify audit-specific deltas
+(categories, severity rubrics, Phase 1 tooling, Phase 2 prompts).
 
 Verification:
 

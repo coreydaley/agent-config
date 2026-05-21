@@ -70,13 +70,24 @@ Invoke with `/command-name` in Claude Code. Commands with `disable-model-invocat
 | `/review-pr-comprehensive` | Dual-agent PR review (Claude + Codex) → `REVIEW.md` |
 | `/review-address-feedback` | Walk through review feedback and apply fixes |
 | `/polish-pull-request` | Final-pass PR cleanup before merge |
-| `/audit-security-web-application` | Dual-agent security review for backend/web/IaC/CI/agent-config (gitleaks + semgrep + dep scanners + trivy + actionlint) → findings report |
-| `/audit-security-apple` | Dual-agent security review for native Apple apps (iOS/iPadOS/macOS/watchOS/tvOS/visionOS) → findings report |
-| `/audit-design` | Dual-agent UI/UX review → findings report |
-| `/audit-accessibility-web` | Dual-agent web accessibility (WCAG 2.1/2.2) review → findings report |
-| `/audit-accessibility-apple` | Dual-agent Apple platform accessibility (SwiftUI/UIKit/AppKit) review → findings report |
-| `/audit-architecture` | Dual-agent architecture review → findings report |
-| `/audit-responsive` | Dual-agent responsive design review → findings report |
+| **Audits** (all 5-phase dual-agent, see `lib/audit-framework.md`) | |
+| `/audit-architecture` | Platform-agnostic architecture review — findings anchored to named principles + migration cost |
+| `/audit-design` | Platform-agnostic UI/UX review — HIG promoted to priority 2 on Swift projects |
+| `/audit-test-coverage` | Language-detecting coverage audit (Go, Python, Node, Rust, Swift) — gaps + pyramid balance + test quality |
+| `/audit-web-accessibility` | Web accessibility (WCAG 2.1/2.2) review |
+| `/audit-web-responsive` | Web responsive design review (viewport, breakpoints, touch targets) |
+| `/audit-web-security` | Backend/web/IaC/CI/agent-config security review (gitleaks + semgrep + dep scanners + trivy + actionlint, OWASP/CWE-anchored) |
+| `/audit-apple-accessibility` | Apple HIG accessibility (SwiftUI/UIKit/AppKit/WatchKit) review |
+| `/audit-apple-adaptivity` | Size classes + iPad multitasking + visionOS windowing + AX5 Dynamic Type layout (Apple-native analogue of `/audit-web-responsive`) |
+| `/audit-apple-app-store-review` | Full App Store Review Guidelines walk — preempts rejection reasons before submission |
+| `/audit-apple-architecture` | SwiftUI state ownership + `@MainActor` isolation + `Sendable` + structured concurrency + Swift Package modularization |
+| `/audit-apple-design` | Apple HIG-anchored design (SF Symbols, materials, dark mode, navigation, animation) |
+| `/audit-apple-localization` | String Catalogs + pluralization + RTL + locale-aware formatters |
+| `/audit-apple-performance` | Launch time + SwiftUI body invalidation + main-thread blocking + retain cycles + memory + energy (Instruments-anchored) |
+| `/audit-apple-persistence` | SwiftData / Core Data / GRDB + CloudKit sync + migration safety + threading |
+| `/audit-apple-privacy` | Privacy Manifest + ATT + required-reason APIs + SDK privacy declarations (preempts App Review rejection) |
+| `/audit-apple-security` | Apple-platform threat model (Keychain, ATS, entitlements, StoreKit, CloudKit, WKWebView, code signing) |
+| `/audit-apple-testing` | XCTest vs Swift Testing + XCUITest critical-flow coverage + Preview coverage + snapshot strategy |
 | `/skill-creator` | Author a new skill (graph-driven or cli-wrapper) end-to-end with topology approval and validation |
 | `/create-task` | Create a new task note in the Obsidian vault |
 | `/create-knowledge` | Create a new knowledge note in the Obsidian vault |
@@ -122,13 +133,24 @@ Subagents are specialized agents Claude delegates work to via the Agent tool. Th
 
 | Subagent | Description |
 |---|---|
-| `audit-security-web-application` | Dual-agent security audit for backend/web/IaC/CI/agent-config — runs real security tooling in Phase 1; OWASP/CWE-anchored categories; Critical broken out as Immediate Action |
-| `audit-security-apple` | Dual-agent security audit for native Apple apps — Apple-platform threat model (Keychain, ATS, entitlements, Privacy Manifest, StoreKit, CloudKit, WKWebView, code signing) |
-| `audit-accessibility-web` | Dual-agent web accessibility audit (WCAG 2.1/2.2) — same 5-phase pattern with accessibility-specific finding schema |
-| `audit-accessibility-apple` | Dual-agent Apple platform accessibility audit (SwiftUI/UIKit/AppKit) — anchored to Apple HIG and accessibility APIs |
-| `audit-architecture` | Dual-agent architecture audit — findings anchored to named principles with migration cost estimates |
-| `audit-design` | Dual-agent UI/UX audit — findings anchored to Nielsen heuristics and project design system |
-| `audit-responsive` | Dual-agent responsive design audit — viewport, breakpoints, touch targets, fluid layouts, typography, overflow |
+| **Audits** (all share `lib/audit-framework.md`) | |
+| `audit-architecture` | Platform-agnostic architecture audit — findings anchored to named principles with migration cost estimates |
+| `audit-design` | Platform-agnostic UI/UX audit — HIG promoted to priority 2 on Swift projects |
+| `audit-test-coverage` | Language-detecting coverage audit; new audits inherit Swift detection out of the box |
+| `audit-web-accessibility` | Web accessibility (WCAG 2.1/2.2) audit |
+| `audit-web-responsive` | Web responsive design audit (viewport, breakpoints, touch targets, fluid layouts) |
+| `audit-web-security` | Backend/web/IaC/CI/agent-config security audit with real-tooling Phase 1; OWASP/CWE-anchored; Critical → Immediate Action |
+| `audit-apple-accessibility` | Apple HIG accessibility audit (SwiftUI / UIKit / AppKit / WatchKit) |
+| `audit-apple-adaptivity` | Apple adaptive UI — size classes, iPad multitasking, visionOS windowing, AX5 layout integrity |
+| `audit-apple-app-store-review` | Full App Store Review Guidelines walk — Submission Blocker section preempts rejection |
+| `audit-apple-architecture` | SwiftUI state ownership, `@MainActor`, `Sendable`, structured concurrency, Swift Package modularization |
+| `audit-apple-design` | Apple HIG-anchored design (SF Symbols, materials, dark mode, navigation, animation) |
+| `audit-apple-localization` | String Catalogs, pluralization, RTL, locale-aware formatters |
+| `audit-apple-performance` | Launch time, SwiftUI body invalidation, main-thread blocking, retain cycles, memory, energy (Instruments-anchored) |
+| `audit-apple-persistence` | SwiftData / Core Data / GRDB + CloudKit sync + migration safety + threading |
+| `audit-apple-privacy` | Privacy Manifest, ATT, required-reason APIs, SDK privacy declarations; Critical → Submission Blocker |
+| `audit-apple-security` | Apple-platform threat model (Keychain, ATS, entitlements, StoreKit, CloudKit, WKWebView, code signing); Critical → Immediate Action |
+| `audit-apple-testing` | XCTest vs Swift Testing, XCUITest coverage, Preview coverage, snapshot testing strategy |
 
 ### Audit output
 
@@ -136,7 +158,7 @@ Each audit run gets its own timestamped folder under `~/Reports/<org>/<repo>/aud
 
 ```
 ~/Reports/<org>/<repo>/audits/
-└── YYYY-MM-DDTHH-MM-SS-<lens>/         # one folder per run; <lens> = security|design|accessibility|architecture|responsive
+└── YYYY-MM-DDTHH-MM-SS-<audit-id>/      # one folder per run; <audit-id> = architecture | design | test-coverage | web-accessibility | web-responsive | web-security | apple-accessibility | apple-adaptivity | apple-app-store-review | apple-architecture | apple-design | apple-localization | apple-performance | apple-persistence | apple-privacy | apple-security | apple-testing
     ├── claude.md                       ← Claude's independent review
     ├── codex.md                        ← Codex's independent review
     ├── synthesis.md                    ← unified findings
