@@ -33,5 +33,7 @@
   },
   "skipDangerousModePermissionPrompt": true,
   "theme": "light",
-  "teammateMode": "tmux"
+  "teammateMode": "tmux",
+  "agentPushNotifEnabled": true,
+  "inputNeededNotifEnabled": true
 }
