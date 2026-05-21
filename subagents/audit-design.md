@@ -114,6 +114,7 @@ the output location.
    REPORTS_BASE="$HOME/Reports/$ORG_REPO"
    REPORT_TS=$(date +%Y-%m-%dT%H-%M-%S)
    AUDIT_DIR="$REPORTS_BASE/audits/$REPORT_TS-design"
+   PROJECT_CWD="$(pwd)"
    mkdir -p "$AUDIT_DIR"
    ```
    Each audit run gets its own timestamped folder under
@@ -140,8 +141,14 @@ A brief orientation note (3-5 bullets) covering:
 
 Run this command, substituting the resolved scope and the literal value of `AUDIT_DIR`:
 
+The flags below are non-negotiable; see [`lib/codex-invocation.md`](../lib/codex-invocation.md) for per-flag rationale and failure modes. `--add-dir` points at `$AUDIT_DIR` so Codex can write its artifact under `~/Reports/`; `-C` points at `$PROJECT_CWD` so Codex reads the code being audited.
+
 ```bash
-codex exec "Perform a thorough design and UX review of [RESOLVED_SCOPE]. \
+codex exec \
+  -s workspace-write \
+  --add-dir "$AUDIT_DIR" \
+  -C "$PROJECT_CWD" \
+  -- "Perform a thorough design and UX review of [RESOLVED_SCOPE]. \
   Write all findings to $AUDIT_DIR/codex.md using this \
   exact table format for each finding: \
   | ID | Severity | Title | Location | Heuristic | Why It Matters | Recommended Fix | Evidence/Notes | \
@@ -166,8 +173,24 @@ codex exec "Perform a thorough design and UX review of [RESOLVED_SCOPE]. \
   layout reflow. \
   Rate severity on: user impact, breadth of affected surface, \
   task interruption severity, cost of inconsistency. \
-  Do not read or reference any other review file."
+  Do not read or reference any other review file." \
+  < /dev/null
 ```
+
+### Step 1.5 — Verify the Codex artifact
+
+The most common Codex failure mode is silent (sandbox denial, missing flag,
+prompt parse error — see `lib/codex-invocation.md`). After the background
+Codex job returns, verify:
+
+```bash
+[[ -s "$AUDIT_DIR/codex.md" ]] && grep -q '|.*|.*|' "$AUDIT_DIR/codex.md" \
+  || echo "⚠️ Codex did not produce a usable $AUDIT_DIR/codex.md"
+```
+
+If verification fails: inspect the Codex stderr output, fix the issue if
+identifiable, and re-run the command once. Only after a second failure
+should you accept the single-agent degradation documented in Phase 3.
 
 ### Step 2 — Claude's Independent Review (Simultaneous)
 
@@ -242,7 +265,11 @@ severity and confidence.
 miscalibrations, and missed findings.
 
 ```bash
-codex exec "Read $AUDIT_DIR/synthesis.md. Your job is \
+codex exec \
+  -s workspace-write \
+  --add-dir "$AUDIT_DIR" \
+  -C "$PROJECT_CWD" \
+  -- "Read $AUDIT_DIR/synthesis.md. Your job is \
   to attack it, not improve it. Write your challenge to \
   $AUDIT_DIR/devils-advocate.md covering: \
   (1) False positives — findings that reflect intentional design \
@@ -252,8 +279,11 @@ codex exec "Read $AUDIT_DIR/synthesis.md. Your job is \
   (3) Missing findings — design issues both reviewers missed. \
   (4) Remediation steps that are impractical or would introduce new \
   inconsistencies. \
-  Be specific. Every challenge must cite the finding ID."
+  Be specific. Every challenge must cite the finding ID." \
+  < /dev/null
 ```
+
+After the call, verify the artifact: `[[ -s "$AUDIT_DIR/devils-advocate.md" ]] || echo "⚠️ Codex devil's advocate produced no output"`.
 
 Incorporate valid challenges: remove false positives, recalibrate severity,
 add missed findings, document every rejected challenge in synthesis.
