@@ -1,6 +1,6 @@
 # Apple Platform Accessibility Audit Reference
 
-Schema and severity reference for the `/audit-accessibility-apple` command.
+Schema and severity reference for the `/audit-apple-accessibility` command.
 For web frontends, see [`../accessibility-web/README.md`](../accessibility-web/README.md).
 
 Audit artifacts are written outside this repo to
@@ -144,4 +144,4 @@ confirm:
 - UIKit Accessibility documentation: https://developer.apple.com/documentation/uikit/accessibility_for_uikit
 - AppKit NSAccessibility documentation: https://developer.apple.com/documentation/appkit/nsaccessibility
 - WCAG 2.1 (referenced by HIG for contrast ratios): https://www.w3.org/TR/WCAG21/
-- Subagent definition: [`../../subagents/audit-accessibility-apple.md`](../../subagents/audit-accessibility-apple.md)
+- Subagent definition: [`../../subagents/audit-apple-accessibility.md`](../../subagents/audit-apple-accessibility.md)

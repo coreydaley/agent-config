@@ -1,6 +1,6 @@
 # Web Accessibility Audit Reference
 
-Schema and severity reference for the `/audit-accessibility-web` command.
+Schema and severity reference for the `/audit-web-accessibility` command.
 For native Apple platforms, see [`../accessibility-apple/README.md`](../accessibility-apple/README.md).
 
 Audit artifacts are written outside this repo to
@@ -106,4 +106,4 @@ validated from source alone.
 
 - WCAG 2.1: https://www.w3.org/TR/WCAG21/
 - WCAG 2.2: https://www.w3.org/TR/WCAG22/
-- Subagent definition: [`../../subagents/audit-accessibility-web.md`](../../subagents/audit-accessibility-web.md)
+- Subagent definition: [`../../subagents/audit-web-accessibility.md`](../../subagents/audit-web-accessibility.md)

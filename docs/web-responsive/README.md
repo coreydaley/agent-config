@@ -1,9 +1,9 @@
 # Responsive Design Audit Reference
 
-Schema and severity reference for the `/audit-responsive` command.
+Schema and severity reference for the `/audit-web-responsive` command.
 
 Audit artifacts are written outside this repo to
-`~/Reports/<org>/<repo>/audits/<TS>-responsive/` — `<org>/<repo>` is
+`~/Reports/<org>/<repo>/audits/<TS>-web-responsive/` — `<org>/<repo>` is
 derived from the `upstream` remote (falling back to `origin`), and
 `<TS>` is the audit start timestamp (`YYYY-MM-DDTHH-MM-SS`).
 
@@ -23,7 +23,7 @@ Each audit run produces these files in its own timestamped `$AUDIT_DIR`:
 `/sprint-plan` with the report path as the seed prompt:
 
 ```
-/sprint-plan ~/Reports/<org>/<repo>/audits/<TS>-responsive/REPORT.md
+/sprint-plan ~/Reports/<org>/<repo>/audits/<TS>-web-responsive/REPORT.md
 ```
 
 ## Finding Schema
@@ -109,7 +109,7 @@ compatibility certification.
 
 ## References
 
-- Subagent definition: [`../../subagents/audit-responsive.md`](../../subagents/audit-responsive.md)
+- Subagent definition: [`../../subagents/audit-web-responsive.md`](../../subagents/audit-web-responsive.md)
 - MDN Responsive Design: https://developer.mozilla.org/en-US/docs/Learn/CSS/CSS_layout/Responsive_Design
 - WCAG 1.4.4 (Resize Text): https://www.w3.org/WAI/WCAG21/Understanding/resize-text.html
 - WCAG 1.4.10 (Reflow): https://www.w3.org/WAI/WCAG21/Understanding/reflow.html

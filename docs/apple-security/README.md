@@ -1,6 +1,6 @@
 # Apple Platform Security Audit Reference
 
-Schema and severity reference for the `/audit-security-apple` command.
+Schema and severity reference for the `/audit-apple-security` command.
 For backend services / web applications / IaC / CI/CD / agent-config,
 see [`../security-web-application/README.md`](../security-web-application/README.md).
 
@@ -230,7 +230,7 @@ confirmed closed.
 
 ## References
 
-- Subagent definition: [`../../subagents/audit-security-apple.md`](../../subagents/audit-security-apple.md)
+- Subagent definition: [`../../subagents/audit-apple-security.md`](../../subagents/audit-apple-security.md)
 - Apple Platform Security Guide: https://support.apple.com/guide/security/welcome/web
 - Apple Privacy: https://developer.apple.com/privacy/
 - Privacy Manifest documentation: https://developer.apple.com/documentation/bundleresources/privacy_manifest_files

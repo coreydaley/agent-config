@@ -6,8 +6,8 @@ description: >-
   Codex review independently against OWASP/CWE-anchored categories,
   synthesize, devil's advocate pass, output as findings report with
   Critical findings broken out as Immediate Action. For native Apple
-  platforms, use /audit-security-apple.
+  platforms, use /audit-apple-security.
 disable-model-invocation: true
 ---
 
-Invoke the `audit-security-web-application` subagent via the Agent tool. Pass the scope from `$ARGUMENTS` as the prompt (or pass "current working directory" if `$ARGUMENTS` is empty). Pass `--diff-only` through if present.
+Invoke the `audit-web-security` subagent via the Agent tool. Pass the scope from `$ARGUMENTS` as the prompt (or pass "current working directory" if `$ARGUMENTS` is empty). Pass `--diff-only` through if present.

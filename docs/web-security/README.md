@@ -1,6 +1,6 @@
 # Web Application & Services Security Audit Reference
 
-Schema and severity reference for the `/audit-security-web-application` command.
+Schema and severity reference for the `/audit-web-security` command.
 For native Apple platforms, see [`../security-apple/README.md`](../security-apple/README.md).
 
 Audit artifacts are written outside this repo to
@@ -185,7 +185,7 @@ guarantee of full coverage. Validate each fix against runtime behavior.
 
 ## References
 
-- Subagent definition: [`../../subagents/audit-security-web-application.md`](../../subagents/audit-security-web-application.md)
+- Subagent definition: [`../../subagents/audit-web-security.md`](../../subagents/audit-web-security.md)
 - OWASP Top 10 (2021): https://owasp.org/Top10/
 - CWE Top 25: https://cwe.mitre.org/top25/
 - gitleaks: https://github.com/gitleaks/gitleaks

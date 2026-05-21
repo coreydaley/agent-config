@@ -76,7 +76,7 @@ The subagent reviews seven categories:
    deviations from established patterns
 7. Mobile and responsive design — breakpoint behavior, touch targets,
    layout reflow (for deeper responsive coverage, see
-   [`../responsive/README.md`](../responsive/README.md))
+   [`../web-responsive/README.md`](../web-responsive/README.md))
 
 ## Sprint Mapping
 
@@ -101,9 +101,9 @@ browser/device testing. Treat the output as a structured starting point
 for human judgment, not a guarantee of full coverage.
 
 This audit overlaps with accessibility and responsive concerns. For deep
-WCAG coverage use [`/audit-accessibility-web`](../accessibility-web/README.md);
+WCAG coverage use [`/audit-web-accessibility`](../accessibility-web/README.md);
 for deep mobile/tablet viewport coverage use
-[`/audit-responsive`](../responsive/README.md).
+[`/audit-web-responsive`](../web-responsive/README.md).
 
 ## References
 
