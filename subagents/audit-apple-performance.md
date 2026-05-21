@@ -81,10 +81,16 @@ The audit reviews ten categories:
 
 ```bash
 mkdir -p "$AUDIT_DIR/tooling-raw"
+# Detect a timeout command — macOS doesn't ship one by default.
+# Falls back to no timeout (with warning to STATUS.md) if neither is available.
+TO=$(command -v timeout || command -v gtimeout || echo "")
+[[ -z "$TO" ]] && echo "⚠️ no timeout command available; install via 'brew install coreutils' for tool timeouts" \
+  >> "$AUDIT_DIR/tooling-raw/STATUS.md"
+
 
 # Static code analysis (semgrep with Swift rules — limited but useful)
 command -v semgrep >/dev/null && \
-  timeout 600 semgrep --config=p/swift --config=p/performance \
+  ${TO:+$TO 600} semgrep --config=p/swift --config=p/performance \
     --json --output "$AUDIT_DIR/tooling-raw/semgrep.json" "$PROJECT_CWD" \
     2>&1 | tee "$AUDIT_DIR/tooling-raw/semgrep.log"
 

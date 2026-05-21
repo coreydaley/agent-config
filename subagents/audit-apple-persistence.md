@@ -60,7 +60,8 @@ The audit reviews ten categories:
 | 4 | Fetch efficiency | Predicate uses indexed properties; `fetchLimit` set for unbounded queries; `propertiesToFetch` for partial fetches; N+1 prevention via prefetching (`relationshipKeyPathsForPrefetching` / SwiftData equivalents) |
 | 5 | Predicate quality | `#Predicate` (SwiftData) macro usage; correct `NSPredicate` patterns for Core Data; no string-format predicates with user input (predicate injection); index-friendly queries |
 | 6 | Batch operations | `NSBatchInsertRequest` / `NSBatchUpdateRequest` / `NSBatchDeleteRequest` for large updates (avoid object-graph round-trip); SwiftData transactions; merge policy after batch |
-| 7 | CloudKit sync (`NSPersistentCloudKitContainer` or direct CKDatabase) | Schema compatibility with CloudKit constraints (no `Date`-as-relationship-key, etc.); `recordZone` partitioning; `CKShare` for shared data; subscription / push handling; account-status awareness |
+| 7a | CloudKit sync via `NSPersistentCloudKitContainer` (Core Data mirroring) | Container mirrors a Core Data store to CloudKit's **private** database; schema compatibility with CloudKit constraints (no `Date`-as-relationship-key; only attribute types CloudKit supports; no required-non-default attributes added in later model versions); persistent-history tracking enabled; share integration via the container's share APIs (`share(_:to:)`); account-status (`accountStatus`) checked before sync; schema deployed to production environment |
+| 7b | CloudKit direct (`CKDatabase` / `CKContainer` outside the persistent container) | Custom-zone (`CKRecordZone`) partitioning for shared content; manual `CKSubscription` setup + silent-push handling; `CKShare` participant ACLs when not using the persistent-container share APIs; `CKContainer.default()` vs explicit identifier; CloudKit Web Services tokens never embedded |
 | 8 | Conflict resolution & merge | `NSMergePolicy` set explicitly (not default `NSErrorMergePolicy`); SwiftData merge configuration; "last writer wins" implications; field-level merge where it matters |
 | 9 | Storage location & encryption | Database in app sandbox vs App Group (for extensions); `NSPersistentStoreFileProtectionKey` for sensitive data; SQLCipher / GRDB encryption for sensitive databases; UserDefaults misuse for structured data |
 | 10 | Backup & data lifecycle | `URLResourceKey.isExcludedFromBackupKey` for caches and reproducible data; Time Machine on macOS; iCloud backup considerations; data deletion on Sign Out / Delete Account |
@@ -84,6 +85,12 @@ The audit reviews ten categories:
 
 ```bash
 mkdir -p "$AUDIT_DIR/tooling-raw"
+# Detect a timeout command — macOS doesn't ship one by default.
+# Falls back to no timeout (with warning to STATUS.md) if neither is available.
+TO=$(command -v timeout || command -v gtimeout || echo "")
+[[ -z "$TO" ]] && echo "⚠️ no timeout command available; install via 'brew install coreutils' for tool timeouts" \
+  >> "$AUDIT_DIR/tooling-raw/STATUS.md"
+
 
 # Detect persistence stack in use
 {
@@ -204,10 +211,20 @@ user input (injection risk); index-friendly queries.
 (6) Batch operations — NSBatchInsertRequest / NSBatchUpdateRequest /
 NSBatchDeleteRequest for large updates (avoid object-graph
 round-trip); SwiftData transactions; merge policy after batch.
-(7) CloudKit sync — NSPersistentCloudKitContainer or direct
-CKDatabase: schema compatible with CloudKit constraints; recordZone
-partitioning; CKShare for shared data; subscription / push handling;
-account-status awareness.
+(7a) CloudKit sync via NSPersistentCloudKitContainer (Core Data
+mirroring): mirrors to the CloudKit PRIVATE database; schema
+compatible with CloudKit constraints (no Date-as-relationship-key;
+only attribute types CloudKit supports; no required-non-default
+attributes added in later model versions); persistent-history
+tracking enabled; share integration via the container's share APIs
+(share(_:to:)); accountStatus checked before sync; schema deployed
+to production environment.
+(7b) CloudKit direct (CKDatabase / CKContainer outside the
+persistent container): CUSTOM-ZONE partitioning for shared content;
+manual CKSubscription setup + silent-push handling; CKShare
+participant ACLs when not using the container share APIs;
+CKContainer.default() vs explicit identifier; CloudKit Web Services
+tokens never embedded.
 (8) Conflict resolution & merge — NSMergePolicy set explicitly (not
 default NSErrorMergePolicy); SwiftData merge configuration; "last
 writer wins" implications; field-level merge where it matters.

@@ -83,6 +83,12 @@ project ships to RTL languages: RTL findings escalate.
 
 ```bash
 mkdir -p "$AUDIT_DIR/tooling-raw"
+# Detect a timeout command — macOS doesn't ship one by default.
+# Falls back to no timeout (with warning to STATUS.md) if neither is available.
+TO=$(command -v timeout || command -v gtimeout || echo "")
+[[ -z "$TO" ]] && echo "⚠️ no timeout command available; install via 'brew install coreutils' for tool timeouts" \
+  >> "$AUDIT_DIR/tooling-raw/STATUS.md"
+
 
 # Snapshot localization assets
 find "$PROJECT_CWD" -name "*.xcstrings" -not -path '*/.*' \

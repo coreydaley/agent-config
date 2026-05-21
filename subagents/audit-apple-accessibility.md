@@ -167,10 +167,11 @@ intentional traversal order; focus restored when modals dismiss.
 minimum (HIG); .contentShape(Rectangle()) used to expand hit areas
 where visual size is smaller; spacing between tap targets.
 (9) Announcements and live updates —
-AccessibilityNotification.Announcement (SwiftUI) or
-UIAccessibility.post(notification:argument:) for transient status;
-.screenChanged / .layoutChanged on major transitions; live regions
-for changing values.
+AccessibilityNotification.Announcement (the unified Swift
+accessibility-notification API; works in SwiftUI, UIKit, and AppKit)
+or the legacy UIAccessibility.post(notification: .announcement,
+argument:) for transient status; .screenChanged / .layoutChanged on
+major transitions; live regions for changing values.
 (10) Hardware keyboard, Switch Control, Full Keyboard Access — custom
 controls are .focusable(); keyboardShortcut() where appropriate; Mac
 and Mac Catalyst keyboard navigation works; Switch Control scan

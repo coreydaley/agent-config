@@ -62,7 +62,7 @@ The audit reviews eight categories:
 | 1 | Privacy Manifest presence & accuracy | `PrivacyInfo.xcprivacy` present in app bundle and accurate; data collection categories (`NSPrivacyCollectedDataTypes`); tracking declaration (`NSPrivacyTracking`); required-reason API declarations (`NSPrivacyAccessedAPITypes`); tracking domains (`NSPrivacyTrackingDomains`) |
 | 2 | Info.plist purpose strings | Every accessed sensitive resource has a clear `NS*UsageDescription` (`NSCameraUsageDescription`, `NSMicrophoneUsageDescription`, `NSLocationWhenInUseUsageDescription`, `NSPhotoLibraryUsageDescription`, `NSContactsUsageDescription`, `NSFaceIDUsageDescription`, etc.); strings are localized per supported language |
 | 3 | App Tracking Transparency (ATT) | If `IDFA` is accessed via `ASIdentifierManager.shared().advertisingIdentifier`: ATT request flow implemented via `ATTrackingManager.requestTrackingAuthorization`; `NSUserTrackingUsageDescription` purpose string present; tracking only after authorization granted |
-| 4 | Required-reason APIs (Apple May 2024 rules) | UserDefaults APIs, fileTimestamp APIs (`creationDate`, `modificationDate`, `attributeModificationDate`), systemBootTime APIs, diskSpace APIs, activeKeyboards APIs — each accessed-API set must have a declared `NSPrivacyAccessedAPITypeReasons` value in the Privacy Manifest |
+| 4 | Required-reason APIs (Apple May 2024 rules) | Five categories: `NSPrivacyAccessedAPICategoryUserDefaults` (`UserDefaults` reads/writes), `NSPrivacyAccessedAPICategoryFileTimestamp` (`creationDate`, `contentModificationDate`, `contentAccessDate`, `attributeModificationDate` via FileAttributeKey / URLResourceValues / `stat` / `getattrlist`), `NSPrivacyAccessedAPICategorySystemBootTime`, `NSPrivacyAccessedAPICategoryDiskSpace`, `NSPrivacyAccessedAPICategoryActiveKeyboards`. Each accessed-API set must have a declared Apple-assigned reason code (e.g. `0A2A.1`, `35F9.1`, `C617.1`) in the Privacy Manifest's `NSPrivacyAccessedAPITypes` array |
 | 5 | Third-party SDK privacy | Each third-party SDK that ships to the App Store must have its own `PrivacyInfo.xcprivacy` (Apple's "commonly used SDKs" list — required since May 2024). Verify SDKs in `Pods/`, SPM dependencies, and binary frameworks include their manifests; SDK signing required |
 | 6 | Data minimization | Code only collects data it has declared; analytics events / telemetry don't include unintended PII (email, location, device identifiers in event names); local data retention bounded; no over-collection |
 | 7 | Tracking domains | Network calls to known tracking domains (analytics, ad networks, fingerprinting services) declared in `NSPrivacyTrackingDomains`; conditional on ATT authorization for tracking domains |
@@ -91,6 +91,12 @@ Impact column anchors severity. `Submission Blocker` → Critical,
 
 ```bash
 mkdir -p "$AUDIT_DIR/tooling-raw"
+# Detect a timeout command — macOS doesn't ship one by default.
+# Falls back to no timeout (with warning to STATUS.md) if neither is available.
+TO=$(command -v timeout || command -v gtimeout || echo "")
+[[ -z "$TO" ]] && echo "⚠️ no timeout command available; install via 'brew install coreutils' for tool timeouts" \
+  >> "$AUDIT_DIR/tooling-raw/STATUS.md"
+
 
 # Privacy Manifest snapshots (app + every SDK)
 find "$PROJECT_CWD" -name "PrivacyInfo.xcprivacy" -not -path '*/.*' \
@@ -132,7 +138,7 @@ find "$PROJECT_CWD" -name "Info.plist" -not -path '*/.*' -not -path '*/Pods/*' \
   grep -rn "UserDefaults" --include="*.swift" "$PROJECT_CWD" 2>/dev/null | head -50;
   echo;
   echo "=== File timestamps ===";
-  grep -rn "creationDate\|modificationDate\|fileAttributes" --include="*.swift" "$PROJECT_CWD" 2>/dev/null | head -50;
+  grep -rn "creationDate\|contentModificationDate\|contentAccessDate\|attributeModificationDate\|fileAttributes\|getattrlist" --include="*.swift" "$PROJECT_CWD" 2>/dev/null | head -50;
   echo;
   echo "=== System boot time ===";
   grep -rn "systemUptime\|kern.boottime" --include="*.swift" "$PROJECT_CWD" 2>/dev/null | head -50;
@@ -216,11 +222,16 @@ ASIdentifierManager.shared().advertisingIdentifier: ATT request flow
 via ATTrackingManager.requestTrackingAuthorization;
 NSUserTrackingUsageDescription purpose string;
 tracking ONLY after authorization granted.
-(4) Required-reason APIs (Apple May 2024 rules) — UserDefaults
-APIs, fileTimestamp APIs (creationDate, modificationDate,
-attributeModificationDate), systemBootTime APIs, diskSpace APIs,
-activeKeyboards APIs — each set must have declared
-NSPrivacyAccessedAPITypeReasons in the Privacy Manifest.
+(4) Required-reason APIs (Apple May 2024 rules) — five categories:
+NSPrivacyAccessedAPICategoryUserDefaults (UserDefaults reads/writes),
+NSPrivacyAccessedAPICategoryFileTimestamp (creationDate,
+contentModificationDate, contentAccessDate, attributeModificationDate
+via FileAttributeKey / URLResourceValues / stat / getattrlist),
+NSPrivacyAccessedAPICategorySystemBootTime,
+NSPrivacyAccessedAPICategoryDiskSpace,
+NSPrivacyAccessedAPICategoryActiveKeyboards. Each accessed-API set
+must have an Apple-assigned reason code (e.g. 0A2A.1, 35F9.1, C617.1)
+in the Privacy Manifest's NSPrivacyAccessedAPITypes array.
 (5) Third-party SDK privacy — each third-party SDK on Apple's
 'commonly used SDKs' list must include its own PrivacyInfo.xcprivacy.
 Check SDKs in Pods/, SPM dependencies, binary frameworks. SDK signing

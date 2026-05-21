@@ -96,9 +96,11 @@ subsection.
 | 4.0 | Design overview | Low-quality / clone apps; minimum-effort apps; spam |
 | 4.1 | Copycats | UI copies a known app |
 | 4.2 | Minimum Functionality | App is "just a website"; trivial functionality |
-| 4.5 | Extensions / SiriKit / Push notifications | Push notifications used for promotion without opt-in; Siri queries not handled; widgets that don't add value |
-| 4.7 | HTML5 games, bots, etc. | Special category rules |
-| 4.8 | Sign in with Apple | Required when other third-party sign-in offered |
+| 4.5 | Apple Sites and Services | Use of Apple marks/products in app metadata; APIs used outside intended purpose |
+| 4.5.4 | Push notifications | Push not used for promotion or direct marketing without explicit opt-in; not used to send sensitive PII; not abused for ads |
+| 4.5.5 | Game Center / Apple Music etc. | Service-specific rules |
+| 4.7 | Mini apps, mini games, streaming games, chatbots, plug-ins, extensions | Special category rules |
+| 4.8 | Login Services / Sign in with Apple | Sign in with Apple required as equivalent option when app's primary or only login is via a third-party SSO (Facebook / Google / Twitter / etc.); not required when SSO is one of several options alongside a native account system |
 
 ### Section 5 — Legal
 
@@ -138,6 +140,12 @@ might drop to High.
 
 ```bash
 mkdir -p "$AUDIT_DIR/tooling-raw"
+# Detect a timeout command — macOS doesn't ship one by default.
+# Falls back to no timeout (with warning to STATUS.md) if neither is available.
+TO=$(command -v timeout || command -v gtimeout || echo "")
+[[ -z "$TO" ]] && echo "⚠️ no timeout command available; install via 'brew install coreutils' for tool timeouts" \
+  >> "$AUDIT_DIR/tooling-raw/STATUS.md"
+
 
 # Snapshot Info.plist (full)
 find "$PROJECT_CWD" -name "Info.plist" -not -path '*/.*' -not -path '*/Pods/*' \
@@ -267,10 +275,16 @@ SECTION 4 — Design:
 - 4.0 Design overview (low-quality, clone apps, minimum-effort)
 - 4.1 Copycats
 - 4.2 Minimum Functionality (not "just a website")
-- 4.5 Extensions / SiriKit / Push (push not for promotion without
-  opt-in; Siri queries handled; widgets add value)
-- 4.7 HTML5 games, bots
-- 4.8 Sign in with Apple (required when third-party sign-in offered)
+- 4.5 Apple Sites and Services (use of Apple marks; APIs used as
+  documented)
+- 4.5.4 Push notifications (not for promotion without explicit
+  opt-in; not for sensitive PII)
+- 4.7 Mini apps / mini games / streaming games / chatbots / plug-ins
+  / extensions (special category rules)
+- 4.8 Sign in with Apple — required as equivalent option when
+  primary login is third-party SSO (Facebook/Google/Twitter/etc.);
+  not required when SSO is one of several options alongside a
+  native account system
 
 SECTION 5 — Legal:
 - 5.1.1 Data Collection and Storage (privacy policy URL accurate,
@@ -286,7 +300,12 @@ SECTION 5 — Legal:
 Rejection Likelihood drives severity. Will Reject → Critical. Likely
 Reject → High. Risk → Medium. Best Practice → Low.
 
-Do not read or reference any other review file.
+Do not read or reference the other agent's in-flight review files in
+this audit ($AUDIT_DIR/claude.md, $AUDIT_DIR/codex.md). However, if a
+prior /audit-apple-privacy run has finished on this scope (its
+$AUDIT_DIR/REPORT.md is on disk under ~/Reports/.../audits/), you MAY
+read that completed report and reference its findings for Section
+5.1.1 depth — do not duplicate privacy findings here.
 ```
 
 ## Phase 2: Claude review checklist

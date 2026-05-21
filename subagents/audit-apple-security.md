@@ -60,7 +60,7 @@ The audit reviews 12 categories (Privacy moved to `audit-apple-privacy`):
 | `IPC` | XPC peer verification (`audit_token` + codesign req), App Groups isolation, pasteboard leaks, document picker / open-in input handling |
 | `Entitlements` | Least-privilege entitlements, App Sandbox, Hardened Runtime exceptions (`com.apple.security.cs.allow-jit`, `allow-unsigned-executable-memory`, `disable-library-validation`), code signing, provisioning, notarization |
 | `CloudKit` | Public vs private DB scoping, record-level permissions, `CKShare` participant ACLs, shared zone permissions |
-| `StoreKit` | StoreKit 2 `Transaction.currentEntitlements` consumed only via `VerificationResult.verified`; server-side validation recommended; `originalTransactionID`, `revocationDate` tracking |
+| `StoreKit` | StoreKit 2 `Transaction.currentEntitlements` consumed only via `VerificationResult.verified`; server-side validation recommended; `Transaction.originalID` + `revocationDate` tracking (note: legacy StoreKit 1 used `SKPaymentTransaction.original.transactionIdentifier`) |
 | `WebView` | Never `UIWebView` (deprecated); `WKScriptMessageHandler` input validation; `evaluateJavaScript` with user input; `file://` scope via `loadFileURL`; `WKWebpagePreferences.allowsContentJavaScript` |
 | `Crypto` | CryptoKit (preferred over CommonCrypto); keys in Keychain or Secure Enclave; `SecRandomCopyBytes` for crypto random; no MD5/SHA1/DES/RC4/ECB; no hardcoded keys/IVs; non-constant-time compare |
 | `Logging` | `os_log` privacy qualifiers (`%{public}` only for non-sensitive); `print()`/`NSLog` removed from release builds (visible in Console.app); flag any logging of Keychain values, tokens, PII |
@@ -106,17 +106,23 @@ Apple-specific compound patterns:
 
 ```bash
 mkdir -p "$AUDIT_DIR/tooling-raw"
+# Detect a timeout command — macOS doesn't ship one by default.
+# Falls back to no timeout (with warning to STATUS.md) if neither is available.
+TO=$(command -v timeout || command -v gtimeout || echo "")
+[[ -z "$TO" ]] && echo "⚠️ no timeout command available; install via 'brew install coreutils' for tool timeouts" \
+  >> "$AUDIT_DIR/tooling-raw/STATUS.md"
+
 
 # Secrets
 command -v gitleaks >/dev/null && \
-  timeout 300 gitleaks detect --source "$PROJECT_CWD" \
+  ${TO:+$TO 300} gitleaks detect --source "$PROJECT_CWD" \
     --report-format json \
     --report-path "$AUDIT_DIR/tooling-raw/gitleaks.json" \
     --no-banner 2>&1 | tee "$AUDIT_DIR/tooling-raw/gitleaks.log"
 
 # Semgrep with Swift rules (limited but useful)
 command -v semgrep >/dev/null && \
-  timeout 600 semgrep --config=p/security-audit --config=p/swift \
+  ${TO:+$TO 600} semgrep --config=p/security-audit --config=p/swift \
     --json --output "$AUDIT_DIR/tooling-raw/semgrep.json" "$PROJECT_CWD" \
     2>&1 | tee "$AUDIT_DIR/tooling-raw/semgrep.log"
 
@@ -126,9 +132,14 @@ if [[ -z "$SKIP_XCODEBUILD" ]] && command -v xcodebuild >/dev/null; then
   [[ -n "$PROJ" ]] && {
     SCHEME=$(xcodebuild -project "$PROJ" -list 2>/dev/null \
       | awk '/Schemes:/{flag=1;next}/^$/{flag=0}flag{print $1; exit}')
-    timeout 1800 xcodebuild analyze -project "$PROJ" -scheme "$SCHEME" \
-      CODE_SIGNING_ALLOWED=NO -quiet \
-      > "$AUDIT_DIR/tooling-raw/xcodebuild-analyze.log" 2>&1
+    if [[ -n "$SCHEME" ]]; then
+      ${TO:+$TO 1800} xcodebuild analyze -project "$PROJ" -scheme "$SCHEME" \
+        CODE_SIGNING_ALLOWED=NO -quiet \
+        > "$AUDIT_DIR/tooling-raw/xcodebuild-analyze.log" 2>&1
+    else
+      echo "⚠️ xcodebuild: no scheme found for $PROJ; skipping static analyzer" \
+        >> "$AUDIT_DIR/tooling-raw/STATUS.md"
+    fi
   }
 fi
 
@@ -243,7 +254,7 @@ zone permissions; CloudKit Web Services tokens never embedded.
 (7) StoreKit — StoreKit 2 Transaction.currentEntitlements consumed
 only via VerificationResult.verified (never .unverified); receipt
 validation also server-side for non-consumable / subscription content;
-originalTransactionID + revocationDate tracked; restores
+Transaction.originalID + revocationDate tracked; restores
 re-validated.
 (8) WebView — never UIWebView; WKScriptMessageHandler bridge inputs
 validated; evaluateJavaScript never with user-controlled input
@@ -302,8 +313,11 @@ correct for the data type; an entitlement flagged as broad is
 required for documented Apple functionality; an ATS exception is for
 a legitimate corp-managed domain; a WKWebView with JS bridge loads
 only first-party HTML).
-(2) Severity miscalibrations — findings rated too high or too low
-given actual VoiceOver/Switch Control impact and user exclusion.
+(2) Severity miscalibrations — findings rated too high (low actual
+exploitability given compensating controls, e.g. behind App Sandbox
++ Hardened Runtime restrictions; or only reachable on a debug build)
+or too low (under-counting blast radius via shared CloudKit zones,
+URL scheme reachability, or default-on capability entitlements).
 (3) Missing findings — Apple-specific issues both reviewers missed,
 especially: side-channel via memory/disk caching, race conditions in
 file coordination, NSXPCConnection auth gaps, App Group container
@@ -366,7 +380,9 @@ Beyond framework baseline:
 - App Sandbox: https://developer.apple.com/documentation/security/app_sandbox
 - Hardened Runtime: https://developer.apple.com/documentation/security/hardened_runtime
 - App Transport Security: https://developer.apple.com/documentation/security/preventing_insecure_network_connections
-- StoreKit 2 verification: https://developer.apple.com/documentation/storekit/in-app_purchase/original_api_for_in-app_purchase/validating_receipts_with_the_app_store
+- StoreKit 2 Transaction verification: https://developer.apple.com/documentation/storekit/verificationresult
+- StoreKit 2 transactions overview: https://developer.apple.com/documentation/storekit/transaction
+- Legacy StoreKit 1 receipt validation: https://developer.apple.com/documentation/storekit/in-app_purchase/original_api_for_in-app_purchase/validating_receipts_with_the_app_store
 - CWE: https://cwe.mitre.org/
 - gitleaks: https://github.com/gitleaks/gitleaks
 - semgrep: https://semgrep.dev/

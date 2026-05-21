@@ -80,14 +80,20 @@ Medium unless the missing 5% is a critical branch.
 
 Detect the stack and run language-appropriate coverage. Capture
 stdout+stderr; write raw output to `$AUDIT_DIR/tooling-raw/`. Always
-run with a timeout (`timeout 300 …` or `600` for slower stacks).
+run with a timeout (`${TO:+$TO 300} …` or `600` for slower stacks).
 
 ```bash
 mkdir -p "$AUDIT_DIR/tooling-raw"
+# Detect a timeout command — macOS doesn't ship one by default.
+# Falls back to no timeout (with warning to STATUS.md) if neither is available.
+TO=$(command -v timeout || command -v gtimeout || echo "")
+[[ -z "$TO" ]] && echo "⚠️ no timeout command available; install via 'brew install coreutils' for tool timeouts" \
+  >> "$AUDIT_DIR/tooling-raw/STATUS.md"
+
 
 # Go
 [[ -f go.mod ]] && command -v go >/dev/null && {
-  timeout 300 go test -coverprofile="$AUDIT_DIR/tooling-raw/cover.out" \
+  ${TO:+$TO 300} go test -coverprofile="$AUDIT_DIR/tooling-raw/cover.out" \
     -covermode=atomic ./... \
     > "$AUDIT_DIR/tooling-raw/go-test.log" 2>&1
   go tool cover -func="$AUDIT_DIR/tooling-raw/cover.out" \
@@ -97,33 +103,33 @@ mkdir -p "$AUDIT_DIR/tooling-raw"
 # Python (pytest + coverage)
 { [[ -f pyproject.toml ]] || [[ -f pytest.ini ]] || [[ -f setup.cfg ]]; } \
   && command -v pytest >/dev/null && {
-  timeout 300 pytest --cov --cov-report=term-missing --cov-report=json \
+  ${TO:+$TO 300} pytest --cov --cov-report=term-missing --cov-report=json \
     > "$AUDIT_DIR/tooling-raw/pytest-cov.log" 2>&1
   [[ -f coverage.json ]] && mv coverage.json "$AUDIT_DIR/tooling-raw/"
 }
 
 # Node / Jest
 [[ -f package.json ]] && grep -q '"jest"' package.json && {
-  timeout 600 npx --yes jest --coverage \
+  ${TO:+$TO 600} npx --yes jest --coverage \
     --coverageReporters=json-summary --coverageReporters=text \
     > "$AUDIT_DIR/tooling-raw/jest.log" 2>&1
 }
 
 # Node / Vitest
 [[ -f package.json ]] && grep -q '"vitest"' package.json && {
-  timeout 600 npx --yes vitest run --coverage \
+  ${TO:+$TO 600} npx --yes vitest run --coverage \
     > "$AUDIT_DIR/tooling-raw/vitest.log" 2>&1
 }
 
 # Rust
 [[ -f Cargo.toml ]] && command -v cargo-tarpaulin >/dev/null && {
-  timeout 600 cargo tarpaulin --out Stdout \
+  ${TO:+$TO 600} cargo tarpaulin --out Stdout \
     > "$AUDIT_DIR/tooling-raw/tarpaulin.log" 2>&1
 }
 
 # Swift — Swift Package Manager
 [[ -f Package.swift ]] && command -v swift >/dev/null && {
-  timeout 600 swift test --enable-code-coverage \
+  ${TO:+$TO 600} swift test --enable-code-coverage \
     > "$AUDIT_DIR/tooling-raw/swift-test.log" 2>&1
   # Find the merged profdata and resolve the test binary
   PROFDATA=$(find .build -name '*.profdata' 2>/dev/null | head -1)
@@ -142,7 +148,7 @@ PROJ=$(ls *.xcodeproj 2>/dev/null | head -1)
   SCHEME=$(xcodebuild -project "$PROJ" -list 2>/dev/null \
     | awk '/Schemes:/{flag=1;next}/^$/{flag=0}flag{print $1; exit}')
   [[ -n "$SCHEME" ]] && \
-    timeout 1800 xcodebuild test -project "$PROJ" -scheme "$SCHEME" \
+    ${TO:+$TO 1800} xcodebuild test -project "$PROJ" -scheme "$SCHEME" \
       -enableCodeCoverage YES -derivedDataPath "$AUDIT_DIR/tooling-raw/dd" \
       CODE_SIGNING_ALLOWED=NO -quiet \
       > "$AUDIT_DIR/tooling-raw/xcodebuild-test.log" 2>&1

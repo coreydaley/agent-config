@@ -107,39 +107,45 @@ Document missing tools in `STATUS.md`.
 
 ```bash
 mkdir -p "$AUDIT_DIR/tooling-raw"
+# Detect a timeout command — macOS doesn't ship one by default.
+# Falls back to no timeout (with warning to STATUS.md) if neither is available.
+TO=$(command -v timeout || command -v gtimeout || echo "")
+[[ -z "$TO" ]] && echo "⚠️ no timeout command available; install via 'brew install coreutils' for tool timeouts" \
+  >> "$AUDIT_DIR/tooling-raw/STATUS.md"
+
 
 # Secrets
 command -v gitleaks >/dev/null && \
-  timeout 300 gitleaks detect --source "$PROJECT_CWD" \
+  ${TO:+$TO 300} gitleaks detect --source "$PROJECT_CWD" \
     --report-format json \
     --report-path "$AUDIT_DIR/tooling-raw/gitleaks.json" \
     --no-banner 2>&1 | tee "$AUDIT_DIR/tooling-raw/gitleaks.log"
 
 # SAST
 command -v semgrep >/dev/null && \
-  timeout 600 semgrep --config=p/security-audit --config=p/owasp-top-ten \
+  ${TO:+$TO 600} semgrep --config=p/security-audit --config=p/owasp-top-ten \
     --json --output "$AUDIT_DIR/tooling-raw/semgrep.json" "$PROJECT_CWD" \
     2>&1 | tee "$AUDIT_DIR/tooling-raw/semgrep.log"
 
 # Dep scanners
 [[ -f go.mod ]] && command -v govulncheck >/dev/null && \
-  timeout 300 govulncheck ./... > "$AUDIT_DIR/tooling-raw/govulncheck.log" 2>&1
+  ${TO:+$TO 300} govulncheck ./... > "$AUDIT_DIR/tooling-raw/govulncheck.log" 2>&1
 [[ -f package-lock.json ]] && command -v npm >/dev/null && \
-  timeout 300 npm audit --json > "$AUDIT_DIR/tooling-raw/npm-audit.json" 2>&1
+  ${TO:+$TO 300} npm audit --json > "$AUDIT_DIR/tooling-raw/npm-audit.json" 2>&1
 { [[ -f requirements.txt ]] || [[ -f pyproject.toml ]]; } && command -v pip-audit >/dev/null && \
-  timeout 300 pip-audit --format json > "$AUDIT_DIR/tooling-raw/pip-audit.json" 2>&1
+  ${TO:+$TO 300} pip-audit --format json > "$AUDIT_DIR/tooling-raw/pip-audit.json" 2>&1
 [[ -f Cargo.toml ]] && command -v cargo-audit >/dev/null && \
-  timeout 300 cargo audit --json > "$AUDIT_DIR/tooling-raw/cargo-audit.json" 2>&1
+  ${TO:+$TO 300} cargo audit --json > "$AUDIT_DIR/tooling-raw/cargo-audit.json" 2>&1
 
 # IaC + container scanning
 command -v trivy >/dev/null && \
-  timeout 600 trivy config --format json \
+  ${TO:+$TO 600} trivy config --format json \
     -o "$AUDIT_DIR/tooling-raw/trivy-config.json" "$PROJECT_CWD" \
     2>&1 | tee "$AUDIT_DIR/tooling-raw/trivy.log"
 
 # CI/CD
 [[ -d .github/workflows ]] && command -v actionlint >/dev/null && \
-  timeout 60 actionlint -format '{{json .}}' \
+  ${TO:+$TO 60} actionlint -format '{{json .}}' \
     > "$AUDIT_DIR/tooling-raw/actionlint.json" 2>&1
 ```
 

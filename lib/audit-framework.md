@@ -174,8 +174,14 @@ Pattern:
 ```bash
 mkdir -p "$AUDIT_DIR/tooling-raw"
 
+# Detect a timeout command — macOS doesn't ship one by default.
+# Falls back to no timeout (with warning to STATUS.md) if neither is available.
+TO=$(command -v timeout || command -v gtimeout || echo "")
+[[ -z "$TO" ]] && echo "⚠️ no timeout command available; install via 'brew install coreutils' for tool timeouts" \
+  >> "$AUDIT_DIR/tooling-raw/STATUS.md"
+
 command -v <tool> >/dev/null && \
-  timeout <seconds> <tool> <args> \
+  ${TO:+$TO <seconds>} <tool> <args> \
     > "$AUDIT_DIR/tooling-raw/<tool>.log" 2>&1
 ```
 
@@ -183,6 +189,12 @@ Tools that aren't installed, aren't applicable, or fail: record a line
 in `$AUDIT_DIR/tooling-raw/STATUS.md` and continue. **Never block the
 audit on a missing tool** — reviewers must be told what's missing but
 proceed.
+
+**Why `${TO:+$TO <seconds>}`?** macOS doesn't ship `timeout` by default
+(it's GNU coreutils, installed as `gtimeout` via Homebrew). The `${TO:+…}`
+expansion includes the timeout prefix only when `TO` is non-empty —
+when neither command is available, the tool runs without a timeout.
+A warning is written to `STATUS.md` so reviewers see the degradation.
 
 Audits document the specific tools they attempt in their own SKILL
 file. Pure-LLM audits (architecture, design) skip this step.

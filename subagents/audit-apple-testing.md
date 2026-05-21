@@ -83,17 +83,27 @@ its `tooling-raw/` output. Otherwise, run minimal coverage tooling:
 
 ```bash
 mkdir -p "$AUDIT_DIR/tooling-raw"
+# Detect a timeout command — macOS doesn't ship one by default.
+# Falls back to no timeout (with warning to STATUS.md) if neither is available.
+TO=$(command -v timeout || command -v gtimeout || echo "")
+[[ -z "$TO" ]] && echo "⚠️ no timeout command available; install via 'brew install coreutils' for tool timeouts" \
+  >> "$AUDIT_DIR/tooling-raw/STATUS.md"
 
-# Reuse audit-test-coverage data if present
-LATEST_COV=$(ls -dt "$HOME/Reports/$ORG_REPO/audits/"*-test-coverage 2>/dev/null | head -1)
+
+# Reuse audit-test-coverage data if present.
+# Use find rather than a bare glob to survive zsh's default `nomatch` setting,
+# which would raise an error when no test-coverage audit directory exists.
+LATEST_COV=$(find "$HOME/Reports/$ORG_REPO/audits" -maxdepth 1 -type d \
+  -name '*-test-coverage' 2>/dev/null | sort -r | head -1)
 if [[ -n "$LATEST_COV" && -d "$LATEST_COV/tooling-raw" ]]; then
   echo "Reusing coverage data from $LATEST_COV" \
     > "$AUDIT_DIR/tooling-raw/COVERAGE-SOURCE.md"
-  cp -R "$LATEST_COV/tooling-raw/"* "$AUDIT_DIR/tooling-raw/" 2>/dev/null
+  # Use `/.` so cp copies contents safely even if the source dir is empty.
+  cp -R "$LATEST_COV/tooling-raw/." "$AUDIT_DIR/tooling-raw/" 2>/dev/null || true
 else
   # Run Swift coverage directly
   [[ -f Package.swift ]] && command -v swift >/dev/null && \
-    timeout 600 swift test --enable-code-coverage \
+    ${TO:+$TO 600} swift test --enable-code-coverage \
       > "$AUDIT_DIR/tooling-raw/swift-test.log" 2>&1
 fi
 
@@ -132,8 +142,10 @@ Beyond the framework baseline:
 
 - Read `tooling-raw/test-inventory.txt` to see what test frameworks
   and patterns the project uses
-- Determine deployment target (affects Swift Testing availability —
-  requires Xcode 16+ / Swift 6)
+- Note the toolchain in use: Swift Testing ships with Xcode 16+ and
+  works alongside XCTest within the same test bundle. It's gated by
+  toolchain (Xcode 16+), **not** by the app's iOS/macOS deployment
+  target — don't infer support from deployment target alone
 - Identify the project's SwiftUI view-testing strategy (if any):
   ViewInspector? snapshot testing? business logic in view models
   only?
