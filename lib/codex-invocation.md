@@ -69,18 +69,36 @@ failure mode.
 
 ## Drift detection
 
-Skills that invoke `codex exec` should follow the canonical pattern above.
-Sync this file's pattern with their invocations whenever it changes:
+Skills and subagents that invoke `codex exec` should follow the canonical
+pattern above. Sync this file's pattern with their invocations whenever it
+changes:
 
-- `skills/sprint-plan/SKILL.md`
-- `skills/review-pr-comprehensive/SKILL.md`
+- `skills/sprint-plan/nodes/reviews.md`
+- `skills/review-pr-comprehensive/nodes/independent-reviews.md`
+- `skills/review-pr-comprehensive/nodes/devils-advocate.md`
+- `skills/sprint-self-review/nodes/independent-reviews.md`
+- `skills/sprint-self-review/nodes/devils-advocate.md`
+- `subagents/audit-accessibility-web.md`
+- `subagents/audit-accessibility-apple.md`
+- `subagents/audit-architecture.md`
+- `subagents/audit-design.md`
+- `subagents/audit-responsive.md`
+- `subagents/audit-security-web-application.md`
+- `subagents/audit-security-apple.md`
+- `subagents/audit-test-coverage.md`
 
 Verification:
 
 ```bash
-# Every codex invocation in these skills should include all four hygiene flags.
-grep -nE "codex exec" skills/sprint-plan/SKILL.md skills/review-pr-comprehensive/SKILL.md
+# Every codex invocation in these files should include all five hygiene flags.
+grep -nE "codex exec" \
+  skills/sprint-plan/nodes/reviews.md \
+  skills/review-pr-comprehensive/nodes/*.md \
+  skills/sprint-self-review/nodes/*.md \
+  subagents/audit-*.md
 ```
 
-Each match should be followed by `-s workspace-write`, `--add-dir`, `-C`, `--`,
-and the call should end with `< /dev/null`.
+Each match should be followed (within ~8 lines) by `-s workspace-write`,
+`--add-dir`, `-C`, `--`, and the call should end with `< /dev/null`. The
+audit subagents pass `--add-dir "$AUDIT_DIR"` and `-C "$PROJECT_CWD"` —
+both variables are set in the Orient phase before Phase 2 launches Codex.

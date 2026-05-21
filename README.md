@@ -70,9 +70,11 @@ Invoke with `/command-name` in Claude Code. Commands with `disable-model-invocat
 | `/review-pr-comprehensive` | Dual-agent PR review (Claude + Codex) → `REVIEW.md` |
 | `/review-address-feedback` | Walk through review feedback and apply fixes |
 | `/polish-pull-request` | Final-pass PR cleanup before merge |
-| `/audit-security` | Dual-agent security review → findings report |
+| `/audit-security-web-application` | Dual-agent security review for backend/web/IaC/CI/agent-config (gitleaks + semgrep + dep scanners + trivy + actionlint) → findings report |
+| `/audit-security-apple` | Dual-agent security review for native Apple apps (iOS/iPadOS/macOS/watchOS/tvOS/visionOS) → findings report |
 | `/audit-design` | Dual-agent UI/UX review → findings report |
-| `/audit-accessibility` | Dual-agent WCAG 2.1/2.2 review → findings report |
+| `/audit-accessibility-web` | Dual-agent web accessibility (WCAG 2.1/2.2) review → findings report |
+| `/audit-accessibility-apple` | Dual-agent Apple platform accessibility (SwiftUI/UIKit/AppKit) review → findings report |
 | `/audit-architecture` | Dual-agent architecture review → findings report |
 | `/audit-responsive` | Dual-agent responsive design review → findings report |
 | `/skill-creator` | Author a new skill (graph-driven or cli-wrapper) end-to-end with topology approval and validation |
@@ -120,8 +122,10 @@ Subagents are specialized agents Claude delegates work to via the Agent tool. Th
 
 | Subagent | Description |
 |---|---|
-| `audit-security` | Dual-agent security audit — 5-phase workflow (orient, independent reviews, synthesis, devil's advocate, report) |
-| `audit-accessibility` | Dual-agent WCAG 2.1/2.2 audit — same 5-phase pattern with accessibility-specific finding schema |
+| `audit-security-web-application` | Dual-agent security audit for backend/web/IaC/CI/agent-config — runs real security tooling in Phase 1; OWASP/CWE-anchored categories; Critical broken out as Immediate Action |
+| `audit-security-apple` | Dual-agent security audit for native Apple apps — Apple-platform threat model (Keychain, ATS, entitlements, Privacy Manifest, StoreKit, CloudKit, WKWebView, code signing) |
+| `audit-accessibility-web` | Dual-agent web accessibility audit (WCAG 2.1/2.2) — same 5-phase pattern with accessibility-specific finding schema |
+| `audit-accessibility-apple` | Dual-agent Apple platform accessibility audit (SwiftUI/UIKit/AppKit) — anchored to Apple HIG and accessibility APIs |
 | `audit-architecture` | Dual-agent architecture audit — findings anchored to named principles with migration cost estimates |
 | `audit-design` | Dual-agent UI/UX audit — findings anchored to Nielsen heuristics and project design system |
 | `audit-responsive` | Dual-agent responsive design audit — viewport, breakpoints, touch targets, fluid layouts, typography, overflow |

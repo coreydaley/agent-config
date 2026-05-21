@@ -72,7 +72,7 @@ cycles* section below for details.
 
 | Stage | Skill | Output |
 |---|---|---|
-| Audit (optional input) | `/audit-architecture` `/audit-design` `/audit-security` `/audit-accessibility` | Findings written as sprint-able tasks |
+| Audit (optional input) | `/audit-architecture` `/audit-design` `/audit-security-web-application` `/audit-security-apple` `/audit-accessibility-web` `/audit-accessibility-apple` `/audit-responsive` `/audit-test-coverage` | Findings written as sprint-able tasks |
 | Pre-plan discussion (optional) | `/sprint-seed` | `SEED.md` (refined seed prompt + discussion summary) in a fresh session folder |
 | Plan | `/sprint-plan` | `SPRINT.md` + supporting drafts/critiques/reviews |
 | Capture in Linear | `/sprint-plan-to-linear` | Linear milestone + issues, `LINEAR.md` sidecar |
