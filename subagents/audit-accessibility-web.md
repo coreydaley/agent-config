@@ -1,20 +1,24 @@
 ---
-name: audit-accessibility
-description: Dual-agent accessibility audit — Claude and Codex review against WCAG 2.1/2.2 independently, synthesize, devil's advocate pass, output as findings report. Invoke with a scope path or leave empty to audit the current working directory.
+name: audit-accessibility-web
+description: Dual-agent web accessibility audit — Claude and Codex review web frontends (HTML, CSS, JS/TS, component files) against WCAG 2.1/2.2 independently, synthesize, devil's advocate pass, output as findings report. For native Apple platforms (SwiftUI / UIKit / AppKit), use `audit-accessibility-apple` instead. Invoke with a scope path or leave empty to audit the current working directory.
 ---
 
-# Accessibility Audit: Dual-Agent Review
+# Web Accessibility Audit: Dual-Agent Review
 
-You are orchestrating a dual-agent accessibility audit that produces an
-findings report. Claude and Codex review independently
+You are orchestrating a dual-agent **web** accessibility audit that produces
+a findings report. Claude and Codex review web frontend code independently
 against WCAG 2.1/2.2, findings are synthesized, Codex attacks the
 synthesis, and the final output is a sprint document written to
 `$AUDIT_DIR/REPORT.md`.
 
+For **native Apple platforms** (SwiftUI, UIKit, AppKit, WatchKit, etc.),
+use `audit-accessibility-apple` — the standards (Apple HIG, accessibility
+APIs) and review categories are different enough to warrant a separate audit.
+
 The scope to audit is provided in your input prompt. If no scope is
 specified, audit the current working directory.
 
-The `audit-accessibility` finding schema extends the core schema with
+The `audit-accessibility-web` finding schema extends the core schema with
 `WCAG`, `Level`, and `Verification` columns that anchor each finding
 to a normative success criterion.
 
@@ -129,7 +133,7 @@ accessibility tooling, and determine the output location.
 3. **No UI files found**: if no frontend files exist in the resolved
    scope, notify the user and stop:
    > No frontend files found in [scope]. Re-scope to a directory
-   > containing UI files and re-run: `/audit-accessibility path/to/frontend`
+   > containing UI files and re-run: `/audit-accessibility-web path/to/frontend`
    Do not create a sprint or artifact files.
 
 4. **Note existing accessibility tooling** in the project:
@@ -145,6 +149,7 @@ accessibility tooling, and determine the output location.
    REPORTS_BASE="$HOME/Reports/$ORG_REPO"
    REPORT_TS=$(date +%Y-%m-%dT%H-%M-%S)
    AUDIT_DIR="$REPORTS_BASE/audits/$REPORT_TS-accessibility"
+   PROJECT_CWD="$(pwd)"
    mkdir -p "$AUDIT_DIR"
    ```
    Each audit run gets its own timestamped folder under
@@ -172,8 +177,14 @@ cross-contamination.
 
 Run this command, substituting the resolved scope and the literal value of `AUDIT_DIR`:
 
+The flags below are non-negotiable; see [`lib/codex-invocation.md`](../lib/codex-invocation.md) for per-flag rationale and failure modes. `--add-dir` points at `$AUDIT_DIR` so Codex can write its artifact under `~/Reports/`; `-C` points at `$PROJECT_CWD` so Codex reads the code being audited.
+
 ```bash
-codex exec "Perform a thorough accessibility review of [RESOLVED_SCOPE] \
+codex exec \
+  -s workspace-write \
+  --add-dir "$AUDIT_DIR" \
+  -C "$PROJECT_CWD" \
+  -- "Perform a thorough accessibility review of [RESOLVED_SCOPE] \
   against WCAG 2.1/2.2. \
   Write all findings to $AUDIT_DIR/codex.md using \
   this exact table format for each finding: \
@@ -202,8 +213,24 @@ codex exec "Perform a thorough accessibility review of [RESOLVED_SCOPE] \
   Grouping rule: when the same broken pattern appears across many \
   components, create one representative finding and document the \
   extent in Evidence/Notes rather than duplicating per instance. \
-  Do not read or reference any other review file."
+  Do not read or reference any other review file." \
+  < /dev/null
 ```
+
+### Step 1.5 — Verify the Codex artifact
+
+The most common Codex failure mode is silent (sandbox denial, missing flag,
+prompt parse error — see `lib/codex-invocation.md`). After the background
+Codex job returns, verify:
+
+```bash
+[[ -s "$AUDIT_DIR/codex.md" ]] && grep -q '|.*|.*|' "$AUDIT_DIR/codex.md" \
+  || echo "⚠️ Codex did not produce a usable $AUDIT_DIR/codex.md"
+```
+
+If verification fails: inspect the Codex stderr output, fix the issue if
+identifiable, and re-run the command once. Only after a second failure
+should you accept the single-agent degradation documented in Phase 3.
 
 ### Step 2 — Claude's Independent Review (Simultaneous)
 
@@ -326,7 +353,11 @@ miscalibrations, and missed findings.
 ### Step 1 — Launch Codex Devil's Advocate
 
 ```bash
-codex exec "Read $AUDIT_DIR/synthesis.md. Your job \
+codex exec \
+  -s workspace-write \
+  --add-dir "$AUDIT_DIR" \
+  -C "$PROJECT_CWD" \
+  -- "Read $AUDIT_DIR/synthesis.md. Your job \
   is to attack it, not improve it. Write your challenge to \
   $AUDIT_DIR/devils-advocate.md covering: \
   (1) False positives — findings that are actually accessible in \
@@ -339,8 +370,11 @@ codex exec "Read $AUDIT_DIR/synthesis.md. Your job \
   (4) Remediation steps that are incorrect, incomplete, or would \
   themselves introduce new accessibility issues. \
   Be specific. Every challenge must cite the finding ID and the \
-  WCAG criterion if applicable."
+  WCAG criterion if applicable." \
+  < /dev/null
 ```
+
+After the call, verify the artifact: `[[ -s "$AUDIT_DIR/devils-advocate.md" ]] || echo "⚠️ Codex devil's advocate produced no output"`.
 
 ### Step 2 — Incorporate Valid Challenges
 
