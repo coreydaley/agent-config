@@ -20,7 +20,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-HOOKS_DIR="$REPO_ROOT/.git/hooks"
+HOOKS_DIR="$(git -C "$REPO_ROOT" rev-parse --git-path hooks)"
 
 if ! command -v gitleaks &>/dev/null; then
     echo "Error: gitleaks is not installed. Run: brew install gitleaks" >&2
