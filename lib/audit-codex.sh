@@ -3,10 +3,14 @@
 # (see lib/codex-invocation.md) plus output verification.
 #
 # Usage:
-#   audit-codex.sh <audit-dir> <role> <prompt-file>
+#   audit-codex.sh <audit-dir> <role> <prompt-file> [--skip-git-repo-check]
 #
-#   <role>           review | devils-advocate
-#   <prompt-file>    path to a file containing the full codex prompt
+#   <role>                   review | devils-advocate
+#   <prompt-file>            path to a file containing the full codex prompt
+#   --skip-git-repo-check    pass codex's --skip-git-repo-check flag. Needed
+#                            when -C points outside a git repo (e.g. audit-prd
+#                            runs codex against the PRD staged under
+#                            ~/Reports/...). Code-tree audits omit it.
 #
 # Outputs (in $AUDIT_DIR):
 #   review            → codex.md           + codex.stdout.log
@@ -25,6 +29,17 @@ set -euo pipefail
 AUDIT_DIR="${1:-}"
 ROLE="${2:-}"
 PROMPT_FILE="${3:-}"
+
+# Optional 4th arg: --skip-git-repo-check (only flag accepted here).
+SKIP_GIT_REPO_CHECK=0
+if [[ -n "${4:-}" ]]; then
+  if [[ "$4" == "--skip-git-repo-check" ]]; then
+    SKIP_GIT_REPO_CHECK=1
+  else
+    echo "audit-codex.sh: unknown 4th arg: $4 (only --skip-git-repo-check)" >&2
+    exit 2
+  fi
+fi
 
 if [[ -z "$AUDIT_DIR" || -z "$ROLE" || -z "$PROMPT_FILE" ]]; then
   echo "audit-codex.sh: usage: <audit-dir> <role:review|devils-advocate> <prompt-file>" >&2
@@ -81,8 +96,13 @@ PROMPT_BODY=$(cat "$PROMPT_FILE")
 # Canonical codex exec invocation. Every flag is load-bearing — see
 # lib/codex-invocation.md for the per-flag rationale. Drift here causes
 # silent hangs or silent write failures.
+GIT_CHECK_FLAG=()
+if [[ "$SKIP_GIT_REPO_CHECK" -eq 1 ]]; then
+  GIT_CHECK_FLAG=(--skip-git-repo-check)
+fi
 codex exec \
   -s workspace-write \
+  "${GIT_CHECK_FLAG[@]}" \
   --add-dir "$AUDIT_DIR" \
   -C "$PROJECT_CWD" \
   -- "$PROMPT_BODY" \
