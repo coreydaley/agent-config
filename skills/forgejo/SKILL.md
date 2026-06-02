@@ -39,7 +39,7 @@ ssh-keyscan -p 2222 mac-mini.example >> ~/.ssh/known_hosts
 
 # 2. Make sure your local public key is registered on your Forgejo user account.
 #    List currently-registered keys via API:
-TOKEN=$(grep -A1 'name: homelab' "$HOME/Library/Application Support/tea/config.yml" | awk '/token:/ {print $2}')
+TOKEN=$(awk '/name: homelab/{f=1} f&&/token:/{print $2; exit}' "$HOME/Library/Application Support/tea/config.yml")
 curl -sk -H "Authorization: token $TOKEN" "https://mac-mini.example:3000/api/v1/user/keys" \
   | jq -r '.[] | "\(.title): \(.key[0:60])..."'
 
@@ -254,7 +254,7 @@ For anything `tea` doesn't expose (draft PRs on older `tea`, admin endpoints, se
 Read the token once from the `tea` config, then use it for `curl`. On macOS the config lives at `~/Library/Application Support/tea/config.yml`; `yq` is not always installed, so use a `grep`/`awk` extraction that has no extra deps:
 
 ```bash
-TOKEN=$(grep -A1 'name: homelab' "$HOME/Library/Application Support/tea/config.yml" | awk '/token:/ {print $2}')
+TOKEN=$(awk '/name: homelab/{f=1} f&&/token:/{print $2; exit}' "$HOME/Library/Application Support/tea/config.yml")
 BASE=https://mac-mini.example:3000/api/v1
 
 # List my repos
