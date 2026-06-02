@@ -1,0 +1,67 @@
+// Test Coverage Audit state machine.
+//
+// Source of truth for the /audit-test-coverage skill's flow. The walker
+// (Claude, per SKILL.md) reads each node's prose from nodes/<id>.md,
+// performs the work, evaluates the outgoing edges' conditions against
+// the current state (primarily MANIFEST.json + artifact files), and
+// transitions. The structural enforcement points are lib/audit-runner.sh
+// (which owns $AUDIT_DIR creation) and lib/audit-verify.sh (which gates
+// the handoff edge).
+//
+// This is the canonical graph shared by every /audit-* skill. Audits
+// without Phase 1 tooling still walk orient (it's a no-op for them);
+// audits without emergency-exit conditions just never take the
+// orient -> emergency_exit edge. The graph stays uniform.
+//
+// Render to SVG with scripts/render.sh. Validate with scripts/validate.py.
+
+digraph audit_test_coverage {
+    rankdir=TB;
+    bgcolor="white";
+    node  [fontname="Helvetica", fontsize=11];
+    edge  [fontname="Helvetica", fontsize=9];
+
+    // -- Process nodes (rounded boxes, light blue) ----------------------
+    init                [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                         label="init\n(parse args, resolve scope,\nrun audit-runner.sh init)"];
+    orient              [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                         label="orient\n(Phase 1: tooling-raw/,\nsurvey, emergency check)"];
+    independent_reviews [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                         label="independent-reviews\n(Phase 2: Claude writes claude.md,\ncodex exec writes codex.md, parallel)"];
+    synthesis           [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                         label="synthesis\n(Phase 3: dedupe, calibrate,\ncompound findings, synthesis.md)"];
+    devils_advocate     [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                         label="devils-advocate\n(Phase 4: codex attacks,\nincorporate challenges)"];
+    report              [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                         label="report\n(Phase 5: write REPORT.md\nwith P0/P1/Immediate Action tiers)"];
+    emergency_exit      [shape=box, style="rounded,filled", fillcolor="#ffcdd2",
+                         label="emergency-exit\n(write EMERGENCY.md,\nhalt before Phase 2)"];
+    handoff             [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                         label="handoff\n(print hand-off message\nwith verify output)"];
+
+    // -- Decision nodes (diamonds) -------------------------------------
+    verify              [shape=diamond, style=filled, fillcolor="#ffe0b2",
+                         label="verify\n(audit-verify.sh —\nartifacts gate)"];
+
+    // -- User-input nodes (coral diamonds) -----------------------------
+    escalate            [shape=diamond, style=filled, fillcolor="#ffccbc",
+                         label="escalate\n(verify failed —\nask user)"];
+
+    // -- Terminal (green double-circle) --------------------------------
+    terminal            [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
+                         label="terminal"];
+
+    // -- Edges ---------------------------------------------------------
+    init                -> orient;
+    orient              -> independent_reviews [label="proceed"];
+    orient              -> emergency_exit      [label="emergency"];
+    emergency_exit      -> terminal;
+    independent_reviews -> synthesis;
+    synthesis           -> devils_advocate;
+    devils_advocate     -> report;
+    report              -> verify;
+    verify              -> handoff             [label="ok"];
+    verify              -> escalate            [label="incomplete"];
+    escalate            -> terminal            [label="user_acknowledge"];
+    handoff             -> terminal;
+}
