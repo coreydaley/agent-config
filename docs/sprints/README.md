@@ -72,7 +72,7 @@ cycles* section below for details.
 
 | Stage | Skill | Output |
 |---|---|---|
-| Audit (optional input) | General: `/audit-architecture` `/audit-design` `/audit-test-coverage` • Web: `/audit-web-accessibility` `/audit-web-responsive` `/audit-web-security` • Apple: `/audit-apple-accessibility` `/audit-apple-adaptivity` `/audit-apple-app-store-review` `/audit-apple-architecture` `/audit-apple-design` `/audit-apple-localization` `/audit-apple-performance` `/audit-apple-persistence` `/audit-apple-privacy` `/audit-apple-security` `/audit-apple-testing` | Findings written as sprint-able tasks; all share `lib/audit-framework.md` |
+| Audit (optional input) | General: `/audit-architecture` `/audit-design` `/audit-test-coverage` • Web: `/audit-web-accessibility` `/audit-web-responsive` `/audit-web-security` • Apple: `/audit-apple-accessibility` `/audit-apple-adaptivity` `/audit-apple-app-store-review` `/audit-apple-architecture` `/audit-apple-design` `/audit-apple-localization` `/audit-apple-performance` `/audit-apple-persistence` `/audit-apple-privacy` `/audit-apple-security` `/audit-apple-testing` | Findings written as sprint-able tasks; all are 5-phase dot-graph skills using shared `lib/audit-*.sh` helpers |
 | Pre-plan discussion (optional) | `/sprint-seed` | `SEED.md` (refined seed prompt + discussion summary) in a fresh session folder |
 | Plan | `/sprint-plan` | `SPRINT.md` + supporting drafts/critiques/reviews |
 | Capture in Linear | `/sprint-plan-to-linear` | Linear milestone + issues, `LINEAR.md` sidecar |

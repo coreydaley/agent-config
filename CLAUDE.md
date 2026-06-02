@@ -51,7 +51,7 @@ CLAUDE.md files are loaded hierarchically: `~/.claude/CLAUDE.md` (global) → pr
 
 ## Agent Config
 
-Lives at `~/Code/github.com/coreydaley/agent-config/` (public GitHub repo: `coreydaley/agent-config`).
+Lives at `~/Code/mac-mini.example/coreydaley/agent-config/` (source of truth: self-hosted Forgejo at `mac-mini.example`; auto-mirrored to public GitHub at `coreydaley/agent-config`).
 Contains CLAUDE.md, commands, lib, skills, and subagents — all symlinked into `~/.claude/` via `make all`.
 
 ## Skills
@@ -77,7 +77,12 @@ Currently:
 - `sprint_ledger.py` — shared data model and display helpers for the sprint ledger, used by the `sprints` skill and the `commit` skill.
 - `commit.py` — shared helpers for the `commit` skill.
 - `graph_walker.py` — generic graph walker used by all dot-graph skills (see `docs/DOT-GRAPH-SKILL-PATTERN.md`). Reads a skill's `graph.dot`, validates transitions against the graph, and persists per-run state to a JSON file. Skills wrap it via their own `scripts/walk.sh`.
-- `codex-invocation.md` — canonical pattern for `codex exec` invocations used in parallel-delegation nodes (sprint-plan, review-pr-comprehensive, sprint-self-review, audit-* subagents).
+- `codex-invocation.md` — canonical pattern for `codex exec` invocations used in parallel-delegation nodes (sprint-plan, review-pr-comprehensive, sprint-self-review, and all audit-* skills via `audit-codex.sh`).
+- `audit-runner.sh` — owns audit `$AUDIT_DIR` creation under `~/Reports/<org>/<repo>/audits/<TS>-<audit-name>/` and writes `MANIFEST.json`. Every audit skill's `init` node calls this; without it, no downstream node has a writable directory.
+- `audit-codex.sh` — canonical `codex exec` wrapper used by every audit skill's `independent-reviews` and `devils-advocate` nodes. Owns the invocation flags AND post-run artifact verification; refuses to exit 0 unless the output file is on disk with at least one markdown table row.
+- `audit-verify.sh` — the hard artifact gate every audit's `verify` node runs. Exits non-zero if any required artifact (claude.md, synthesis.md, REPORT.md) is missing or empty; the handoff message must include its output verbatim.
+- `plane_schema.py` — Plane-shaped markdown data model + YAML-frontmatter (de)serialization. Used by the `plane-*` skills to model Workspace, Project, WorkItem, Cycle, Module, Epic, Milestone. State enum + transitions enforce the lifecycle. Includes `find_existing_work_item()` for the (audit_type, audit_id) matching key used by promotion.
+- `plane-runner.sh` — analog of `audit-runner.sh` for the `plane-*` skills. Resolves `<org>/<repo>` from the git remote, ensures the Plane-shaped subdirs (work-items/, cycles/, modules/, epics/, milestones/, pages/) exist under `~/Reports/<org>/<repo>/`, and locates audit dirs by audit-name. Idempotent.
 - `external-content-handling.md` — copy-paste boilerplate that skills fetching untrusted external content (Linear, GitHub, web pages, etc.) include verbatim in their `SKILL.md`.
 - `test_sprint_ledger.py` — unit tests for `sprint_ledger.py`.
 
@@ -85,7 +90,7 @@ Currently:
 
 Skills with multi-phase workflows (review pipelines, sprint planning, address-feedback loops) use the **dot-graph skill pattern**: the flow is a `graph.dot` with per-node markdown sidecars under `nodes/`, walked deterministically by `lib/graph_walker.py`. The graph is the source of truth — drift between prose and routing is structurally impossible. Reference: [`docs/DOT-GRAPH-SKILL-PATTERN.md`](docs/DOT-GRAPH-SKILL-PATTERN.md).
 
-Skills currently on this pattern: `commit`, `polish-pull-request`, `review-address-feedback`, `review-pr-comprehensive`, `review-pr-simple`, `sprint-plan`, `sprint-plan-to-linear`, `sprint-seed`, `sprint-self-review`, `sprint-work`. CLI-wrapper skills (`gh`, `gws`, `linear`, `obsidian`, `orbstack`) are not on this pattern — they're cheat sheets for one-shot operations with no internal state machine.
+Skills currently on this pattern: `commit`, `polish-pull-request`, `review-address-feedback`, `review-pr-comprehensive`, `review-pr-simple`, `sprint-plan`, `sprint-plan-to-linear`, `sprint-seed`, `sprint-self-review`, `sprint-work`, all 30 `audit-*` skills (22 apple + 8 general/web). CLI-wrapper skills (`gh`, `gws`, `linear`, `obsidian`, `orbstack`) and the procedural `plane-*` skills (`plane-init`, `plane-audit-ingest`, `plane-audit-promote`, `plane-cycle-new`, `plane-work-item-assign`, `plane-work-item-update`, `plane-cycle-render`, `plane-cycle-readiness`, `plane-project-status`, `plane-cycle-close`) are not on this pattern — they're one-shot operations with no internal state machine.
 
 ## Sprint workflow
 
@@ -96,6 +101,33 @@ All sprint, review, and audit artifacts live under `~/Reports/<org>/<repo>/` (de
 ## Subagents
 
 Subagent definitions in `~/.claude/agents/` can be delegated work via the Agent tool.
+
+## Multi-repo Claude integration (convention)
+
+Multiple project repos can contribute skills, libs, commands, and agents to `~/.claude/`. Each repo owns its own contributions under a `claude-code/` subdirectory at repo root, and ships its own install script.
+
+Layout convention per contributing repo:
+
+```
+<repo>/
+├── claude-code/
+│   ├── skills/          → symlinks into ~/.claude/skills/
+│   ├── lib/             → symlinks into ~/.claude/lib/
+│   ├── commands/        → symlinks into ~/.claude/commands/
+│   ├── agents/          → symlinks into ~/.claude/agents/
+│   ├── README.md        # what's here + install instructions
+│   └── install.sh       # symlink + idempotent re-install
+└── Makefile             # `make install` → calls claude-code/install.sh
+```
+
+Naming convention to avoid collisions across repos:
+- `agent-config` owns generic verbs/topics: `audit-*`, `sprint-*`, `review-*`, `commit`, `gh`, `linear`, `obsidian`, `orbstack`.
+- Project repos use a project prefix: `apt-*` for Agent Project Tracker, future apps follow the same pattern.
+- If a collision ever occurs, last-installed wins via symlink replacement — easy to detect by listing `~/.claude/skills/`.
+
+Each repo's `make install` is idempotent (safe to re-run after a `git pull`). Each repo also ships a `make uninstall` that removes only its own symlinks.
+
+This pattern lets tools like Agent Project Tracker (and any future portfolio app with Claude integration) ship their skills alongside their server / CLI source, evolving together rather than across repo boundaries.
 
 ## Obsidian Vault
 
@@ -115,12 +147,12 @@ Links like `[[QuorumForge]]` from other notes resolve unambiguously to the hub f
 
 ## Dotfiles
 
-Lives at `~/Code/github.com/coreydaley/dotfiles/` (private GitHub repo: `coreydaley/dotfiles`).
+Lives at `~/Code/mac-mini.example/coreydaley/dotfiles/` (source of truth: self-hosted Forgejo at `mac-mini.example`; auto-mirrored to private GitHub at `coreydaley/dotfiles`).
 Contains shell, git, ghostty, starship, and VSCode configs — symlinked to their system destinations via `make all`.
 
 ## Sandbox
 
-Lives at `~/Code/github.com/coreydaley/sandbox/` (private GitHub repo: `coreydaley/sandbox`).
+Lives at `~/Code/mac-mini.example/coreydaley/sandbox/` (source of truth: self-hosted Forgejo at `mac-mini.example`; auto-mirrored to private GitHub at `coreydaley/sandbox`).
 Scripts go in `scripts/`, experiments and POCs go in `projects/<n>/`. Run `make all` after cloning to install git hooks.
 
 ## Git
@@ -129,6 +161,6 @@ Scripts go in `scripts/`, experiments and POCs go in `projects/<n>/`. Run `make 
 
 **Always clone repositories bare and use git worktrees.** When cloning a repo, use `git clone --bare <url> <dir>` and manage branches as worktrees via `git worktree add`.
 
-**Organize repositories under `~/Code/<host>/<org>/<repo>/`.** For example, `~/Code/github.com/coreydaley/dotfiles/`. Always clone into this structure regardless of the host or org.
+**Organize repositories under `~/Code/<host>/<org>/<repo>/`.** For example, `~/Code/mac-mini.example/coreydaley/dotfiles/` (Forgejo, your default) or `~/Code/github.com/<owner>/<repo>/` (third-party GitHub clones). Always clone into this structure regardless of the host or org.
 
 **For forked repositories, always configure the upstream remote.** After cloning a fork, add the original repo as `upstream` via `git remote add upstream <original-url>`.

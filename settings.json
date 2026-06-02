@@ -10,7 +10,6 @@
     ],
     "deny": []
   },
-  "model": "opus",
   "hooks": {
     "Stop": [
       {
@@ -34,6 +33,7 @@
   "skipDangerousModePermissionPrompt": true,
   "theme": "light",
   "teammateMode": "tmux",
+  "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
-  "inputNeededNotifEnabled": true
+  "skipWorkflowUsageWarning": true
 }

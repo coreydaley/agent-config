@@ -45,5 +45,9 @@ create_symlink "$ROOT_DIR/settings.json"                    "$HOME/.claude/setti
 create_symlink "$ROOT_DIR/commands"                         "$HOME/.claude/commands"
 create_symlink "$ROOT_DIR/lib"                              "$HOME/.claude/lib"
 create_symlink "$ROOT_DIR/skills"                           "$HOME/.claude/skills"
-create_symlink "$ROOT_DIR/subagents"                        "$HOME/.claude/agents"
+if [[ -d "$ROOT_DIR/subagents" ]]; then
+    create_symlink "$ROOT_DIR/subagents"                    "$HOME/.claude/agents"
+else
+    rm -f "$HOME/.claude/agents"
+fi
 create_symlink "$ROOT_DIR/scripts/statusline-command.sh"    "$HOME/.claude/statusline-command.sh"

@@ -69,55 +69,62 @@ failure mode.
 
 ## Drift detection
 
-Skills and subagents that invoke `codex exec` should follow the canonical
-pattern above. Sync this file's pattern with their invocations whenever it
-changes:
+Skills that invoke `codex exec` (directly, or via `lib/audit-codex.sh`)
+should follow the canonical pattern above. Sync this file's pattern with
+their invocations whenever it changes:
 
+Non-audit skills (direct `codex exec` calls):
 - `skills/sprint-plan/nodes/reviews.md`
 - `skills/review-pr-comprehensive/nodes/independent-reviews.md`
 - `skills/review-pr-comprehensive/nodes/devils-advocate.md`
 - `skills/sprint-self-review/nodes/independent-reviews.md`
 - `skills/sprint-self-review/nodes/devils-advocate.md`
 
-General audits:
-- `subagents/audit-architecture.md`
-- `subagents/audit-design.md`
-- `subagents/audit-test-coverage.md`
+Audit skills (all invoke `codex exec` through `lib/audit-codex.sh`, which
+encapsulates the canonical flags — so the wrapper is the single drift
+point, not each skill):
+- `lib/audit-codex.sh` — owns the canonical invocation for every audit
+- `skills/audit-apple-accessibility/`
+- `skills/audit-apple-adaptivity/`
+- `skills/audit-apple-app-store-review/`
+- `skills/audit-apple-architecture/`
+- `skills/audit-apple-design/`
+- `skills/audit-apple-localization/`
+- `skills/audit-apple-performance/`
+- `skills/audit-apple-persistence/`
+- `skills/audit-apple-privacy/`
+- `skills/audit-apple-security/`
+- `skills/audit-apple-testing/`
+- `skills/audit-architecture/`
+- `skills/audit-design/`
+- `skills/audit-test-coverage/`
+- `skills/audit-web-accessibility/`
+- `skills/audit-web-responsive/`
+- `skills/audit-web-security/`
 
-Web audits:
-- `subagents/audit-web-accessibility.md`
-- `subagents/audit-web-responsive.md`
-- `subagents/audit-web-security.md`
-
-Apple audits:
-- `subagents/audit-apple-accessibility.md`
-- `subagents/audit-apple-adaptivity.md`
-- `subagents/audit-apple-app-store-review.md`
-- `subagents/audit-apple-architecture.md`
-- `subagents/audit-apple-design.md`
-- `subagents/audit-apple-localization.md`
-- `subagents/audit-apple-performance.md`
-- `subagents/audit-apple-persistence.md`
-- `subagents/audit-apple-privacy.md`
-- `subagents/audit-apple-security.md`
-- `subagents/audit-apple-testing.md`
-
-All audit subagents reference [`audit-framework.md`](audit-framework.md)
-for the shared 5-phase pattern and only specify audit-specific deltas
-(categories, severity rubrics, Phase 1 tooling, Phase 2 prompts).
+All audit skills follow the dot-graph pattern (see
+`docs/DOT-GRAPH-SKILL-PATTERN.md`). The shared `lib/audit-*.sh`
+scripts (`audit-runner.sh`, `audit-codex.sh`, `audit-verify.sh`) own all
+structural side effects: creating `$AUDIT_DIR`, launching `codex exec`
+with verified output, and gating the handoff on artifact presence.
 
 Verification:
 
 ```bash
-# Every codex invocation in these files should include all five hygiene flags.
+# Direct codex invocations (non-audit skills):
 grep -nE "codex exec" \
   skills/sprint-plan/nodes/reviews.md \
   skills/review-pr-comprehensive/nodes/*.md \
-  skills/sprint-self-review/nodes/*.md \
-  subagents/audit-*.md
+  skills/sprint-self-review/nodes/*.md
+# Should each include -s workspace-write, --add-dir, -C, --, < /dev/null.
+
+# Audit skills go through the wrapper:
+grep -nE "audit-codex.sh" skills/audit-*/nodes/*.md
+# Each match should pass <audit-dir> <role> <prompt-file> as the three args.
 ```
 
-Each match should be followed (within ~8 lines) by `-s workspace-write`,
-`--add-dir`, `-C`, `--`, and the call should end with `< /dev/null`. The
-audit subagents pass `--add-dir "$AUDIT_DIR"` and `-C "$PROJECT_CWD"` —
-both variables are set in the Orient phase before Phase 2 launches Codex.
+Each direct `codex exec` should be followed (within ~8 lines) by
+`-s workspace-write`, `--add-dir`, `-C`, `--`, and end with `< /dev/null`.
+Audit skills pass `--add-dir "$AUDIT_DIR"` and `-C "$PROJECT_CWD"` from
+inside `audit-codex.sh` — both variables are persisted in
+`$AUDIT_DIR/MANIFEST.json` by `audit-runner.sh init` in Phase 1.

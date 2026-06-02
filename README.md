@@ -70,7 +70,7 @@ Invoke with `/command-name` in Claude Code. Commands with `disable-model-invocat
 | `/review-pr-comprehensive` | Dual-agent PR review (Claude + Codex) → `REVIEW.md` |
 | `/review-address-feedback` | Walk through review feedback and apply fixes |
 | `/polish-pull-request` | Final-pass PR cleanup before merge |
-| **Audits** (all 5-phase dual-agent, see `lib/audit-framework.md`) | |
+| **Audits** (all 5-phase dual-agent dot-graph skills — structurally gated $AUDIT_DIR / codex / verify via `lib/audit-*.sh`) | |
 | `/audit-architecture` | Platform-agnostic architecture review — findings anchored to named principles + migration cost |
 | `/audit-design` | Platform-agnostic UI/UX review — HIG promoted to priority 2 on Swift projects |
 | `/audit-test-coverage` | Language-detecting coverage audit (Go, Python, Node, Rust, Swift) — gaps + pyramid balance + test quality |
@@ -129,28 +129,7 @@ Most multi-phase skills (`commit`, `polish-pull-request`, `review-*`, `sprint-*`
 
 ## Subagents
 
-Subagents are specialized agents Claude delegates work to via the Agent tool. Their full workflow runs in an isolated context, keeping the main conversation clean. Defined in `subagents/` (symlinked to `~/.claude/agents/`).
-
-| Subagent | Description |
-|---|---|
-| **Audits** (all share `lib/audit-framework.md`) | |
-| `audit-architecture` | Platform-agnostic architecture audit — findings anchored to named principles with migration cost estimates |
-| `audit-design` | Platform-agnostic UI/UX audit — HIG promoted to priority 2 on Swift projects |
-| `audit-test-coverage` | Language-detecting coverage audit; new audits inherit Swift detection out of the box |
-| `audit-web-accessibility` | Web accessibility (WCAG 2.1/2.2) audit |
-| `audit-web-responsive` | Web responsive design audit (viewport, breakpoints, touch targets, fluid layouts) |
-| `audit-web-security` | Backend/web/IaC/CI/agent-config security audit with real-tooling Phase 1; OWASP/CWE-anchored; Critical → Immediate Action |
-| `audit-apple-accessibility` | Apple HIG accessibility audit (SwiftUI / UIKit / AppKit / WatchKit) |
-| `audit-apple-adaptivity` | Apple adaptive UI — size classes, iPad multitasking, visionOS windowing, AX5 layout integrity |
-| `audit-apple-app-store-review` | Full App Store Review Guidelines walk — Submission Blocker section preempts rejection |
-| `audit-apple-architecture` | SwiftUI state ownership, `@MainActor`, `Sendable`, structured concurrency, Swift Package modularization |
-| `audit-apple-design` | Apple HIG-anchored design (SF Symbols, materials, dark mode, navigation, animation) |
-| `audit-apple-localization` | String Catalogs, pluralization, RTL, locale-aware formatters |
-| `audit-apple-performance` | Launch time, SwiftUI body invalidation, main-thread blocking, retain cycles, memory, energy (Instruments-anchored) |
-| `audit-apple-persistence` | SwiftData / Core Data / GRDB + CloudKit sync + migration safety + threading |
-| `audit-apple-privacy` | Privacy Manifest, ATT, required-reason APIs, SDK privacy declarations; Critical → Submission Blocker |
-| `audit-apple-security` | Apple-platform threat model (Keychain, ATS, entitlements, StoreKit, CloudKit, WKWebView, code signing); Critical → Immediate Action |
-| `audit-apple-testing` | XCTest vs Swift Testing, XCUITest coverage, Preview coverage, snapshot testing strategy |
+Subagents are specialized agents Claude delegates work to via the Agent tool, when one is needed. None are currently shipped — the prior `audit-*` subagents were migrated to dot-graph skills (see Commands table above) because prose-only enforcement failed silently in too many ways. The `subagents/` directory is preserved as the symlink target at `~/.claude/agents/` for future use.
 
 ### Audit output
 
