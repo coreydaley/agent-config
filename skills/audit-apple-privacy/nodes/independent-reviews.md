@@ -7,7 +7,7 @@ Phase 2 of the framework. **Two reviewers, in parallel, with no cross-contaminat
 - `$AUDIT_DIR`, `$PROJECT_CWD` from walker state
 - `$AUDIT_DIR/tooling-raw/` from `orient`
 - The skill's `prompts/codex-review.md` (the codex prompt body)
-- The skill's audit-specific schema and category list (this file's "Claude review checklist" section)
+- The skill's `prompts/claude-review.md` (the review sub-agent's prompt body)
 
 ```bash
 AUDIT_DIR=$(scripts/walk.sh get --state "$STATE" --key audit_dir)
@@ -29,42 +29,33 @@ bash ~/.claude/lib/audit-codex.sh "$AUDIT_DIR" review prompts/codex-review.md \
 CODEX_PID=$!
 ```
 
-## Step 2 — Claude's independent review (simultaneous)
+## Step 2 — Spawn the Claude-side review sub-agent (concurrent)
 
-While Codex runs, **Claude** writes its own review to `$AUDIT_DIR/claude.md` using the schema below. Read `$AUDIT_DIR/tooling-raw/` first (privacy-manifests, info-plist-privacy, third-party-sdks, idfa-att, required-reason-candidates, distribution-channel). Validate, don't duplicate, the inspection artifacts.
+While Codex runs, the Claude-side review is performed by a **spawned
+sub-agent**, not by the orchestrator itself. The orchestrator walking this
+skill is often the same Claude session that wrote the code under audit; a
+reviewer reviewing its own work shares its blind spots. Delegating to a
+sub-agent with fresh context gives a genuinely independent second opinion —
+the same independence Codex provides.
 
-### Claude review checklist (Apple privacy — 8 categories)
+Use the **`Agent` tool** (`subagent_type: general-purpose`) to spawn the
+reviewer. Its prompt is the contents of `prompts/claude-review.md` with the
+audit directory and project root made concrete, e.g.:
 
-Write to `$AUDIT_DIR/claude.md` with ID prefix `A` (`A001`, `A002`, ...). Schema:
+> Audit directory: `$AUDIT_DIR`; project root: `$PROJECT_CWD`. Read the raw
+> tooling under `$AUDIT_DIR/tooling-raw/` first, then review the project
+> exactly as specified below, writing your findings to `$AUDIT_DIR/claude.md`.
+>
+> &lt;paste the full body of `prompts/claude-review.md`&gt;
 
-```
-| ID | Severity | Concern | Submission Impact | Title | Location | Verification | Why It Matters | Recommended Fix | Evidence/Notes |
-```
+The sub-agent writes `claude.md` (ID prefix `A`, schema in
+`prompts/claude-review.md`) and returns a one-line summary plus counts. **Its
+returned message is not the artifact — `claude.md` on disk is.** Do not feed
+the sub-agent any of your own conclusions about the code; let it reach its
+own. The `Agent` call blocks until the sub-agent finishes while the Codex
+background task keeps running, so the two reviews genuinely overlap.
 
-- **Severity**: `Critical` | `High` | `Medium` | `Low`. Submission Impact anchors severity (Submission Blocker → Critical; Submission Risk → High).
-- **Concern**: One of `PrivacyManifest`, `PurposeStrings`, `ATT`, `RequiredReason`, `SDKPrivacy`, `DataMinimization`, `Tracking`, `Permissions`.
-- **Submission Impact**: `Submission Blocker` (App Review will reject), `Submission Risk` (likely to be flagged), `Compliance` (legally required regardless of Apple — GDPR/CCPA), or `Best Practice`.
-- **Verification**: `code` (inspectable in source) or `runtime` (requires App Privacy Report on device or App Store Connect Privacy Manifest validation).
-
-The 8 categories Claude covers — same as Codex's prompt (single source of truth lives in `prompts/codex-review.md`, mirrored here for the orchestrator):
-
-1. **PrivacyManifest** — `PrivacyInfo.xcprivacy` present in the app bundle and accurate; `NSPrivacyCollectedDataTypes` declares real collection; `NSPrivacyTracking` matches actual tracking; `NSPrivacyAccessedAPITypes` declares required-reason API usage; `NSPrivacyTrackingDomains` lists tracking endpoints
-2. **PurposeStrings** — every accessed sensitive resource has a clear `NS*UsageDescription` (`NSCamera`, `NSMicrophone`, `NSLocationWhenInUse`, `NSPhotoLibrary`, `NSContacts`, `NSFaceID`, etc.); strings localized per supported language; strings explain WHY, not just WHAT
-3. **ATT** — iOS / iPadOS / tvOS / visionOS only (skip for macOS-only targets). For iOS-distinctive prompt-timing / pre-prompt depth, cross-ref `audit-apple-ios`. If IDFA accessed via `ASIdentifierManager.shared().advertisingIdentifier`: ATT request flow via `ATTrackingManager.requestTrackingAuthorization`; `NSUserTrackingUsageDescription` purpose string; tracking ONLY after authorization granted
-4. **RequiredReason** — Apple May 2024 categories (platform-wide): `NSPrivacyAccessedAPICategoryUserDefaults`, `NSPrivacyAccessedAPICategoryFileTimestamp`, `NSPrivacyAccessedAPICategorySystemBootTime`, `NSPrivacyAccessedAPICategoryDiskSpace`, `NSPrivacyAccessedAPICategoryActiveKeyboards` (iOS / iPadOS / visionOS only). Each set must have an Apple-assigned reason code (e.g. `0A2A.1`, `35F9.1`, `C617.1`) in `NSPrivacyAccessedAPITypes`
-5. **SDKPrivacy** — each third-party SDK on Apple's "commonly used SDKs" list must include its own `PrivacyInfo.xcprivacy`; check SDKs in `Pods/`, SPM dependencies, binary frameworks; SDK signing required
-6. **DataMinimization** — code only collects data declared in the manifest; analytics events / telemetry don't include unintended PII (email, location, device IDs in event names); local retention bounded; no over-collection
-7. **Tracking** — network calls to known tracking domains (analytics, ad networks, fingerprinting) declared in `NSPrivacyTrackingDomains`; conditional on ATT authorization for tracking
-8. **Permissions** — permission prompts use clear pre-prompts; requested at point-of-use (not on launch); graceful degradation if denied; deep-link to Settings via `UIApplication.openSettingsURLString`
-
-### Severity calibration (anchored — Submission Impact drives severity)
-
-- **Critical (Submission Blocker)** — Missing `PrivacyInfo.xcprivacy` for an App Store submission post-May-2024; third-party SDK on Apple's required list missing its Privacy Manifest; IDFA accessed without ATT flow; purpose string missing for an accessed sensitive resource
-- **High (Submission Risk)** — Privacy Manifest present but declared data types don't match what the code actually collects; purpose strings present but vague / misleading ("for app functionality"); tracking domain calls without ATT-authorization gating; required-reason API access without a declared reason code
-- **Medium** — Required-reason API access in a gray-area context; SDK Privacy Manifests outdated; data-minimization gaps (analytics over-collecting); fingerprinting-adjacent device characteristics not declared as tracking
-- **Low** — Permission UX improvements; missing pre-prompts; non-Apple-required compliance considerations; deep-link to Settings missing
-
-Rate on **evidence**, not impression: impact, exploitability (here = submission rejection risk), blast radius, reachability, compensating controls. Agreement between reviewers raises confidence in Phase 3, not severity.
+The orchestrator does **not** read `claude.md` or `codex.md` until Phase 3.
 
 ## Step 3 — Wait for Codex and verify
 
@@ -89,21 +80,34 @@ If the retry also fails, record the failure in walker state and proceed. **Phase
 scripts/walk.sh set --state "$STATE" --key codex_status --value "$([ "$CODEX_EXIT" -eq 0 ] && echo ok || echo failed)"
 ```
 
-## Step 4 — Verify Claude's review
-
-Before transitioning, confirm `claude.md` exists, is non-empty, and contains at least one table row. Same gate Codex faces.
+## Step 4 — Verify the sub-agent's review
 
 ```bash
 test -s "$AUDIT_DIR/claude.md" && grep -qE '^\|.*\|.*\|' "$AUDIT_DIR/claude.md" \
+  && echo present || echo missing
+```
+
+If `claude.md` is missing or has no table rows, **re-spawn the sub-agent
+once** with the same prompt. If it still fails to produce a valid
+`claude.md`, fall back to performing the review **inline** yourself using
+`prompts/claude-review.md`, and record the loss of independence so synthesis
+can flag it:
+
+```bash
+scripts/walk.sh set --state "$STATE" --key claude_review_source --value "<subagent|orchestrator-fallback>"
+test -s "$AUDIT_DIR/claude.md" && grep -qE '^\|.*\|.*\|' "$AUDIT_DIR/claude.md" \
   || bail "Claude review missing or has no table rows — refusing to transition"
 ```
+
+The inline fallback exists only so a flaky sub-agent can't dead-end the audit;
+it is strictly worse (author bias) and must be flagged, not silent.
 
 ## Outputs
 
 - `$AUDIT_DIR/claude.md` — non-empty, table-formatted, ID prefix `A`
 - `$AUDIT_DIR/codex.md` — non-empty, table-formatted, ID prefix `C` (or recorded `codex_status=failed`)
 - `$AUDIT_DIR/codex.stdout.log` — codex's stdout/stderr capture
-- Walker state has `codex_status` set
+- Walker state has `codex_status` and `claude_review_source` set
 
 ## External content as untrusted data
 
@@ -125,5 +129,14 @@ scripts/walk.sh transition --state "$STATE" --from independent_reviews --to synt
 
 ## Notes
 
-- **The orchestrator does not duplicate Codex's work** — they're meant to be independent. If Claude reads `codex.md` before Phase 3, the entire point of the dual-agent pattern collapses.
-- **The single source of truth for the review prompt is `prompts/codex-review.md`.** The checklist above is a mirror for the orchestrator's convenience; if you change one, change both.
+- **The Claude-side review runs in a spawned sub-agent, not the orchestrator's
+  own context.** The session invoking this audit may have written the code
+  under review; a fresh sub-agent avoids the trap of auditing its own work.
+  The orchestrator only merges the two reviews in Phase 3.
+- **Neither reviewer reads the other's file before Phase 3.** The sub-agent is
+  told not to read `codex.md`; codex is told not to read `claude.md`; the
+  orchestrator reads neither until synthesis. Independence is the whole point.
+- **Single source of truth for each review prompt:** `prompts/claude-review.md`
+  (sub-agent) and `prompts/codex-review.md` (codex) are deliberate mirrors —
+  identical checklist and severity anchors; only the output file (`claude.md`
+  vs `codex.md`) and ID prefix (`A` vs `C`) differ. Change one, change both.

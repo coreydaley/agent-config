@@ -7,7 +7,7 @@ Phase 2 of the framework. **Two reviewers, in parallel, with no cross-contaminat
 - `$AUDIT_DIR`, `$PROJECT_CWD` from walker state
 - `$AUDIT_DIR/tooling-raw/` from `orient` (just STATUS.md for this audit)
 - The skill's `prompts/codex-review.md` (the codex prompt body)
-- The skill's audit-specific schema and category list (this file's "Claude review checklist" section)
+- The skill's `prompts/claude-review.md` (the review sub-agent's prompt body)
 
 ```bash
 AUDIT_DIR=$(scripts/walk.sh get --state "$STATE" --key audit_dir)
@@ -29,47 +29,33 @@ bash ~/.claude/lib/audit-codex.sh "$AUDIT_DIR" review prompts/codex-review.md \
 CODEX_PID=$!
 ```
 
-## Step 2 — Claude's independent review (simultaneous)
+## Step 2 — Spawn the Claude-side review sub-agent (concurrent)
 
-While Codex runs, **Claude** writes its own review to `$AUDIT_DIR/claude.md` using the schema below. Walk the HTML/template, CSS/preprocessor, and component files identified in `orient`. Apply the **grouping rule**: when the same broken pattern repeats across many components, write one representative finding and document the extent in `Evidence/Notes` rather than duplicating per instance.
+While Codex runs, the Claude-side review is performed by a **spawned
+sub-agent**, not by the orchestrator itself. The orchestrator walking this
+skill is often the same Claude session that wrote the code under audit; a
+reviewer reviewing its own work shares its blind spots. Delegating to a
+sub-agent with fresh context gives a genuinely independent second opinion —
+the same independence Codex provides.
 
-### Claude review checklist (web responsive — 10 categories)
+Use the **`Agent` tool** (`subagent_type: general-purpose`) to spawn the
+reviewer. Its prompt is the contents of `prompts/claude-review.md` with the
+audit directory and project root made concrete, e.g.:
 
-Write to `$AUDIT_DIR/claude.md` with ID prefix `A` (`A001`, `A002`, ...). Schema:
+> Audit directory: `$AUDIT_DIR`; project root: `$PROJECT_CWD`. Read the raw
+> tooling under `$AUDIT_DIR/tooling-raw/` first, then review the project
+> exactly as specified below, writing your findings to `$AUDIT_DIR/claude.md`.
+>
+> &lt;paste the full body of `prompts/claude-review.md`&gt;
 
-```
-| ID | Severity | Title | Location | Breakpoint | Verification | Why It Matters | Recommended Fix | Evidence/Notes |
-```
+The sub-agent writes `claude.md` (ID prefix `A`, schema in
+`prompts/claude-review.md`) and returns a one-line summary plus counts. **Its
+returned message is not the artifact — `claude.md` on disk is.** Do not feed
+the sub-agent any of your own conclusions about the code; let it reach its
+own. The `Agent` call blocks until the sub-agent finishes while the Codex
+background task keeps running, so the two reviews genuinely overlap.
 
-- **Severity**: `Critical` | `High` | `Medium` | `Low`. See severity calibration below and the prompt body in `prompts/codex-review.md` for the audit-specific anchored examples.
-- **Breakpoint**: Affected viewport range(s). Default: `xs (<576px)`, `sm (576–767px)`, `md (768–991px)`, `lg (992–1199px)`, `xl (≥1200px)`, `All`. When the project uses a framework with different breakpoint names (Tailwind, Foundation), use those instead.
-- **Verification**: `code` (inspectable from source) or `runtime` (requires browser/device testing — Chrome DevTools device emulation at 375 px, 768 px, 1024 px at minimum; physical device preferred).
-
-The 10 categories Claude covers — same as Codex's prompt (single source of truth lives in `prompts/codex-review.md`, mirrored here for the orchestrator):
-
-1. **Viewport meta tag** — Presence, correctness, no `user-scalable=no`
-2. **Fluid layouts** — Fixed pixel widths blocking reflow; %/vw/vh/fr/clamp; max-width usage
-3. **Breakpoint coverage** — Common device widths; mobile-first vs desktop-first consistency
-4. **Typography scaling** — Body ≥16px on mobile; responsive scale; `clamp()`; line-length
-5. **Touch targets** — 44×44 px minimum; tap-target spacing; hover-only patterns
-6. **Horizontal overflow** — Elements wider than viewport; `overflow-x` handling
-7. **Images and media** — `max-width: 100%`; responsive video/iframe; `srcset` / `<picture>`
-8. **Navigation and menus** — Mobile-nav alternatives; hamburger usability; touch-friendly dropdowns
-9. **Forms and inputs** — Sizing on mobile; `autocomplete` / `inputmode` / `type`; label association
-10. **Component-level** — Modals, carousels, data tables, grid/card collapse behavior
-
-### Severity calibration (anchored)
-
-Default mapping (override based on whether the issue blocks a primary user flow, how common the affected device size is, and breadth of affected components):
-
-- **Critical** — Broken layout / content inaccessible at a common viewport (375 px, 768 px, 1024 px); primary user flow blocked on mobile
-- **High** — Horizontal overflow forcing scroll on mobile; touch targets below 44×44 px on critical CTAs; missing viewport meta tag; tap targets too close to be distinguishable
-- **Medium** — Fixed widths causing reflow problems; typography not scaling appropriately at mobile; images not constrained and overflowing container; hover-only patterns with no touch equivalent
-- **Low** — Minor spacing/padding inconsistencies on small screens; defense-in-depth gaps; deprecated-but-functional patterns
-
-Rate on **evidence**, not impression: impact on the primary user flow, device-size commonality, breadth of affected components, compensating controls (graceful degradation, alternative paths). Agreement between reviewers raises confidence in Phase 3, not severity.
-
-**Grouping rule reminder**: one representative finding per broken pattern; cite breadth in `Evidence/Notes`, not by duplication.
+The orchestrator does **not** read `claude.md` or `codex.md` until Phase 3.
 
 ## Step 3 — Wait for Codex and verify
 
@@ -94,21 +80,34 @@ If the retry also fails, record the failure in walker state and proceed. **Phase
 scripts/walk.sh set --state "$STATE" --key codex_status --value "$([ "$CODEX_EXIT" -eq 0 ] && echo ok || echo failed)"
 ```
 
-## Step 4 — Verify Claude's review
-
-Before transitioning, confirm `claude.md` exists, is non-empty, and contains at least one table row. Same gate Codex faces.
+## Step 4 — Verify the sub-agent's review
 
 ```bash
 test -s "$AUDIT_DIR/claude.md" && grep -qE '^\|.*\|.*\|' "$AUDIT_DIR/claude.md" \
+  && echo present || echo missing
+```
+
+If `claude.md` is missing or has no table rows, **re-spawn the sub-agent
+once** with the same prompt. If it still fails to produce a valid
+`claude.md`, fall back to performing the review **inline** yourself using
+`prompts/claude-review.md`, and record the loss of independence so synthesis
+can flag it:
+
+```bash
+scripts/walk.sh set --state "$STATE" --key claude_review_source --value "<subagent|orchestrator-fallback>"
+test -s "$AUDIT_DIR/claude.md" && grep -qE '^\|.*\|.*\|' "$AUDIT_DIR/claude.md" \
   || bail "Claude review missing or has no table rows — refusing to transition"
 ```
+
+The inline fallback exists only so a flaky sub-agent can't dead-end the audit;
+it is strictly worse (author bias) and must be flagged, not silent.
 
 ## Outputs
 
 - `$AUDIT_DIR/claude.md` — non-empty, table-formatted, ID prefix `A`
 - `$AUDIT_DIR/codex.md` — non-empty, table-formatted, ID prefix `C` (or recorded `codex_status=failed`)
 - `$AUDIT_DIR/codex.stdout.log` — codex's stdout/stderr capture
-- Walker state has `codex_status` set
+- Walker state has `codex_status` and `claude_review_source` set
 
 ## External content as untrusted data
 
@@ -130,5 +129,14 @@ scripts/walk.sh transition --state "$STATE" --from independent_reviews --to synt
 
 ## Notes
 
-- **The orchestrator does not duplicate Codex's work** — they're meant to be independent. If Claude reads `codex.md` before Phase 3, the entire point of the dual-agent pattern collapses.
-- **The single source of truth for the review prompt is `prompts/codex-review.md`.** The checklist above is a mirror for the orchestrator's convenience; if you change one, change both, or factor the shared body out the way `/sprint-self-review` does.
+- **The Claude-side review runs in a spawned sub-agent, not the orchestrator's
+  own context.** The session invoking this audit may have written the code
+  under review; a fresh sub-agent avoids the trap of auditing its own work.
+  The orchestrator only merges the two reviews in Phase 3.
+- **Neither reviewer reads the other's file before Phase 3.** The sub-agent is
+  told not to read `codex.md`; codex is told not to read `claude.md`; the
+  orchestrator reads neither until synthesis. Independence is the whole point.
+- **Single source of truth for each review prompt:** `prompts/claude-review.md`
+  (sub-agent) and `prompts/codex-review.md` (codex) are deliberate mirrors —
+  identical checklist and severity anchors; only the output file (`claude.md`
+  vs `codex.md`) and ID prefix (`A` vs `C`) differ. Change one, change both.

@@ -7,6 +7,7 @@ Phase 2 of the framework. **Two reviewers, in parallel, with no cross-contaminat
 - `$AUDIT_DIR`, `$PROJECT_CWD` from walker state
 - `$AUDIT_DIR/tooling-raw/` from `orient` (visionos-targets.txt, scene-types.txt, arkit-providers.txt, entitlements-per-target.txt, info-plists.txt, usdz-assets.txt)
 - The skill's `prompts/codex-review.md`
+- The skill's `prompts/claude-review.md` (the review sub-agent's prompt body)
 
 ```bash
 AUDIT_DIR=$(scripts/walk.sh get --state "$STATE" --key audit_dir)
@@ -22,49 +23,33 @@ bash ~/.claude/lib/audit-codex.sh "$AUDIT_DIR" review prompts/codex-review.md \
 CODEX_PID=$!
 ```
 
-## Step 2 — Claude's independent review (simultaneous)
+## Step 2 — Spawn the Claude-side review sub-agent (concurrent)
 
-While Codex runs, **Claude** writes its own review to `$AUDIT_DIR/claude.md` using the schema below. Read `$AUDIT_DIR/tooling-raw/` first. The highest-yield reads are `scene-types.txt` (every immersion / hover-effect / volume usage), `arkit-providers.txt` (hand-tracking entitlement consistency), `entitlements-per-target.txt` cross-referenced with `info-plists.txt` (`com.apple.developer.arkit.hand-tracking` ↔ `NSHandsTrackingUsageDescription`), and `usdz-assets.txt` (file sizes for main-thread-load risk).
+While Codex runs, the Claude-side review is performed by a **spawned
+sub-agent**, not by the orchestrator itself. The orchestrator walking this
+skill is often the same Claude session that wrote the code under audit; a
+reviewer reviewing its own work shares its blind spots. Delegating to a
+sub-agent with fresh context gives a genuinely independent second opinion —
+the same independence Codex provides.
 
-### Claude review checklist (Apple visionOS — 12 categories)
+Use the **`Agent` tool** (`subagent_type: general-purpose`) to spawn the
+reviewer. Its prompt is the contents of `prompts/claude-review.md` with the
+audit directory and project root made concrete, e.g.:
 
-Write to `$AUDIT_DIR/claude.md` with ID prefix `A` (`A001`, `A002`, ...). Schema:
+> Audit directory: `$AUDIT_DIR`; project root: `$PROJECT_CWD`. Read the raw
+> tooling under `$AUDIT_DIR/tooling-raw/` first, then review the project
+> exactly as specified below, writing your findings to `$AUDIT_DIR/claude.md`.
+>
+> &lt;paste the full body of `prompts/claude-review.md`&gt;
 
-```
-| ID | Severity | Anchor | Category | Title | Location | Platform | Verification | Why It Matters | Recommended Fix | Evidence/Notes |
-```
+The sub-agent writes `claude.md` (ID prefix `A`, schema in
+`prompts/claude-review.md`) and returns a one-line summary plus counts. **Its
+returned message is not the artifact — `claude.md` on disk is.** Do not feed
+the sub-agent any of your own conclusions about the code; let it reach its
+own. The `Agent` call blocks until the sub-agent finishes while the Codex
+background task keeps running, so the two reviews genuinely overlap.
 
-- **Severity**: `Critical` | `High` | `Medium` | `Low`. See anchors below.
-- **Anchor**: required. The Apple API / entitlement / file the finding anchors to (e.g. `Apple:ImmersiveSpace`, `Apple:RealityView`, `Entitlement:com.apple.developer.arkit.hand-tracking`, `Apple:HoverEffect`, `File:Info.plist`).
-- **Category**: one of `SceneTypes`, `RealityKit`, `ImmersiveSpaceLifecycle`, `GazePinch`, `Ornaments`, `SpatialAudio`, `USDZAssets`, `HandTracking`, `WorldAnchors`, `AccessibilityVision`, `InputModes`, `PrivacyHandTracking`.
-- **Platform**: nearly always `visionOS`; use `Multi` only if the finding spans visionOS and another platform (e.g. shared SwiftUI scene-type usage where the visionOS variant has a problem).
-- **Verification**: `code` (inspectable in the snapshot — entitlement strings, USDZ file sizes, scene-type declarations) or `runtime` (gaze targeting feel, ImmersionStyle transition, hand-tracking behavior, spatial audio positionality — requires real Vision Pro device, not simulator).
-
-### The 12 categories
-
-The single source of truth for the category descriptions is `prompts/codex-review.md`; the list below mirrors it for the orchestrator.
-
-1. **SceneTypes** — `WindowGroup` (regular SwiftUI window, multi-instance) vs `Window` (single instance) vs `ImmersiveSpace` (immersive / full or mixed) vs `Volume` (3D volumetric); mixed scene types without clear UX rationale; `defaultSize(width:height:depth:in:)` for volumes specifying meters / centimeters explicitly rather than defaulting to point-equivalents.
-2. **RealityKit** — `RealityView` for 3D content (visionOS) vs `ARView` (iOS legacy, deprecated path on visionOS); ECS pattern correctness (`Component` + `System`); entity lifecycle (`addChild` / `removeFromParent`); loading USDZ via `Entity(named:in:)` synchronously vs `Entity.load(named:in:)` asynchronously; main-thread load of large USDZ.
-3. **ImmersiveSpaceLifecycle** — `openImmersiveSpace(id:)` / `dismissImmersiveSpace()` correctness; `ImmersionStyle` (`.mixed` / `.progressive` / `.full`); error handling on space open (`.userCancelled`, `.error`); dismissal not awaited; tracking which space is currently presented; trying to open a second space without dismissing the first.
-4. **GazePinch** — Hover effect (`.hoverEffect(.highlight)`, `.hoverEffect(.lift)`) on tappable elements; custom `HoverEffectComponent`; `SpatialTapGesture` for spatial-tap recognition; gaze persistence; "always-visible" UI patterns that don't react to hover (gaze-targeting fails because the user has no feedback that a target is acquired).
-5. **Ornaments** — `.ornament(visibility:attachmentAnchor:contentAlignment:content:)` for toolbar / inspector / control-strip affordances anchored around windows; UIKit-style fixed toolbars that should be ornaments; ornament localization.
-6. **SpatialAudio** — `PHASEEngine` for spatial audio; `SpatialAudioComponent` on RealityKit entities for positional audio; `AmbientAudioComponent` / `ChannelAudioComponent` for non-positional; mono / stereo audio for in-volume sources that should be spatial.
-7. **USDZAssets** — Asset pipeline: Reality Composer Pro for native authoring; USDZ optimization (texture compression — typically ASTC or DXT, polygon count targets in the tens of thousands not millions, draw-call budget); huge / unoptimized assets that bloat binary or RAM. The Vision Pro shares ~8GB RAM with the system; a 200MB USDZ in a Volume scene is a memory-crash candidate.
-8. **HandTracking** — `ARKitSession` with `HandTrackingProvider`; entitlement `com.apple.developer.arkit.hand-tracking` present in the target's `.entitlements`; Info.plist `NSHandsTrackingUsageDescription` purpose string present; gesture recognition built on hand-joint data (`HandSkeleton.Joint`). Missing entitlement crashes the app at runtime when `ARKitSession.run(_:)` is called.
-9. **WorldAnchors** — `ARKitSession` + `WorldTrackingProvider` for persistent placements; `WorldAnchor.id` stored locally for re-attachment across launches; ARKit session lifecycle (started in correct phase, stopped on backgrounding to avoid sensor-budget drain).
-10. **AccessibilityVision** — VoiceOver in spatial UI (announcements for window open / immersive-space transitions); high-contrast on volumetric content; Reduce Motion adaptation for immersive content (no swirling environment, gentler transitions); spatial-audio cue for sight-impaired users.
-11. **InputModes** — Pointer (Bluetooth keyboard / trackpad) support for users who pair input devices; eye-tracking-only flow as the primary modality; voice input via SiriKit / App Intents; Look-to-Dictate (system input method on visionOS).
-12. **PrivacyHandTracking** — Hand-tracking data is sensitive biometric input; PrivacyInfo.xcprivacy required-reason API declaration for hand-tracking data; uplifting hand-tracking data to a server (analytics SDK, debugging, training) without user consent / dialog. App Store rejects on missing required-reason declaration; user-trust collapse if hand-tracking is silently uploaded.
-
-### Severity calibration (anchored to visionOS-shipping consequences)
-
-- **Critical** — Hand tracking used without the `com.apple.developer.arkit.hand-tracking` entitlement (crashes on `ARKitSession.run(_:)` / rejected at App Review); `ImmersiveSpace` opened without a dismissal handler or a way to return to launcher (user is *trapped in immersion*, has to force-quit via crown-press, a documented App Review rejection); large USDZ (>50MB raw) loaded synchronously on main thread inside a `RealityView` (>5s app freeze, ANR-style termination); `HandTrackingProvider` without PrivacyInfo.xcprivacy required-reason API declaration (App Store rejects + privacy-report flag on submission).
-- **High** — Volumetric content with no spatial audio (mono / stereo audio on a `RealityView` source — perceived as "stuck at center", breaks immersion); missing `.hoverEffect()` on tappable elements (gaze-targeting fails — user gazes but tap doesn't register); `.mixed` or `.full` immersion without a visible exit affordance (forces crown-press); `ARKitSession` not stopped across scene transitions (leaks sensor handles, drains battery, eventually rejected by ARKit).
-- **Medium** — `Volume` scene with `defaultSize` mismatched to content extent (clipping or unused space); missing Reduce Motion adaptation in immersive content (motion-sensitive users have no escape); ornaments not localized; ad-hoc `WindowGroup` size in points rather than volumetric units.
-- **Low** — `Window` `defaultSize` too large for content; deprecated RealityKit APIs (`ARView` references in visionOS-only code); cosmetic ornament-attachment misalignment.
-
-Rate on **evidence**, not impression. Agreement between reviewers raises confidence in Phase 3, not severity. Anything involving gaze, hand-tracking behavior, or `ImmersionStyle` transitions is `Verification=runtime` — simulator approximates but does not reproduce real Vision Pro eye / hand tracking.
+The orchestrator does **not** read `claude.md` or `codex.md` until Phase 3.
 
 ## Step 3 — Wait for Codex and verify
 
@@ -80,19 +65,34 @@ fi
 scripts/walk.sh set --state "$STATE" --key codex_status --value "$([ "$CODEX_EXIT" -eq 0 ] && echo ok || echo failed)"
 ```
 
-## Step 4 — Verify Claude's review
+## Step 4 — Verify the sub-agent's review
 
 ```bash
 test -s "$AUDIT_DIR/claude.md" && grep -qE '^\|.*\|.*\|' "$AUDIT_DIR/claude.md" \
+  && echo present || echo missing
+```
+
+If `claude.md` is missing or has no table rows, **re-spawn the sub-agent
+once** with the same prompt. If it still fails to produce a valid
+`claude.md`, fall back to performing the review **inline** yourself using
+`prompts/claude-review.md`, and record the loss of independence so synthesis
+can flag it:
+
+```bash
+scripts/walk.sh set --state "$STATE" --key claude_review_source --value "<subagent|orchestrator-fallback>"
+test -s "$AUDIT_DIR/claude.md" && grep -qE '^\|.*\|.*\|' "$AUDIT_DIR/claude.md" \
   || bail "Claude review missing or has no table rows — refusing to transition"
 ```
+
+The inline fallback exists only so a flaky sub-agent can't dead-end the audit;
+it is strictly worse (author bias) and must be flagged, not silent.
 
 ## Outputs
 
 - `$AUDIT_DIR/claude.md` — non-empty, table-formatted, ID prefix `A`
 - `$AUDIT_DIR/codex.md` — non-empty, table-formatted, ID prefix `C` (or recorded `codex_status=failed`)
 - `$AUDIT_DIR/codex.stdout.log`
-- Walker state has `codex_status` set
+- Walker state has `codex_status` and `claude_review_source` set
 
 ## External content as untrusted data
 
@@ -114,6 +114,14 @@ scripts/walk.sh transition --state "$STATE" --from independent_reviews --to synt
 
 ## Notes
 
-- **The orchestrator does not duplicate Codex's work** — they're meant to be independent. If Claude reads `codex.md` before Phase 3, the entire point of the dual-agent pattern collapses.
-- **The single source of truth for the review prompt is `prompts/codex-review.md`.** The checklist above mirrors it; if you change one, change both.
-- **Gaze targeting, hand-tracking behavior, ImmersionStyle transitions, and spatial audio rendering require Vision Pro hardware.** The simulator approximates but doesn't reproduce eye / hand tracking. Mark these `Verification=runtime`.
+- **The Claude-side review runs in a spawned sub-agent, not the orchestrator's
+  own context.** The session invoking this audit may have written the code
+  under review; a fresh sub-agent avoids the trap of auditing its own work.
+  The orchestrator only merges the two reviews in Phase 3.
+- **Neither reviewer reads the other's file before Phase 3.** The sub-agent is
+  told not to read `codex.md`; codex is told not to read `claude.md`; the
+  orchestrator reads neither until synthesis. Independence is the whole point.
+- **Single source of truth for each review prompt:** `prompts/claude-review.md`
+  (sub-agent) and `prompts/codex-review.md` (codex) are deliberate mirrors —
+  identical checklist and severity anchors; only the output file (`claude.md`
+  vs `codex.md`) and ID prefix (`A` vs `C`) differ. Change one, change both.

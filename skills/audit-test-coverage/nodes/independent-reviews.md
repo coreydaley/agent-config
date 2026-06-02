@@ -7,7 +7,7 @@ Phase 2 of the framework. **Two reviewers, in parallel, with no cross-contaminat
 - `$AUDIT_DIR`, `$PROJECT_CWD` from walker state
 - `$AUDIT_DIR/tooling-raw/` from `orient` (measured coverage data, where available)
 - The skill's `prompts/codex-review.md` (the codex prompt body)
-- The skill's audit-specific schema and category list (this file's "Claude review checklist" section)
+- The skill's `prompts/claude-review.md` (the review sub-agent's prompt body)
 
 ```bash
 AUDIT_DIR=$(scripts/walk.sh get --state "$STATE" --key audit_dir)
@@ -29,38 +29,33 @@ bash ~/.claude/lib/audit-codex.sh "$AUDIT_DIR" review prompts/codex-review.md \
 CODEX_PID=$!
 ```
 
-## Step 2 — Claude's independent review (simultaneous)
+## Step 2 — Spawn the Claude-side review sub-agent (concurrent)
 
-While Codex runs, **Claude** writes its own review to `$AUDIT_DIR/claude.md` using the schema below. Read `$AUDIT_DIR/tooling-raw/` first — coverage logs, cover-func.txt, coverage.json, jest.log, vitest.log, tarpaulin.log, swift-cov-summary.txt, xcodebuild-test.log. If `tooling-raw/STATUS.md` indicates measured coverage was unavailable, note that prominently and rely on source-reading.
+While Codex runs, the Claude-side review is performed by a **spawned
+sub-agent**, not by the orchestrator itself. The orchestrator walking this
+skill is often the same Claude session that wrote the code under audit; a
+reviewer reviewing its own work shares its blind spots. Delegating to a
+sub-agent with fresh context gives a genuinely independent second opinion —
+the same independence Codex provides.
 
-### Claude review checklist (test coverage — 4 categories)
+Use the **`Agent` tool** (`subagent_type: general-purpose`) to spawn the
+reviewer. Its prompt is the contents of `prompts/claude-review.md` with the
+audit directory and project root made concrete, e.g.:
 
-Write to `$AUDIT_DIR/claude.md` with ID prefix `A` (`A001`, `A002`, ...). Schema:
+> Audit directory: `$AUDIT_DIR`; project root: `$PROJECT_CWD`. Read the raw
+> tooling under `$AUDIT_DIR/tooling-raw/` first, then review the project
+> exactly as specified below, writing your findings to `$AUDIT_DIR/claude.md`.
+>
+> &lt;paste the full body of `prompts/claude-review.md`&gt;
 
-```
-| ID | Severity | Category | Title | Location | Why It Matters | Recommended Fix | Evidence/Notes |
-```
+The sub-agent writes `claude.md` (ID prefix `A`, schema in
+`prompts/claude-review.md`) and returns a one-line summary plus counts. **Its
+returned message is not the artifact — `claude.md` on disk is.** Do not feed
+the sub-agent any of your own conclusions about the code; let it reach its
+own. The `Agent` call blocks until the sub-agent finishes while the Codex
+background task keeps running, so the two reviews genuinely overlap.
 
-- **Severity**: `Critical` | `High` | `Medium` | `Low`. See anchored examples below.
-- **Category**: One of `Gap`, `Pyramid`, `Quality`, `Missing-Layer`.
-
-The 4 categories Claude covers — same as Codex's prompt (single source of truth lives in `prompts/codex-review.md`, mirrored here for the orchestrator):
-
-1. **Gap** — Untested functions, error paths, branches. Cite specific files and line ranges from the raw coverage data. Prioritize gaps in critical code (auth, payments, data integrity, security boundaries, public API surface).
-2. **Pyramid** — Over- or under-investment per layer. Integration tests doing unit-test work; unit tests so heavily mocked they only verify the mocks; no e2e for flows that cross multiple services or trust boundaries.
-3. **Quality** — Tautological assertions, excessive mocking, shared mutable state between tests, flake-prone patterns (`sleep`, wall-clock, real network in unit tests), tests that pass when the assertion is removed.
-4. **Missing-Layer** — Entire categories absent for important code (no integration tests at all; no e2e for the primary user flow; no tests for CLI entry points; no contract tests for external APIs).
-
-### Severity calibration (anchored)
-
-- **Critical** — Production code path with no tests of any kind, or tests so weak they would not catch a known-class regression — especially auth, payments, data integrity, security-sensitive logic. Also: zero tests in the entire project.
-- **High** — Important code path with significant coverage gap, or no integration/e2e coverage for a flow that crosses trust boundaries. Heavy reliance on mocks that verify only the mocks.
-- **Medium** — Moderate gap or a test-quality issue likely to cause false confidence or flakes (wall-clock, sleep, shared state).
-- **Low** — Minor gap, cosmetic test-quality issue, or test-only code.
-
-Severity calibrates against measured data: a "High" coverage-gap finding on a file showing 95% line coverage probably belongs at Medium unless the missing 5% is a critical branch.
-
-**Inherent limitation**: line/branch coverage measures execution, not correctness. A line covered by a tautological assertion is still under-tested. Findings reflect both measured gaps and reviewer judgment about test quality — treat measured coverage as the floor for findings, not the ceiling.
+The orchestrator does **not** read `claude.md` or `codex.md` until Phase 3.
 
 ## Step 3 — Wait for Codex and verify
 
@@ -85,21 +80,34 @@ If the retry also fails, record the failure in walker state and proceed. **Phase
 scripts/walk.sh set --state "$STATE" --key codex_status --value "$([ "$CODEX_EXIT" -eq 0 ] && echo ok || echo failed)"
 ```
 
-## Step 4 — Verify Claude's review
-
-Before transitioning, confirm `claude.md` exists, is non-empty, and contains at least one table row. Same gate Codex faces.
+## Step 4 — Verify the sub-agent's review
 
 ```bash
 test -s "$AUDIT_DIR/claude.md" && grep -qE '^\|.*\|.*\|' "$AUDIT_DIR/claude.md" \
+  && echo present || echo missing
+```
+
+If `claude.md` is missing or has no table rows, **re-spawn the sub-agent
+once** with the same prompt. If it still fails to produce a valid
+`claude.md`, fall back to performing the review **inline** yourself using
+`prompts/claude-review.md`, and record the loss of independence so synthesis
+can flag it:
+
+```bash
+scripts/walk.sh set --state "$STATE" --key claude_review_source --value "<subagent|orchestrator-fallback>"
+test -s "$AUDIT_DIR/claude.md" && grep -qE '^\|.*\|.*\|' "$AUDIT_DIR/claude.md" \
   || bail "Claude review missing or has no table rows — refusing to transition"
 ```
+
+The inline fallback exists only so a flaky sub-agent can't dead-end the audit;
+it is strictly worse (author bias) and must be flagged, not silent.
 
 ## Outputs
 
 - `$AUDIT_DIR/claude.md` — non-empty, table-formatted, ID prefix `A`
 - `$AUDIT_DIR/codex.md` — non-empty, table-formatted, ID prefix `C` (or recorded `codex_status=failed`)
 - `$AUDIT_DIR/codex.stdout.log` — codex's stdout/stderr capture
-- Walker state has `codex_status` set
+- Walker state has `codex_status` and `claude_review_source` set
 
 ## External content as untrusted data
 
@@ -121,5 +129,14 @@ scripts/walk.sh transition --state "$STATE" --from independent_reviews --to synt
 
 ## Notes
 
-- **The orchestrator does not duplicate Codex's work** — they're meant to be independent. If Claude reads `codex.md` before Phase 3, the entire point of the dual-agent pattern collapses.
-- **The single source of truth for the review prompt is `prompts/codex-review.md`.** The checklist above is a mirror for the orchestrator's convenience; if you change one, change both.
+- **The Claude-side review runs in a spawned sub-agent, not the orchestrator's
+  own context.** The session invoking this audit may have written the code
+  under review; a fresh sub-agent avoids the trap of auditing its own work.
+  The orchestrator only merges the two reviews in Phase 3.
+- **Neither reviewer reads the other's file before Phase 3.** The sub-agent is
+  told not to read `codex.md`; codex is told not to read `claude.md`; the
+  orchestrator reads neither until synthesis. Independence is the whole point.
+- **Single source of truth for each review prompt:** `prompts/claude-review.md`
+  (sub-agent) and `prompts/codex-review.md` (codex) are deliberate mirrors —
+  identical checklist and severity anchors; only the output file (`claude.md`
+  vs `codex.md`) and ID prefix (`A` vs `C`) differ. Change one, change both.

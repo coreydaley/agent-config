@@ -60,7 +60,7 @@ What it does
   Phase 1 — orient: no automated tooling; architecture is a
             pure-LLM audit. Writes a no-tooling marker to
             tooling-raw/STATUS.md and a brief survey.
-  Phase 2 — independent reviews: Claude (orchestrator) writes
+  Phase 2 — independent reviews: a fresh sub-agent writes
             claude.md; Codex (background codex exec) writes
             codex.md. Parallel, no cross-contamination. Every
             finding cites a named Pattern/Principle and a
@@ -96,7 +96,7 @@ Output
     MANIFEST.json               (created by audit-runner.sh init)
     tooling-raw/
       STATUS.md                 (no-tooling marker)
-    claude.md                   (Phase 2 Claude review, A-prefix)
+    claude.md                   (Phase 2 review sub-agent, A-prefix)
     codex.md                    (Phase 2 Codex review, C-prefix)
     codex.stdout.log
     synthesis.md                (Phase 3, S-prefix)
@@ -132,7 +132,7 @@ Nodes:
   no-op that records the no-tooling state and surveys briefly.
 - **`emergency_exit`** — structural placeholder; never reached for
   architecture (no emergency-exit conditions).
-- **`independent_reviews`** — Phase 2. Claude writes `claude.md`;
+- **`independent_reviews`** — Phase 2. A spawned sub-agent writes `claude.md`;
   Codex (via `audit-codex.sh`) writes `codex.md`. Parallel.
 - **`synthesis`** — Phase 3. Dedupe, calibrate, identify compound
   findings.

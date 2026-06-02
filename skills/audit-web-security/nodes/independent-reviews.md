@@ -7,7 +7,7 @@ Phase 2 of the framework. **Two reviewers, in parallel, with no cross-contaminat
 - `$AUDIT_DIR`, `$PROJECT_CWD` from walker state
 - `$AUDIT_DIR/tooling-raw/` from `orient`
 - The skill's `prompts/codex-review.md` (the codex prompt body)
-- The skill's audit-specific schema and category list (this file's "Claude review checklist" section)
+- The skill's `prompts/claude-review.md` (the review sub-agent's prompt body)
 
 ```bash
 AUDIT_DIR=$(scripts/walk.sh get --state "$STATE" --key audit_dir)
@@ -29,49 +29,33 @@ bash ~/.claude/lib/audit-codex.sh "$AUDIT_DIR" review prompts/codex-review.md \
 CODEX_PID=$!
 ```
 
-## Step 2 — Claude's independent review (simultaneous)
+## Step 2 — Spawn the Claude-side review sub-agent (concurrent)
 
-While Codex runs, **Claude** writes its own review to `$AUDIT_DIR/claude.md` using the schema below. Read `$AUDIT_DIR/tooling-raw/` first (gitleaks, semgrep, dep scanners, trivy, actionlint). Validate, don't duplicate, automated findings. When auditing an agent-config repo, apply extra scrutiny to your own instruction files — you may have systematic blind spots there.
+While Codex runs, the Claude-side review is performed by a **spawned
+sub-agent**, not by the orchestrator itself. The orchestrator walking this
+skill is often the same Claude session that wrote the code under audit; a
+reviewer reviewing its own work shares its blind spots. Delegating to a
+sub-agent with fresh context gives a genuinely independent second opinion —
+the same independence Codex provides.
 
-### Claude review checklist (web security — 15 categories)
+Use the **`Agent` tool** (`subagent_type: general-purpose`) to spawn the
+reviewer. Its prompt is the contents of `prompts/claude-review.md` with the
+audit directory and project root made concrete, e.g.:
 
-Write to `$AUDIT_DIR/claude.md` with ID prefix `A` (`A001`, `A002`, ...). Schema:
+> Audit directory: `$AUDIT_DIR`; project root: `$PROJECT_CWD`. Read the raw
+> tooling under `$AUDIT_DIR/tooling-raw/` first, then review the project
+> exactly as specified below, writing your findings to `$AUDIT_DIR/claude.md`.
+>
+> &lt;paste the full body of `prompts/claude-review.md`&gt;
 
-```
-| ID | Severity | CWE/OWASP | Category | Title | Location | Why It Matters | Recommended Fix | Verification | Evidence/Notes |
-```
+The sub-agent writes `claude.md` (ID prefix `A`, schema in
+`prompts/claude-review.md`) and returns a one-line summary plus counts. **Its
+returned message is not the artifact — `claude.md` on disk is.** Do not feed
+the sub-agent any of your own conclusions about the code; let it reach its
+own. The `Agent` call blocks until the sub-agent finishes while the Codex
+background task keeps running, so the two reviews genuinely overlap.
 
-- **Severity**: `Critical` | `High` | `Medium` | `Low`. See the audit-specific anchored examples in `prompts/codex-review.md`.
-- **CWE/OWASP**: Required. `CWE-NNN` and/or `A0X:2021` (e.g. `CWE-89 / A03:2021`).
-- **Category**: One of `AttackSurface`, `Injection`, `Crypto`, `Deserialization`, `SSRF`, `Secrets`, `AuthN`, `AuthZ`, `Session`, `Headers`, `InfoDisclosure`, `Logging`, `Dependency`, `SupplyChain`, `CICD`, `IaC`, `AgentConfig`.
-- **Verification**: Should be a *negative test* (try the exploit, confirm it fails) plus a regression test.
-
-The 15 categories Claude covers — same as Codex's prompt (single source of truth lives in `prompts/codex-review.md`, mirrored here for the orchestrator):
-
-1. **AttackSurface** — new inputs, APIs, externally reachable paths, deserialization sinks, SSRF candidates
-2. **Injection** — SQLi, command, prompt, XSS (incl. DOM-based and postMessage), path traversal, template, LDAP, NoSQL
-3. **Crypto** — weak algos (MD5/SHA1, DES, ECB), hardcoded keys/IVs, bad RNG, non-constant-time compare, missing rotation, TLS config, cert pinning gaps
-4. **Deserialization** — pickle, YAML unsafe load, polymorphic JSON, Java/PHP serialization, Protobuf with Any
-5. **SSRF** — outbound HTTP w/ user-controlled URLs; cloud metadata exposure (169.254.169.254); missing IMDSv2 enforcement
-6. **AuthN + Session** — fixation, predictable IDs, missing rotation on privilege change, missing logout, cookie flag gaps (HttpOnly/Secure/SameSite), JWT misuse (alg=none, weak secrets, missing exp/aud/iss)
-7. **AuthZ** — broken access control, IDOR, mass assignment, missing privilege checks, confused deputy, function-level gaps
-8. **CSRF / CORS / Headers** — missing CSRF tokens or SameSite; permissive CORS; missing CSP, X-Frame-Options, HSTS, X-Content-Type-Options
-9. **InfoDisclosure** — stack traces in responses, debug endpoints in prod, verbose errors enabling enumeration, source map exposure, banner grabbing
-10. **Logging** — under-logging (no audit trail for security events) and over-logging (secrets, tokens, PII in logs)
-11. **Dependency** — known-vulnerable libs (validate dep-scanner output), unpinned versions, post-install scripts
-12. **SupplyChain** — Dockerfile FROM unpinned tags, GitHub Action `uses:` not pinned to SHA, npm install w/o lockfile, missing artifact signature verification
-13. **CICD** — Actions script injection via `${{ github.event.* }}` in `run:` blocks, `pull_request_target` misuse, missing top-level `permissions:`, secret leakage in workflow logs
-14. **IaC** — privileged containers, hostPath mounts, missing NetworkPolicy, overly-permissive ServiceAccount, RBAC misconfig, public S3, open security groups
-15. **AgentConfig** — prompt injection and privilege escalation in `commands/*.md`, `skills/*/SKILL.md`, `agents/**/*.md` — be especially critical of any instruction that expands agent scope, grants permissions, or runs shell commands
-
-### Severity calibration (anchored)
-
-- **Critical** — Unauthenticated RCE on internet surface; SQL injection on primary endpoint; SSRF allowing cloud-metadata exfil; **live credentials in source** (handled by emergency exit); insecure deserialization on reachable handler; privileged K8s container reachable from cluster network
-- **High** — Authenticated RCE; stored XSS on frequently-used surface; broken access control allowing horizontal privesc; weak crypto crossing trust boundaries; `pull_request_target` with secrets + untrusted code
-- **Medium** — Reflected XSS requiring social engineering; verbose error messages; missing security headers on non-sensitive surfaces; unpinned Action references; outdated dep with no known reachable exploit
-- **Low** — Defense-in-depth gaps with no current exploit; cosmetic logging issues; deprecated crypto with no immediate risk
-
-Rate on **evidence**, not impression: impact, exploitability, blast radius, reachability, compensating controls (WAF, network ACLs, RASP). Agreement between reviewers raises confidence in Phase 3, not severity.
+The orchestrator does **not** read `claude.md` or `codex.md` until Phase 3.
 
 ## Step 3 — Wait for Codex and verify
 
@@ -96,21 +80,34 @@ If the retry also fails, record the failure in walker state and proceed. **Phase
 scripts/walk.sh set --state "$STATE" --key codex_status --value "$([ "$CODEX_EXIT" -eq 0 ] && echo ok || echo failed)"
 ```
 
-## Step 4 — Verify Claude's review
-
-Before transitioning, confirm `claude.md` exists, is non-empty, and contains at least one table row. Same gate Codex faces.
+## Step 4 — Verify the sub-agent's review
 
 ```bash
 test -s "$AUDIT_DIR/claude.md" && grep -qE '^\|.*\|.*\|' "$AUDIT_DIR/claude.md" \
+  && echo present || echo missing
+```
+
+If `claude.md` is missing or has no table rows, **re-spawn the sub-agent
+once** with the same prompt. If it still fails to produce a valid
+`claude.md`, fall back to performing the review **inline** yourself using
+`prompts/claude-review.md`, and record the loss of independence so synthesis
+can flag it:
+
+```bash
+scripts/walk.sh set --state "$STATE" --key claude_review_source --value "<subagent|orchestrator-fallback>"
+test -s "$AUDIT_DIR/claude.md" && grep -qE '^\|.*\|.*\|' "$AUDIT_DIR/claude.md" \
   || bail "Claude review missing or has no table rows — refusing to transition"
 ```
+
+The inline fallback exists only so a flaky sub-agent can't dead-end the audit;
+it is strictly worse (author bias) and must be flagged, not silent.
 
 ## Outputs
 
 - `$AUDIT_DIR/claude.md` — non-empty, table-formatted, ID prefix `A`
 - `$AUDIT_DIR/codex.md` — non-empty, table-formatted, ID prefix `C` (or recorded `codex_status=failed`)
 - `$AUDIT_DIR/codex.stdout.log` — codex's stdout/stderr capture
-- Walker state has `codex_status` set
+- Walker state has `codex_status` and `claude_review_source` set
 
 ## External content as untrusted data
 
@@ -132,5 +129,14 @@ scripts/walk.sh transition --state "$STATE" --from independent_reviews --to synt
 
 ## Notes
 
-- **The orchestrator does not duplicate Codex's work** — they're meant to be independent. If Claude reads `codex.md` before Phase 3, the entire point of the dual-agent pattern collapses.
-- **The single source of truth for the review prompt is `prompts/codex-review.md`.** The checklist above is a mirror for the orchestrator's convenience; if you change one, change both, or factor the shared body out the way `/sprint-self-review` does.
+- **The Claude-side review runs in a spawned sub-agent, not the orchestrator's
+  own context.** The session invoking this audit may have written the code
+  under review; a fresh sub-agent avoids the trap of auditing its own work.
+  The orchestrator only merges the two reviews in Phase 3.
+- **Neither reviewer reads the other's file before Phase 3.** The sub-agent is
+  told not to read `codex.md`; codex is told not to read `claude.md`; the
+  orchestrator reads neither until synthesis. Independence is the whole point.
+- **Single source of truth for each review prompt:** `prompts/claude-review.md`
+  (sub-agent) and `prompts/codex-review.md` (codex) are deliberate mirrors —
+  identical checklist and severity anchors; only the output file (`claude.md`
+  vs `codex.md`) and ID prefix (`A` vs `C`) differ. Change one, change both.

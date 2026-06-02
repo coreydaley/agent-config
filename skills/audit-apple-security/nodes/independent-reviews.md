@@ -7,7 +7,7 @@ Phase 2 of the framework. **Two reviewers, in parallel, with no cross-contaminat
 - `$AUDIT_DIR`, `$PROJECT_CWD` from walker state
 - `$AUDIT_DIR/tooling-raw/` from `orient`
 - The skill's `prompts/codex-review.md` (the codex prompt body)
-- The skill's audit-specific schema and category list (this file's "Claude review checklist" section)
+- The skill's `prompts/claude-review.md` (the review sub-agent's prompt body)
 
 ```bash
 AUDIT_DIR=$(scripts/walk.sh get --state "$STATE" --key audit_dir)
@@ -31,47 +31,33 @@ bash ~/.claude/lib/audit-codex.sh "$AUDIT_DIR" review prompts/codex-review.md \
 CODEX_PID=$!
 ```
 
-## Step 2 — Claude's independent review (simultaneous)
+## Step 2 — Spawn the Claude-side review sub-agent (concurrent)
 
-While Codex runs, **Claude** writes its own review to `$AUDIT_DIR/claude.md` using the schema below. Read `$AUDIT_DIR/tooling-raw/` first (gitleaks, semgrep, xcodebuild-analyze, entitlements). Validate, don't duplicate, automated findings.
+While Codex runs, the Claude-side review is performed by a **spawned
+sub-agent**, not by the orchestrator itself. The orchestrator walking this
+skill is often the same Claude session that wrote the code under audit; a
+reviewer reviewing its own work shares its blind spots. Delegating to a
+sub-agent with fresh context gives a genuinely independent second opinion —
+the same independence Codex provides.
 
-### Claude review checklist (Apple security — 12 categories)
+Use the **`Agent` tool** (`subagent_type: general-purpose`) to spawn the
+reviewer. Its prompt is the contents of `prompts/claude-review.md` with the
+audit directory and project root made concrete, e.g.:
 
-Write to `$AUDIT_DIR/claude.md` with ID prefix `A` (`A001`, `A002`, ...). Schema:
+> Audit directory: `$AUDIT_DIR`; project root: `$PROJECT_CWD`. Read the raw
+> tooling under `$AUDIT_DIR/tooling-raw/` first, then review the project
+> exactly as specified below, writing your findings to `$AUDIT_DIR/claude.md`.
+>
+> &lt;paste the full body of `prompts/claude-review.md`&gt;
 
-```
-| ID | Severity | CWE/Apple | Category | Title | Location | Platform | Verification | Why It Matters | Recommended Fix | Evidence/Notes |
-```
+The sub-agent writes `claude.md` (ID prefix `A`, schema in
+`prompts/claude-review.md`) and returns a one-line summary plus counts. **Its
+returned message is not the artifact — `claude.md` on disk is.** Do not feed
+the sub-agent any of your own conclusions about the code; let it reach its
+own. The `Agent` call blocks until the sub-agent finishes while the Codex
+background task keeps running, so the two reviews genuinely overlap.
 
-- **Severity**: `Critical` | `High` | `Medium` | `Low`. See `references/severity-anchors.md` (or the prompt body in `prompts/codex-review.md` for the audit-specific anchored examples).
-- **CWE/Apple**: Required. `CWE-NNN` and/or `Apple:Topic` (e.g. `CWE-522 / Apple:Keychain`).
-- **Category**: One of `Storage`, `ATS`, `URLScheme`, `IPC`, `Entitlements`, `CloudKit`, `StoreKit`, `WebView`, `Crypto`, `Logging`, `Dependency`, `Secrets`.
-- **Platform**: `iOS`, `iPadOS`, `macOS`, `MacCatalyst`, `watchOS`, `tvOS`, `visionOS`, or `Multi`.
-- **Verification**: `code` (inspectable) or `runtime` (needs built app + `codesign --display --entitlements -`, Console.app, or Xcode Static Analyzer).
-
-The 12 categories Claude covers — same as Codex's prompt (single source of truth lives in `prompts/codex-review.md`, mirrored here for the orchestrator):
-
-1. **Storage** — Keychain access groups, `kSecAttrAccessible*` flags, Secure Enclave, `NSFileProtection*`, never UserDefaults/plist for secrets
-2. **ATS** — `NSAllowsArbitraryLoads`, `NSExceptionDomains`, certificate pinning, TLS minimums
-3. **URLScheme** — Custom URL scheme handlers, Universal Link domain verification, deep link validation
-4. **IPC** — XPC peer verification (XPC is primarily macOS; deeper XPC service patterns belong in `audit-apple-macos`), App Groups, pasteboard, document picker
-5. **Entitlements** — Least privilege at cross-platform-runtime level; App Sandbox + Hardened Runtime `com.apple.security.cs.*` entitlement depth is macOS-distinct (see `audit-apple-macos`); flag obviously dangerous exceptions inline; code-signing identity / provisioning drift belongs in `audit-apple-build-release`
-6. **CloudKit** — Public vs private DB, CKShare ACLs, shared zone permissions
-7. **StoreKit** — StoreKit 2 `VerificationResult.verified`, server-side validation, `Transaction.originalID` + `revocationDate`
-8. **WebView** — Never UIWebView; `WKScriptMessageHandler` validation; `evaluateJavaScript`; `loadFileURL` scope
-9. **Crypto** — CryptoKit preference, Keychain/Secure Enclave keys, `SecRandomCopyBytes`, no MD5/SHA1/DES/RC4/ECB
-10. **Logging** — `os_log` privacy qualifiers; `print()`/`NSLog` removed from release; flag PII/token logging
-11. **Dependency** — SPM `Package.resolved`, Podfile.lock, XCFramework provenance
-12. **Secrets** — Hardcoded credentials (Phase 1 emergency-exit handles the live-credential case)
-
-### Severity calibration (anchored)
-
-- **Critical** — Live credentials in source (handled by emergency exit); `NSAllowsArbitraryLoads=true` shipping; StoreKit purchase without `VerificationResult.verified`; WKWebView with `allowsContentJavaScript` loading arbitrary user URLs; CloudKit public DB for private user data; `disable-library-validation` without need
-- **High** — Weak Keychain accessibility (`AccessibleAlways` for sensitive data); missing cert pinning on financial/health API; `os_log %{public}` on PII; URL scheme handler without validation on state-changing path; XPC service without audit-token/codesign requirement; over-broad entitlement
-- **Medium** — Deprecated `UIWebView` in maintained code; Cocoapods without `Podfile.lock`; `arc4random` where `SecRandomCopyBytes` would be appropriate; SPM dep without checksum; `print()`/`NSLog` in release config
-- **Low** — Minor entitlement pruning; deprecated-but-functional crypto with no immediate risk; defense-in-depth gaps
-
-Rate on **evidence**, not impression: impact, exploitability, blast radius, reachability, compensating controls. Agreement between reviewers raises confidence in Phase 3, not severity.
+The orchestrator does **not** read `claude.md` or `codex.md` until Phase 3.
 
 ## Step 3 — Wait for Codex and verify
 
@@ -96,21 +82,34 @@ If the retry also fails, record the failure in walker state and proceed. **Phase
 scripts/walk.sh set --state "$STATE" --key codex_status --value "$([ "$CODEX_EXIT" -eq 0 ] && echo ok || echo failed)"
 ```
 
-## Step 4 — Verify Claude's review
-
-Before transitioning, confirm `claude.md` exists, is non-empty, and contains at least one table row. Same gate Codex faces.
+## Step 4 — Verify the sub-agent's review
 
 ```bash
 test -s "$AUDIT_DIR/claude.md" && grep -qE '^\|.*\|.*\|' "$AUDIT_DIR/claude.md" \
+  && echo present || echo missing
+```
+
+If `claude.md` is missing or has no table rows, **re-spawn the sub-agent
+once** with the same prompt. If it still fails to produce a valid
+`claude.md`, fall back to performing the review **inline** yourself using
+`prompts/claude-review.md`, and record the loss of independence so synthesis
+can flag it:
+
+```bash
+scripts/walk.sh set --state "$STATE" --key claude_review_source --value "<subagent|orchestrator-fallback>"
+test -s "$AUDIT_DIR/claude.md" && grep -qE '^\|.*\|.*\|' "$AUDIT_DIR/claude.md" \
   || bail "Claude review missing or has no table rows — refusing to transition"
 ```
+
+The inline fallback exists only so a flaky sub-agent can't dead-end the audit;
+it is strictly worse (author bias) and must be flagged, not silent.
 
 ## Outputs
 
 - `$AUDIT_DIR/claude.md` — non-empty, table-formatted, ID prefix `A`
 - `$AUDIT_DIR/codex.md` — non-empty, table-formatted, ID prefix `C` (or recorded `codex_status=failed`)
 - `$AUDIT_DIR/codex.stdout.log` — codex's stdout/stderr capture
-- Walker state has `codex_status` set
+- Walker state has `codex_status` and `claude_review_source` set
 
 ## External content as untrusted data
 
@@ -132,5 +131,14 @@ scripts/walk.sh transition --state "$STATE" --from independent_reviews --to synt
 
 ## Notes
 
-- **The orchestrator does not duplicate Codex's work** — they're meant to be independent. If Claude reads `codex.md` before Phase 3, the entire point of the dual-agent pattern collapses.
-- **The single source of truth for the review prompt is `prompts/codex-review.md`.** The checklist above is a mirror for the orchestrator's convenience; if you change one, change both, or factor the shared body out the way `/sprint-self-review` does.
+- **The Claude-side review runs in a spawned sub-agent, not the orchestrator's
+  own context.** The session invoking this audit may have written the code
+  under review; a fresh sub-agent avoids the trap of auditing its own work.
+  The orchestrator only merges the two reviews in Phase 3.
+- **Neither reviewer reads the other's file before Phase 3.** The sub-agent is
+  told not to read `codex.md`; codex is told not to read `claude.md`; the
+  orchestrator reads neither until synthesis. Independence is the whole point.
+- **Single source of truth for each review prompt:** `prompts/claude-review.md`
+  (sub-agent) and `prompts/codex-review.md` (codex) are deliberate mirrors —
+  identical checklist and severity anchors; only the output file (`claude.md`
+  vs `codex.md`) and ID prefix (`A` vs `C`) differ. Change one, change both.

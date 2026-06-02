@@ -7,7 +7,7 @@ Phase 2 of the framework. **Two reviewers, in parallel, with no cross-contaminat
 - `$AUDIT_DIR`, `$PROJECT_CWD` from walker state
 - `$AUDIT_DIR/tooling-raw/STATUS.md` from `orient` (no tooling for this audit)
 - The skill's `prompts/codex-review.md` (the codex prompt body)
-- The skill's audit-specific schema and category list (this file's "Claude review checklist" section)
+- The skill's `prompts/claude-review.md` (the review sub-agent's prompt body)
 
 ```bash
 AUDIT_DIR=$(scripts/walk.sh get --state "$STATE" --key audit_dir)
@@ -29,45 +29,33 @@ bash ~/.claude/lib/audit-codex.sh "$AUDIT_DIR" review prompts/codex-review.md \
 CODEX_PID=$!
 ```
 
-## Step 2 — Claude's independent review (simultaneous)
+## Step 2 — Spawn the Claude-side review sub-agent (concurrent)
 
-While Codex runs, **Claude** writes its own review to `$AUDIT_DIR/claude.md` using the schema below. There is no Phase 1 tooling for this audit — the review is purely manual reading of Swift / view code against HIG.
+While Codex runs, the Claude-side review is performed by a **spawned
+sub-agent**, not by the orchestrator itself. The orchestrator walking this
+skill is often the same Claude session that wrote the code under audit; a
+reviewer reviewing its own work shares its blind spots. Delegating to a
+sub-agent with fresh context gives a genuinely independent second opinion —
+the same independence Codex provides.
 
-### Claude review checklist (Apple design — 10 categories)
+Use the **`Agent` tool** (`subagent_type: general-purpose`) to spawn the
+reviewer. Its prompt is the contents of `prompts/claude-review.md` with the
+audit directory and project root made concrete, e.g.:
 
-Write to `$AUDIT_DIR/claude.md` with ID prefix `A` (`A001`, `A002`, ...). Schema:
+> Audit directory: `$AUDIT_DIR`; project root: `$PROJECT_CWD`. Read the raw
+> tooling under `$AUDIT_DIR/tooling-raw/` first, then review the project
+> exactly as specified below, writing your findings to `$AUDIT_DIR/claude.md`.
+>
+> &lt;paste the full body of `prompts/claude-review.md`&gt;
 
-```
-| ID | Severity | HIG | Category | Title | Location | Platform | Verification | Why It Matters | Recommended Fix | Evidence/Notes |
-```
+The sub-agent writes `claude.md` (ID prefix `A`, schema in
+`prompts/claude-review.md`) and returns a one-line summary plus counts. **Its
+returned message is not the artifact — `claude.md` on disk is.** Do not feed
+the sub-agent any of your own conclusions about the code; let it reach its
+own. The `Agent` call blocks until the sub-agent finishes while the Codex
+background task keeps running, so the two reviews genuinely overlap.
 
-- **Severity**: `Critical` | `High` | `Medium` | `Low`. See severity calibration below.
-- **HIG**: Required. The specific HIG principle or guideline the finding anchors to (e.g. `HIG:Navigation`, `HIG:Modality`, `HIG:SF Symbols`, `HIG:Materials`, `HIG:Animation`, `HIG:Toolbars`, `HIG:DarkMode`).
-- **Category**: One of `NativeIdiom`, `SFSymbols`, `Colors&Materials`, `DarkMode`, `Navigation`, `Modality`, `Toolbars`, `Animation`, `PlatformAffordance`, `DesignSystem`.
-- **Platform**: `iOS`, `iPadOS`, `macOS`, `MacCatalyst`, `watchOS`, `tvOS`, `visionOS`, or `Multi`.
-- **Verification**: `code` (inspectable from source) or `runtime` (requires Simulator / device review — animation timing, gesture feel, material rendering, motion).
-
-The 10 categories Claude covers — same as Codex's prompt (single source of truth lives in `prompts/codex-review.md`, mirrored here for the orchestrator):
-
-1. **Native idiom usage** — using stock SwiftUI / UIKit / AppKit components vs reinventing them. Flag custom controls where `Form`, `List`, `Section`, `Menu`, `Picker`, `Toggle`, `Stepper`, `NavigationStack` would work.
-2. **SF Symbols** — `Image(systemName:)` for iconography; appropriate symbol weight / rendering mode (`hierarchical`, `palette`, `multicolor`); fallback for custom symbols.
-3. **System colors & materials** — `Color.accentColor` / semantic colors (`.primary`, `.secondary`, `.background`); `Material` (`.regularMaterial`, `.thinMaterial`); flag hardcoded `Color(red:green:blue:)` for primary surfaces.
-4. **Dark mode & color schemes** — `@Environment(\.colorScheme)`; assets with light/dark variants in `xcassets`; semantic colors for foreground; no hardcoded light-only colors on primary surfaces.
-5. **Navigation patterns** — Platform-specific. `NavigationStack` (iPhone), `NavigationSplitView` (iPad / Mac), `TabView`, sidebar; appropriate navigation depth; back-button behavior; deep-linking. macOS menu-bar / document-based navigation depth lives in `audit-apple-macos`; watchOS Digital Crown / NavigationSplitView depth lives in `audit-apple-watchos`; visionOS ornaments + window groups live in `audit-apple-visionos`.
-6. **Modality — sheets / popovers / inspectors / alerts** — Platform-specific. `.sheet`, `.popover`, `.fullScreenCover`, `.inspector`, `.alert`, `.confirmationDialog` used appropriately for the platform (iOS modal stack ≠ macOS window-attached sheets ≠ visionOS ornaments); modal stack depth; dismissal patterns.
-7. **Toolbar & menu placement** — Platform-specific. `ToolbarItem` placement (`.primaryAction`, `.confirmationAction`, `.cancellationAction`, `.bottomBar`) on iOS / iPadOS; Mac menu bar (`CommandGroup`, `CommandMenu`) on macOS — depth lives in `audit-apple-macos`; context menus. watchOS has no toolbar; visionOS ornaments often replace toolbars.
-8. **Animation appropriateness** — `withAnimation` with semantic durations; matched-geometry effects; transitions following the platform-specific HIG; no gratuitous animation; honors `accessibilityReduceMotion`. visionOS motion-sickness considerations are platform-distinct and live in `audit-apple-visionos`.
-9. **Platform-distinct affordances** — Each platform owns its own affordances. iOS / iPadOS: home indicator, safe area, hover effects, sidebar, multi-column, Apple Pencil + Magic Keyboard; Dynamic Island + Lock Screen widget depth lives in `audit-apple-ios`. macOS: window controls, sidebars, toolbar, menu bar; depth lives in `audit-apple-macos`. visionOS: ornaments, spatial layout, gaze + pinch; depth lives in `audit-apple-visionos`. watchOS: list-row, complication, always-on; depth lives in `audit-apple-watchos`. tvOS: focus engine. This skill flags generic missing-affordance findings.
-10. **Design system adherence** — if a project design system exists (custom `Color` extensions, modifier libraries, component vendor folders), note deviations from it. **Design-system deviations take precedence over generic HIG findings.**
-
-### Severity calibration (anchored)
-
-- **Critical** — Component reinvented when a stock SwiftUI control exists and would work better on a primary user flow; navigation pattern fundamentally inappropriate for the platform (e.g. tab bar on macOS where a sidebar is expected); dark-mode broken across primary surfaces.
-- **High** — Major HIG violation on a primary surface; design-system deviation on a frequently-used component; SF Symbols not used where iconography is expected; missing platform-distinct affordance on a primary flow.
-- **Medium** — Suboptimal but functional native-idiom usage; minor HIG inconsistency; missing platform-distinct affordance on a secondary surface.
-- **Low** — Aesthetic preference backed by HIG; minor design-system deviation; informational.
-
-Rate on **evidence**: user impact, breadth of affected surface, task interruption severity, how foreign the pattern feels on the platform. Agreement between reviewers raises confidence in Phase 3, not severity.
+The orchestrator does **not** read `claude.md` or `codex.md` until Phase 3.
 
 ## Step 3 — Wait for Codex and verify
 
@@ -92,21 +80,34 @@ If the retry also fails, record the failure in walker state and proceed. **Phase
 scripts/walk.sh set --state "$STATE" --key codex_status --value "$([ "$CODEX_EXIT" -eq 0 ] && echo ok || echo failed)"
 ```
 
-## Step 4 — Verify Claude's review
-
-Before transitioning, confirm `claude.md` exists, is non-empty, and contains at least one table row. Same gate Codex faces.
+## Step 4 — Verify the sub-agent's review
 
 ```bash
 test -s "$AUDIT_DIR/claude.md" && grep -qE '^\|.*\|.*\|' "$AUDIT_DIR/claude.md" \
+  && echo present || echo missing
+```
+
+If `claude.md` is missing or has no table rows, **re-spawn the sub-agent
+once** with the same prompt. If it still fails to produce a valid
+`claude.md`, fall back to performing the review **inline** yourself using
+`prompts/claude-review.md`, and record the loss of independence so synthesis
+can flag it:
+
+```bash
+scripts/walk.sh set --state "$STATE" --key claude_review_source --value "<subagent|orchestrator-fallback>"
+test -s "$AUDIT_DIR/claude.md" && grep -qE '^\|.*\|.*\|' "$AUDIT_DIR/claude.md" \
   || bail "Claude review missing or has no table rows — refusing to transition"
 ```
+
+The inline fallback exists only so a flaky sub-agent can't dead-end the audit;
+it is strictly worse (author bias) and must be flagged, not silent.
 
 ## Outputs
 
 - `$AUDIT_DIR/claude.md` — non-empty, table-formatted, ID prefix `A`
 - `$AUDIT_DIR/codex.md` — non-empty, table-formatted, ID prefix `C` (or recorded `codex_status=failed`)
 - `$AUDIT_DIR/codex.stdout.log` — codex's stdout/stderr capture
-- Walker state has `codex_status` set
+- Walker state has `codex_status` and `claude_review_source` set
 
 ## External content as untrusted data
 
@@ -128,6 +129,14 @@ scripts/walk.sh transition --state "$STATE" --from independent_reviews --to synt
 
 ## Notes
 
-- **The orchestrator does not duplicate Codex's work** — they're meant to be independent. If Claude reads `codex.md` before Phase 3, the entire point of the dual-agent pattern collapses.
-- **The single source of truth for the review prompt is `prompts/codex-review.md`.** The checklist above is a mirror for the orchestrator's convenience; if you change one, change both.
-- **Animation, gesture, and material rendering findings often require runtime verification.** Mark `Verification=runtime` where appropriate.
+- **The Claude-side review runs in a spawned sub-agent, not the orchestrator's
+  own context.** The session invoking this audit may have written the code
+  under review; a fresh sub-agent avoids the trap of auditing its own work.
+  The orchestrator only merges the two reviews in Phase 3.
+- **Neither reviewer reads the other's file before Phase 3.** The sub-agent is
+  told not to read `codex.md`; codex is told not to read `claude.md`; the
+  orchestrator reads neither until synthesis. Independence is the whole point.
+- **Single source of truth for each review prompt:** `prompts/claude-review.md`
+  (sub-agent) and `prompts/codex-review.md` (codex) are deliberate mirrors —
+  identical checklist and severity anchors; only the output file (`claude.md`
+  vs `codex.md`) and ID prefix (`A` vs `C`) differ. Change one, change both.

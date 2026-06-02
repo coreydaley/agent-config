@@ -78,7 +78,7 @@ What it does
             ClockKit `CLKComplicationDataSource`), greps for
             WCSession / WKExtensionDelegate / HKWorkoutSession /
             HKLiveWorkoutBuilder usage. Captures into tooling-raw/.
-  Phase 2 — independent reviews: Claude (orchestrator) writes
+  Phase 2 — independent reviews: a fresh sub-agent writes
             claude.md; Codex (background codex exec) writes
             codex.md. Parallel, no cross-contamination.
   Phase 3 — synthesis: dedupe, calibrate severity, identify
@@ -124,7 +124,7 @@ Output
       healthkit-workout-usage.txt (HKWorkoutSession callsites)
       watch-info-plists.txt      (watch target Info.plist subkeys)
       STATUS.md
-    claude.md                   (Phase 2 Claude review, A-prefix)
+    claude.md                   (Phase 2 review sub-agent, A-prefix)
     codex.md                    (Phase 2 Codex review, C-prefix)
     codex.stdout.log
     synthesis.md                (Phase 3, S-prefix)
@@ -162,7 +162,7 @@ Nodes:
 - **`orient`** — Phase 1. Detect watchOS target, snapshot watchOS-specific source. **Bails if no watchOS target.**
 - **`emergency_exit`** — structural placeholder; this audit has no
   emergency-exit conditions and the edge is never taken in practice.
-- **`independent_reviews`** — Phase 2. Claude writes `claude.md`;
+- **`independent_reviews`** — Phase 2. A spawned sub-agent writes `claude.md`;
   Codex (via `audit-codex.sh`) writes `codex.md`. Parallel.
 - **`synthesis`** — Phase 3. Dedupe, calibrate, compound findings.
 - **`devils_advocate`** — Phase 4. Codex attacks; orchestrator incorporates.

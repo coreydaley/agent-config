@@ -7,7 +7,7 @@ Phase 2 of the framework. **Two reviewers, in parallel, with no cross-contaminat
 - `$AUDIT_DIR`, `$PROJECT_CWD` from walker state
 - `$AUDIT_DIR/tooling-raw/` from `orient` (STATUS.md only — no tools ran)
 - The skill's `prompts/codex-review.md` (the codex prompt body)
-- The skill's audit-specific schema and category list (this file's "Claude review checklist" section)
+- The skill's `prompts/claude-review.md` (the review sub-agent's prompt body)
 
 ```bash
 AUDIT_DIR=$(scripts/walk.sh get --state "$STATE" --key audit_dir)
@@ -31,46 +31,33 @@ bash ~/.claude/lib/audit-codex.sh "$AUDIT_DIR" review prompts/codex-review.md \
 CODEX_PID=$!
 ```
 
-## Step 2 — Claude's independent review (simultaneous)
+## Step 2 — Spawn the Claude-side review sub-agent (concurrent)
 
-While Codex runs, **Claude** writes its own review to `$AUDIT_DIR/claude.md` using the schema below. There's no Phase 1 tooling to read — adaptivity is pure code reading. Pay particular attention to existing snapshot tests (`SnapshotTesting`, `iOSSnapshotTestCase`, preview macros with multiple device traits) as a signal of which configurations the project actually exercises.
+While Codex runs, the Claude-side review is performed by a **spawned
+sub-agent**, not by the orchestrator itself. The orchestrator walking this
+skill is often the same Claude session that wrote the code under audit; a
+reviewer reviewing its own work shares its blind spots. Delegating to a
+sub-agent with fresh context gives a genuinely independent second opinion —
+the same independence Codex provides.
 
-### Claude review checklist (Apple adaptivity — 10 categories)
+Use the **`Agent` tool** (`subagent_type: general-purpose`) to spawn the
+reviewer. Its prompt is the contents of `prompts/claude-review.md` with the
+audit directory and project root made concrete, e.g.:
 
-Write to `$AUDIT_DIR/claude.md` with ID prefix `A` (`A001`, `A002`, ...). Schema:
+> Audit directory: `$AUDIT_DIR`; project root: `$PROJECT_CWD`. Read the raw
+> tooling under `$AUDIT_DIR/tooling-raw/` first, then review the project
+> exactly as specified below, writing your findings to `$AUDIT_DIR/claude.md`.
+>
+> &lt;paste the full body of `prompts/claude-review.md`&gt;
 
-```
-| ID | Severity | Surface | Title | Location | Platform | Verification | Why It Matters | Recommended Fix | Evidence/Notes |
-```
+The sub-agent writes `claude.md` (ID prefix `A`, schema in
+`prompts/claude-review.md`) and returns a one-line summary plus counts. **Its
+returned message is not the artifact — `claude.md` on disk is.** Do not feed
+the sub-agent any of your own conclusions about the code; let it reach its
+own. The `Agent` call blocks until the sub-agent finishes while the Codex
+background task keeps running, so the two reviews genuinely overlap.
 
-- **Severity**: `Critical` | `High` | `Medium` | `Low`. See severity calibration below.
-- **Surface**: One of `SizeClass`, `Orientation`, `Multitasking`, `DynamicType`, `Windowing`, `DeviceSize`.
-- **Platform**: `iOS`, `iPadOS`, `macOS`, `MacCatalyst`, `watchOS`, `tvOS`, `visionOS`, or `Multi`.
-- **Verification**: `code` (inspectable from source) or `runtime` (requires Simulator / device testing across configurations).
-
-The 10 categories Claude covers — same as Codex's prompt (single source of truth lives in `prompts/codex-review.md`, mirrored here for the orchestrator):
-
-1. **Size class adaptation** — `@Environment(\.horizontalSizeClass)` / `\.verticalSizeClass` usage in SwiftUI; `UITraitCollection` in UIKit; compact vs regular distinct layouts where appropriate
-2. **ViewThatFits & adaptive layouts** — modern SwiftUI adaptive primitives used where appropriate; fallback chains; conditional layouts
-3. **Orientation** — landscape vs portrait handling; `supportedInterfaceOrientations` correctness; SwiftUI orientation observation where needed
-4. **iPad multitasking** — iOS / iPadOS only. Slide Over / Split View / Stage Manager support; multiple-window scenes via `UIWindowScene` / `WindowGroup`; state restoration across scenes; `UIRequiresFullScreen` flagged for iPad apps that should support multitasking. iOS-specific Info.plist key depth (`UIApplicationSceneManifest`, `UIRequiresFullScreen`) routes to `/audit-apple-ios`.
-5. **Mac Catalyst adaptation** — Mac Catalyst only. `targetEnvironment(macCatalyst)` adaptations; menu bar; pointer interactions; sidebars; window controls. Mac Idiom vs iPad-on-Mac + AppKit hosting depth lives in `/audit-apple-macos`.
-6. **macOS-native (AppKit/SwiftUI on macOS)** — macOS only. Resizable windows; min/max content size; multiple-window groups; toolbar adaptation; resizable sidebars. MenuBarExtra / Settings scene / DocumentGroup live in `/audit-apple-macos`.
-7. **visionOS windowing** — visionOS only. `WindowGroup` vs `ImmersiveSpace`; ornaments; coexistence with other apps' windows; volume / volumetric content. RealityKit / RealityView / gaze-pinch depth routes to `/audit-apple-visionos`.
-8. **Dynamic Type AX5 layout** — layouts must not truncate or clip at AX5 (`UIContentSizeCategoryAccessibilityExtraExtraExtraLarge`); `lineLimit(nil)` for wrappable text; fixed-height containers flagged when text can grow; `Layout` protocol for adaptive containers
-9. **Device size adaptation** — iPhone SE / mini through Pro Max ranges; iPad mini through Pro 12.9"; safe area / Dynamic Island / notch / no-cutout handling; no hardcoded dimensions for primary content
-10. **Pointer & keyboard adaptation (iPad / Mac / Mac Catalyst / visionOS)** — `.hoverEffect()` on tappable views; `onContinuousHover` where relevant; pointer styles; keyboard shortcuts; hardware-keyboard navigation. iPad-specific pencil / pointer / Magic Keyboard affordance depth routes to `/audit-apple-ios`.
-
-### Severity calibration (anchored)
-
-- **Critical** — Primary user flow inaccessible at a common configuration (Split View, AX5 Dynamic Type, landscape); app crashes or hangs on orientation / multitasking transition
-- **High** — Content truncated or clipped on iPhone SE / iPad mini for a primary surface; AX5 Dynamic Type breaks layout on a primary surface; no multiple-window support on iPadOS / macOS for a use case that warrants it
-- **Medium** — Hover / pointer interactions missing on Mac Catalyst; static layout that should use `ViewThatFits` or `Layout` for resilience; Stage Manager edge cases on iPadOS
-- **Low** — Suboptimal but functional adaptation; minor polish gaps
-
-Override upward when the issue blocks a primary user flow at a common device size; override downward when the affected configuration is rare in the project's actual user base. Rate on **evidence**, not impression: impact, exploitability of the bad UX (does the user have to opt-in?), blast radius (how many users hit this configuration?), compensating controls (is there an alternative path that works?).
-
-Mark `Verification` carefully — most adaptivity findings only manifest in Simulator at specific configurations and should be `runtime`.
+The orchestrator does **not** read `claude.md` or `codex.md` until Phase 3.
 
 ## Step 3 — Wait for Codex and verify
 
@@ -95,21 +82,34 @@ If the retry also fails, record the failure in walker state and proceed. **Phase
 scripts/walk.sh set --state "$STATE" --key codex_status --value "$([ "$CODEX_EXIT" -eq 0 ] && echo ok || echo failed)"
 ```
 
-## Step 4 — Verify Claude's review
-
-Before transitioning, confirm `claude.md` exists, is non-empty, and contains at least one table row. Same gate Codex faces.
+## Step 4 — Verify the sub-agent's review
 
 ```bash
 test -s "$AUDIT_DIR/claude.md" && grep -qE '^\|.*\|.*\|' "$AUDIT_DIR/claude.md" \
+  && echo present || echo missing
+```
+
+If `claude.md` is missing or has no table rows, **re-spawn the sub-agent
+once** with the same prompt. If it still fails to produce a valid
+`claude.md`, fall back to performing the review **inline** yourself using
+`prompts/claude-review.md`, and record the loss of independence so synthesis
+can flag it:
+
+```bash
+scripts/walk.sh set --state "$STATE" --key claude_review_source --value "<subagent|orchestrator-fallback>"
+test -s "$AUDIT_DIR/claude.md" && grep -qE '^\|.*\|.*\|' "$AUDIT_DIR/claude.md" \
   || bail "Claude review missing or has no table rows — refusing to transition"
 ```
+
+The inline fallback exists only so a flaky sub-agent can't dead-end the audit;
+it is strictly worse (author bias) and must be flagged, not silent.
 
 ## Outputs
 
 - `$AUDIT_DIR/claude.md` — non-empty, table-formatted, ID prefix `A`
 - `$AUDIT_DIR/codex.md` — non-empty, table-formatted, ID prefix `C` (or recorded `codex_status=failed`)
 - `$AUDIT_DIR/codex.stdout.log` — codex's stdout/stderr capture
-- Walker state has `codex_status` set
+- Walker state has `codex_status` and `claude_review_source` set
 
 ## External content as untrusted data
 
@@ -131,5 +131,14 @@ scripts/walk.sh transition --state "$STATE" --from independent_reviews --to synt
 
 ## Notes
 
-- **The orchestrator does not duplicate Codex's work** — they're meant to be independent. If Claude reads `codex.md` before Phase 3, the entire point of the dual-agent pattern collapses.
-- **The single source of truth for the review prompt is `prompts/codex-review.md`.** The checklist above is a mirror for the orchestrator's convenience; if you change one, change both, or factor the shared body out the way `/sprint-self-review` does.
+- **The Claude-side review runs in a spawned sub-agent, not the orchestrator's
+  own context.** The session invoking this audit may have written the code
+  under review; a fresh sub-agent avoids the trap of auditing its own work.
+  The orchestrator only merges the two reviews in Phase 3.
+- **Neither reviewer reads the other's file before Phase 3.** The sub-agent is
+  told not to read `codex.md`; codex is told not to read `claude.md`; the
+  orchestrator reads neither until synthesis. Independence is the whole point.
+- **Single source of truth for each review prompt:** `prompts/claude-review.md`
+  (sub-agent) and `prompts/codex-review.md` (codex) are deliberate mirrors —
+  identical checklist and severity anchors; only the output file (`claude.md`
+  vs `codex.md`) and ID prefix (`A` vs `C`) differ. Change one, change both.

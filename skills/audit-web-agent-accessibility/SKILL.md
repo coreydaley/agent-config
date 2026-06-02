@@ -98,7 +98,7 @@ What it does
             different status than a generic UA (a WAF signal);
             inventories repo robots/llms/feeds/API/licensing into
             tooling-raw/ (runtime fetches need TARGET_URL).
-  Phase 2 — independent reviews: Claude (orchestrator) writes
+  Phase 2 — independent reviews: a fresh sub-agent writes
             claude.md; Codex (background codex exec) writes
             codex.md. Parallel, no cross-contamination.
   Phase 3 — synthesis: dedupe, calibrate by Intent
@@ -144,7 +144,7 @@ Output
       nojs-render.txt           (raw HTML + AI-UA status probes)
       agent-inventory.txt
       STATUS.md
-    claude.md                   (Phase 2 Claude review, A-prefix)
+    claude.md                   (Phase 2 review sub-agent, A-prefix)
     codex.md                    (Phase 2 Codex review, C-prefix)
     codex.stdout.log
     synthesis.md                (Phase 3, S-prefix)
@@ -191,7 +191,7 @@ Nodes:
   survey rendering mode + declared agent affordances. (No
   emergency-exit condition; `orient` always takes `proceed`.)
 - **`emergency_exit`** — placeholder; never traversed.
-- **`independent_reviews`** — Phase 2. Claude writes `claude.md`;
+- **`independent_reviews`** — Phase 2. A spawned sub-agent writes `claude.md`;
   Codex (via `audit-codex.sh`) writes `codex.md`. Parallel.
 - **`synthesis`** — Phase 3. Dedupe, calibrate by Intent, identify
   compound findings, list confirm-intent items.

@@ -59,7 +59,7 @@ What it does
             Records Apple-project detection and design-system hints
             into tooling-raw/STATUS.md so reviewers know the
             heuristic priority order to apply.
-  Phase 2 — independent reviews: Claude (orchestrator) writes
+  Phase 2 — independent reviews: a fresh sub-agent writes
             claude.md; Codex (background codex exec) writes
             codex.md. Parallel, no cross-contamination.
   Phase 3 — synthesis: dedupe, calibrate severity, identify
@@ -97,7 +97,7 @@ Output
     MANIFEST.json               (created by audit-runner.sh init)
     tooling-raw/
       STATUS.md                 (no-tooling note + Apple/design-system hints)
-    claude.md                   (Phase 2 Claude review, A-prefix)
+    claude.md                   (Phase 2 review sub-agent, A-prefix)
     codex.md                    (Phase 2 Codex review, C-prefix)
     codex.stdout.log
     synthesis.md                (Phase 3, S-prefix)
@@ -141,7 +141,7 @@ Nodes:
 - **`emergency_exit`** — unreachable from design (no emergency
   conditions exist for a design audit); kept in graph for topological
   uniformity across `/audit-*` skills.
-- **`independent_reviews`** — Phase 2. Claude writes `claude.md`;
+- **`independent_reviews`** — Phase 2. A spawned sub-agent writes `claude.md`;
   Codex (via `audit-codex.sh`) writes `codex.md`. Parallel.
 - **`synthesis`** — Phase 3. Dedupe, calibrate, identify compound
   findings.

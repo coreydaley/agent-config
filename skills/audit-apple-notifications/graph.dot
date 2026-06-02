@@ -27,7 +27,7 @@ digraph audit_apple_notifications {
     orient              [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
                          label="orient\n(Phase 1: tooling-raw/,\nsurvey, emergency check)"];
     independent_reviews [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
-                         label="independent-reviews\n(Phase 2: Claude writes claude.md,\ncodex exec writes codex.md, parallel)"];
+                         label="independent-reviews\n(Phase 2: review sub-agent writes claude.md,\ncodex exec writes codex.md, parallel)"];
     synthesis           [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
                          label="synthesis\n(Phase 3: dedupe, calibrate,\ncompound findings, synthesis.md)"];
     devils_advocate     [shape=box, style="rounded,filled", fillcolor="#e1f5fe",

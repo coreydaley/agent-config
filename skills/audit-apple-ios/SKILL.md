@@ -87,7 +87,7 @@ What it does
             UIPointerInteraction / AppShortcut / ActivityKit /
             ImageAnalysisInteraction / FocusFilterIntent /
             PKCanvasView.
-  Phase 2 — independent reviews: Claude (orchestrator) writes
+  Phase 2 — independent reviews: a fresh sub-agent writes
             claude.md; Codex (background codex exec) writes
             codex.md. Parallel, no cross-contamination.
   Phase 3 — synthesis: dedupe, calibrate severity, identify
@@ -142,7 +142,7 @@ Output
       live-text.txt             (ImageAnalysisInteraction / VNRecognizeText)
       focus.txt                 (FocusFilterIntent)
       STATUS.md
-    claude.md                   (Phase 2 Claude review, A-prefix)
+    claude.md                   (Phase 2 review sub-agent, A-prefix)
     codex.md                    (Phase 2 Codex review, C-prefix)
     codex.stdout.log
     synthesis.md                (Phase 3, S-prefix)
@@ -180,7 +180,7 @@ Nodes:
 - **`init`** — parse args, run `audit-runner.sh init`, initialize walker state.
 - **`orient`** — Phase 1. Detect iOS target (bail if absent); run iOS-specific Phase 1 tooling into `tooling-raw/`.
 - **`emergency_exit`** — structural placeholder; this audit has no emergency-exit conditions beyond the iOS-target gate handled in orient.
-- **`independent_reviews`** — Phase 2. Claude writes `claude.md`; Codex (via `audit-codex.sh`) writes `codex.md`. Parallel.
+- **`independent_reviews`** — Phase 2. A spawned sub-agent writes `claude.md`; Codex (via `audit-codex.sh`) writes `codex.md`. Parallel.
 - **`synthesis`** — Phase 3. Dedupe, calibrate, compound findings.
 - **`devils_advocate`** — Phase 4. Codex attacks; orchestrator incorporates.
 - **`report`** — Phase 5. Write `REPORT.md` with sprint tiers.

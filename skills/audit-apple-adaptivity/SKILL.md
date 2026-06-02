@@ -72,7 +72,7 @@ What it does
   Phase 1 — orient: pure-LLM audit, no automated tooling runs;
             writes tooling-raw/STATUS.md noting the no-tooling
             posture. No emergency-exit conditions.
-  Phase 2 — independent reviews: Claude (orchestrator) writes
+  Phase 2 — independent reviews: a fresh sub-agent writes
             claude.md; Codex (background codex exec) writes
             codex.md. Parallel, no cross-contamination.
   Phase 3 — synthesis: dedupe, calibrate severity, identify
@@ -111,7 +111,7 @@ Output
     MANIFEST.json               (created by audit-runner.sh init)
     tooling-raw/
       STATUS.md                 (no tools — pure-LLM audit)
-    claude.md                   (Phase 2 Claude review, A-prefix)
+    claude.md                   (Phase 2 review sub-agent, A-prefix)
     codex.md                    (Phase 2 Codex review, C-prefix)
     codex.stdout.log
     synthesis.md                (Phase 3, S-prefix)
@@ -152,7 +152,7 @@ Nodes:
   framework usage.
 - **`emergency_exit`** — structural placeholder. This audit has no
   emergency-exit conditions; if reached, it's a bug.
-- **`independent_reviews`** — Phase 2. Claude writes `claude.md`;
+- **`independent_reviews`** — Phase 2. A spawned sub-agent writes `claude.md`;
   Codex (via `audit-codex.sh`) writes `codex.md`. Parallel.
 - **`synthesis`** — Phase 3. Dedupe, calibrate, identify compound
   findings.

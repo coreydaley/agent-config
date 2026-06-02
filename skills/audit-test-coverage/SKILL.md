@@ -67,7 +67,7 @@ What it does
             cargo tarpaulin or cargo-llvm-cov; swift test
             --enable-code-coverage / xcodebuild -enableCodeCoverage)
             into tooling-raw/. No emergency-exit condition.
-  Phase 2 — independent reviews: Claude (orchestrator) writes
+  Phase 2 — independent reviews: a fresh sub-agent writes
             claude.md; Codex (background codex exec) writes
             codex.md. Parallel, no cross-contamination. Both reviewers
             consume the measured coverage data.
@@ -124,7 +124,7 @@ Output
         swift-cov.lcov                          (Swift SPM)
       xcodebuild-test.log, dd/                  (Xcode)
       STATUS.md
-    claude.md                   (Phase 2 Claude review, A-prefix)
+    claude.md                   (Phase 2 review sub-agent, A-prefix)
     codex.md                    (Phase 2 Codex review, C-prefix)
     codex.stdout.log
     synthesis.md                (Phase 3, S-prefix)
@@ -166,7 +166,7 @@ Nodes:
 - **`emergency_exit`** — placeholder; never reached in normal
   operation. Structurally present because the canonical audit graph
   is shared across all `/audit-*` skills.
-- **`independent_reviews`** — Phase 2. Claude writes `claude.md`;
+- **`independent_reviews`** — Phase 2. A spawned sub-agent writes `claude.md`;
   Codex (via `audit-codex.sh`) writes `codex.md`. Parallel.
 - **`synthesis`** — Phase 3. Dedupe, calibrate, identify compound
   findings.

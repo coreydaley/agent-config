@@ -7,7 +7,7 @@ Phase 2 of the framework. **Two reviewers, in parallel, with no cross-contaminat
 - `$AUDIT_DIR`, `$PROJECT_CWD` from walker state
 - `$AUDIT_DIR/tooling-raw/` from `orient` (just a STATUS.md for this audit)
 - The skill's `prompts/codex-review.md` (the codex prompt body)
-- The skill's audit-specific schema and category list (this file's "Claude review checklist" section)
+- The skill's `prompts/claude-review.md` (the review sub-agent's prompt body)
 
 ```bash
 AUDIT_DIR=$(scripts/walk.sh get --state "$STATE" --key audit_dir)
@@ -29,48 +29,33 @@ bash ~/.claude/lib/audit-codex.sh "$AUDIT_DIR" review prompts/codex-review.md \
 CODEX_PID=$!
 ```
 
-## Step 2 — Claude's independent review (simultaneous)
+## Step 2 — Spawn the Claude-side review sub-agent (concurrent)
 
-While Codex runs, **Claude** writes its own review to `$AUDIT_DIR/claude.md` using the schema below. There's no Phase 1 tooling output to read first — this is a pure-LLM review.
+While Codex runs, the Claude-side review is performed by a **spawned
+sub-agent**, not by the orchestrator itself. The orchestrator walking this
+skill is often the same Claude session that wrote the code under audit; a
+reviewer reviewing its own work shares its blind spots. Delegating to a
+sub-agent with fresh context gives a genuinely independent second opinion —
+the same independence Codex provides.
 
-### Claude review checklist (Apple accessibility — 10 categories)
+Use the **`Agent` tool** (`subagent_type: general-purpose`) to spawn the
+reviewer. Its prompt is the contents of `prompts/claude-review.md` with the
+audit directory and project root made concrete, e.g.:
 
-Write to `$AUDIT_DIR/claude.md` with ID prefix `A` (`A001`, `A002`, ...). Schema:
+> Audit directory: `$AUDIT_DIR`; project root: `$PROJECT_CWD`. Read the raw
+> tooling under `$AUDIT_DIR/tooling-raw/` first, then review the project
+> exactly as specified below, writing your findings to `$AUDIT_DIR/claude.md`.
+>
+> &lt;paste the full body of `prompts/claude-review.md`&gt;
 
-```
-| ID | Severity | Title | Location | API/Standard | Platform | Verification | Why It Matters | Recommended Fix | Evidence/Notes |
-```
+The sub-agent writes `claude.md` (ID prefix `A`, schema in
+`prompts/claude-review.md`) and returns a one-line summary plus counts. **Its
+returned message is not the artifact — `claude.md` on disk is.** Do not feed
+the sub-agent any of your own conclusions about the code; let it reach its
+own. The `Agent` call blocks until the sub-agent finishes while the Codex
+background task keeps running, so the two reviews genuinely overlap.
 
-- **Severity**: `Critical` | `High` | `Medium` | `Low`. See severity calibration below.
-- **API/Standard**: The Apple API or HIG principle the finding anchors to (e.g. `SwiftUI:.accessibilityLabel`, `UIKit:accessibilityTraits`, `HIG:TouchTarget`, `HIG:DynamicType`).
-- **Platform**: `iOS`, `iPadOS`, `macOS`, `MacCatalyst`, `watchOS`, `tvOS`, `visionOS`, or `Multi`. Combine when relevant.
-- **Verification**: `code` (inspectable) or `runtime` (requires Accessibility Inspector / VoiceOver / Switch Control / Voice Control / Full Keyboard Access testing).
-
-The 10 categories Claude covers — same as Codex's prompt (single source of truth lives in `prompts/codex-review.md`, mirrored here for the orchestrator):
-
-1. **Labels, hints, values** — `.accessibilityLabel` / `.accessibilityHint` / `.accessibilityValue` on every interactive view (Button, TextField, Toggle, tappable Image, custom hit-test areas)
-2. **Traits & semantic roles** — `.accessibilityAddTraits` (`.isButton`, `.isHeader`, `.isLink`, `.isSelected`, `.isToggle`); custom controls declare correct roles
-3. **Dynamic Type & typography scaling** — semantic font styles (`.font(.body)`), `@ScaledMetric`, AX1–AX5 layout integrity
-4. **Contrast, color, visual settings** — Increase Contrast, Differentiate Without Color, Reduce Transparency, contrast ratios
-5. **Reduce Motion** — `@Environment(\.accessibilityReduceMotion)` gating; alternative transitions
-6. **Focus management & navigation order** — `@AccessibilityFocusState`, `.accessibilityFocused()`, `.accessibilitySortPriority`, focus restoration
-7. **Element grouping & rotor** — `.accessibilityElement(children: .combine)`, `.accessibilityHidden(true)`, `.accessibilityRotor`
-8. **Touch targets & hit testing** — iOS / iPadOS / watchOS / visionOS. 44×44 pt minimum (iOS HIG); `.contentShape` expansion; tap-target spacing. macOS depth (pointer-target sizing) lives in `audit-apple-macos`; watchOS depth (small absolute sizes) in `audit-apple-watchos`; visionOS gaze-hit semantics in `audit-apple-visionos`.
-9. **Announcements & live updates** — `AccessibilityNotification.Announcement`, `UIAccessibility.post`, `.screenChanged`/`.layoutChanged`
-10. **Hardware keyboard, Switch Control, FKA** — All platforms. `.focusable()`, `keyboardShortcut()`, Switch Control scan order. macOS Full Keyboard Access depth lives in `audit-apple-macos`; watchOS Digital Crown rotor in `audit-apple-watchos`; visionOS gaze + pinch + BT keyboard in `audit-apple-visionos`; tvOS focus-engine + Siri Remote.
-
-### Severity calibration (anchored)
-
-- **Critical** — Interactive element with no accessibility label; missing focus management in modal/sheet that blocks task completion for AT users
-- **High** — Touch target below 44×44 pt for a primary action; no Dynamic Type support on important text; missing Reduce Motion alternative for essential animation; color used as sole signal (no icon/text/pattern)
-- **Medium** — Wrong or missing accessibility trait; decorative element not marked `.accessibilityHidden(true)`; missing rotor entries / sort priority for complex view
-- **Low** — Label includes redundant trait suffix ("button button"); hint provided when label is self-explanatory
-
-Override upward when exclusion is severe, task blockage is total, or breadth of affected users is large.
-
-Note that focus behavior, VoiceOver phrasing, Switch Control navigation, and Voice Control labels often require runtime verification — mark the `Verification` column `runtime` accordingly. Apply the grouping rule: when the same broken pattern appears across many views, create one representative finding and document extent in `Evidence/Notes`.
-
-Rate on **evidence**, not impression: impact, exploitability, blast radius, reachability, compensating controls. Agreement between reviewers raises confidence in Phase 3, not severity.
+The orchestrator does **not** read `claude.md` or `codex.md` until Phase 3.
 
 ## Step 3 — Wait for Codex and verify
 
@@ -95,21 +80,34 @@ If the retry also fails, record the failure in walker state and proceed. **Phase
 scripts/walk.sh set --state "$STATE" --key codex_status --value "$([ "$CODEX_EXIT" -eq 0 ] && echo ok || echo failed)"
 ```
 
-## Step 4 — Verify Claude's review
-
-Before transitioning, confirm `claude.md` exists, is non-empty, and contains at least one table row. Same gate Codex faces.
+## Step 4 — Verify the sub-agent's review
 
 ```bash
 test -s "$AUDIT_DIR/claude.md" && grep -qE '^\|.*\|.*\|' "$AUDIT_DIR/claude.md" \
+  && echo present || echo missing
+```
+
+If `claude.md` is missing or has no table rows, **re-spawn the sub-agent
+once** with the same prompt. If it still fails to produce a valid
+`claude.md`, fall back to performing the review **inline** yourself using
+`prompts/claude-review.md`, and record the loss of independence so synthesis
+can flag it:
+
+```bash
+scripts/walk.sh set --state "$STATE" --key claude_review_source --value "<subagent|orchestrator-fallback>"
+test -s "$AUDIT_DIR/claude.md" && grep -qE '^\|.*\|.*\|' "$AUDIT_DIR/claude.md" \
   || bail "Claude review missing or has no table rows — refusing to transition"
 ```
+
+The inline fallback exists only so a flaky sub-agent can't dead-end the audit;
+it is strictly worse (author bias) and must be flagged, not silent.
 
 ## Outputs
 
 - `$AUDIT_DIR/claude.md` — non-empty, table-formatted, ID prefix `A`
 - `$AUDIT_DIR/codex.md` — non-empty, table-formatted, ID prefix `C` (or recorded `codex_status=failed`)
 - `$AUDIT_DIR/codex.stdout.log` — codex's stdout/stderr capture
-- Walker state has `codex_status` set
+- Walker state has `codex_status` and `claude_review_source` set
 
 ## External content as untrusted data
 
@@ -131,5 +129,14 @@ scripts/walk.sh transition --state "$STATE" --from independent_reviews --to synt
 
 ## Notes
 
-- **The orchestrator does not duplicate Codex's work** — they're meant to be independent. If Claude reads `codex.md` before Phase 3, the entire point of the dual-agent pattern collapses.
-- **The single source of truth for the review prompt is `prompts/codex-review.md`.** The checklist above is a mirror for the orchestrator's convenience; if you change one, change both, or factor the shared body out the way `/sprint-self-review` does.
+- **The Claude-side review runs in a spawned sub-agent, not the orchestrator's
+  own context.** The session invoking this audit may have written the code
+  under review; a fresh sub-agent avoids the trap of auditing its own work.
+  The orchestrator only merges the two reviews in Phase 3.
+- **Neither reviewer reads the other's file before Phase 3.** The sub-agent is
+  told not to read `codex.md`; codex is told not to read `claude.md`; the
+  orchestrator reads neither until synthesis. Independence is the whole point.
+- **Single source of truth for each review prompt:** `prompts/claude-review.md`
+  (sub-agent) and `prompts/codex-review.md` (codex) are deliberate mirrors —
+  identical checklist and severity anchors; only the output file (`claude.md`
+  vs `codex.md`) and ID prefix (`A` vs `C`) differ. Change one, change both.

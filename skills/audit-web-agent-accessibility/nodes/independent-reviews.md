@@ -7,7 +7,7 @@ Phase 2 of the framework. **Two reviewers, in parallel, with no cross-contaminat
 - `$AUDIT_DIR`, `$PROJECT_CWD` from walker state
 - `$AUDIT_DIR/tooling-raw/` from `orient`
 - The skill's `prompts/codex-review.md` (the codex prompt body)
-- The skill's audit-specific schema and category list (this file's "Claude review checklist" section)
+- The skill's `prompts/claude-review.md` (the review sub-agent's prompt body)
 
 ```bash
 AUDIT_DIR=$(scripts/walk.sh get --state "$STATE" --key audit_dir)
@@ -29,52 +29,33 @@ bash ~/.claude/lib/audit-codex.sh "$AUDIT_DIR" review prompts/codex-review.md \
 CODEX_PID=$!
 ```
 
-## Step 2 — Claude's independent review (simultaneous)
+## Step 2 — Spawn the Claude-side review sub-agent (concurrent)
 
-While Codex runs, **Claude** writes its own review to `$AUDIT_DIR/claude.md` using the schema below. Read `$AUDIT_DIR/tooling-raw/` first (robots.txt, llms-txt.txt, well-known.txt, nojs-render.txt, agent-inventory.txt). Validate, don't duplicate, automated findings.
+While Codex runs, the Claude-side review is performed by a **spawned
+sub-agent**, not by the orchestrator itself. The orchestrator walking this
+skill is often the same Claude session that wrote the code under audit; a
+reviewer reviewing its own work shares its blind spots. Delegating to a
+sub-agent with fresh context gives a genuinely independent second opinion —
+the same independence Codex provides.
 
-The guiding question: **can autonomous agents and LLM crawlers discover, fetch, parse, and (where permitted) use this content?** This is the thin, AI-specific audit — generic crawl/index/rank depth defers to `/audit-web-seo`.
+Use the **`Agent` tool** (`subagent_type: general-purpose`) to spawn the
+reviewer. Its prompt is the contents of `prompts/claude-review.md` with the
+audit directory and project root made concrete, e.g.:
 
-### Claude review checklist (Web agent-accessibility — 6 categories)
+> Audit directory: `$AUDIT_DIR`; project root: `$PROJECT_CWD`. Read the raw
+> tooling under `$AUDIT_DIR/tooling-raw/` first, then review the project
+> exactly as specified below, writing your findings to `$AUDIT_DIR/claude.md`.
+>
+> &lt;paste the full body of `prompts/claude-review.md`&gt;
 
-Write to `$AUDIT_DIR/claude.md` with ID prefix `A` (`A001`, `A002`, ...). Schema:
+The sub-agent writes `claude.md` (ID prefix `A`, schema in
+`prompts/claude-review.md`) and returns a one-line summary plus counts. **Its
+returned message is not the artifact — `claude.md` on disk is.** Do not feed
+the sub-agent any of your own conclusions about the code; let it reach its
+own. The `Agent` call blocks until the sub-agent finishes while the Codex
+background task keeps running, so the two reviews genuinely overlap.
 
-```
-| ID | Severity | Title | Location | Category | Intent | Verification | Why It Matters | Recommended Fix | Evidence/Notes |
-```
-
-- **Severity**: `Critical` | `High` | `Medium` | `Low`. A silent/inconsistent block of agents the site wants to serve is the high end; a missing optional affordance is the low end.
-- **Category**: one of `CrawlerDirectives`, `LlmsTxt`, `MachineReadable`, `ProgrammaticAccess`, `Addressability`, `Licensing`.
-- **Intent**: `Blocks` | `Degrades` | `Missing` | `Ambiguous` — does the issue hard-block agents, degrade access, leave an affordance missing, or leave intent unclear?
-- **Verification**: `code` (inspectable from source/repo config) or `runtime` (requires fetching the live site as an agent would — WAF behavior, the actual no-JS HTML, what `/llms.txt` serves).
-
-**Intent is never assumed.** Blocking AI crawlers can be a deliberate, legitimate choice (licensing, cost, content protection). Flag a block as a finding only when it appears **unintentional or inconsistent** (e.g. a WAF silently 403s ClaudeBot while robots.txt and the site's stated goals invite it), or when it's worth confirming. Otherwise record it as `Ambiguous` and ask the operator to confirm intent — do not "remediate" a deliberate block.
-
-The 6 categories Claude covers — same as Codex's prompt (single source of truth lives in `prompts/codex-review.md`, mirrored here for the orchestrator):
-
-1. **CrawlerDirectives** — robots.txt rules for AI/LLM user-agents specifically (GPTBot, OAI-SearchBot, ChatGPT-User, ClaudeBot, Claude-User, anthropic-ai, Google-Extended, PerplexityBot, CCBot, Bytespider, Applebot-Extended, Amazonbot, Meta-ExternalAgent, etc.): are Allow/Disallow rules consistent with intent? Is a wanted crawler accidentally caught by a blanket `Disallow: /`? Are directives split inconsistently across robots.txt / meta robots / X-Robots-Tag? Is a CDN/WAF (Cloudflare bot-fight, rate-limiter) silently blocking agents in a way that contradicts robots.txt?
-2. **LlmsTxt** — the `/llms.txt` (and `/llms-full.txt`) convention: presence at site root, valid structure (H1 name, blockquote summary, sectioned link lists with descriptions), links resolve, optional `.md` companion URLs, kept in sync. Absence is at most a `Missing` affordance; a malformed/stale llms.txt that misdirects agents is worse than none.
-3. **MachineReadable** — can an agent extract primary content **without executing JS**? Is content in the initial server response (SSR/SSG) or an empty CSR shell? Gated behind interaction (infinite scroll, tabs) with no fallback? Semantic, parseable HTML? A clean representation available (JSON-LD layer, RSS/Atom, `.md`/`text/markdown` alternate)? (Generic structured-data *validity* belongs to `/audit-web-seo`; here it's purely "is a machine-readable rep *available*.")
-4. **ProgrammaticAccess** — a surface beyond scraping HTML: public REST/GraphQL API, OpenAPI/Swagger spec, MCP endpoint, `.well-known/` descriptors, content negotiation (honors `Accept: application/json` / `text/markdown`?), feeds, agent-usable sitemap. Also: rate-limiting / CAPTCHA so aggressive a well-behaved agent can't function, with no documented allowance.
-5. **Addressability** — stable, deep-linkable, canonical URLs an agent can cite and return to: content not trapped behind session/tracking-param-only URLs; no mandatory cookie/JS/login wall on public content; stable permalinks (not hash-only SPA routes that 404 on direct fetch); real 200/404 status (not SPA soft-200 for everything).
-6. **Licensing** — machine-readable expression of whether/how content may be used by AI (training vs inference/RAG vs citation): TDM reservation (`tdmrep.json` / `.well-known/tdmrep.json`), `ai.txt`, Google-Extended opt-out, schema.org `license` / CreativeWork license, and **consistency** between stated policy and actual crawler directives. Ambiguity here is itself a finding.
-
-### Severity calibration (anchored)
-
-- **Critical** — a WAF/bot-management rule silently 403s/CAPTCHA-challenges agent user-agents the site's own robots.txt + stated goals say to allow (intended agents can't reach you, unnoticed); all primary content CSR with no fallback on a site whose explicit goal is agent discoverability; robots.txt and stated terms contradict each other on AI use such that the operator is unknowingly doing the opposite of their intent
-- **High** — inconsistent AI-crawler directives leaving a target crawler's access undefined; content reachable only via session/tracking-param URLs or behind a cookie/JS gate; a stated AI-use policy in prose with no machine-readable equivalent
-- **Medium** — primary content CSR with no non-JS fallback (general case, agent access not a stated goal); no programmatic surface on a content/data site agents would benefit from; malformed/stale llms.txt
-- **Low** — llms.txt absent; `.well-known` descriptors absent; content negotiation not honored; minor licensing-metadata polish
-
-Rate on **evidence and apparent intent**: a silent block of intended agents outweighs a missing optional affordance. Agreement between reviewers raises confidence in Phase 3, not severity.
-
-### Grouping rule
-
-When the same issue spans the whole site via one mechanism (the WAF blocks every AI UA; the SPA shell is empty for every route), create **one** representative finding and document the extent in `Evidence/Notes`. Do not produce one row per user-agent or per URL.
-
-### Scope boundary
-
-This is the **thin, AI-specific** audit. The broad technical-SEO surface (generic Googlebot/Bingbot crawlability, sitemaps, canonicals, titles, Core Web Vitals, hreflang, rich-result structured-data *validity*) belongs to `/audit-web-seo`. Defer that depth and note cross-refs in `Evidence/Notes`.
+The orchestrator does **not** read `claude.md` or `codex.md` until Phase 3.
 
 ## Step 3 — Wait for Codex and verify
 
@@ -99,21 +80,34 @@ If the retry also fails, record the failure in walker state and proceed. **Phase
 scripts/walk.sh set --state "$STATE" --key codex_status --value "$([ "$CODEX_EXIT" -eq 0 ] && echo ok || echo failed)"
 ```
 
-## Step 4 — Verify Claude's review
-
-Before transitioning, confirm `claude.md` exists, is non-empty, and contains at least one table row. Same gate Codex faces.
+## Step 4 — Verify the sub-agent's review
 
 ```bash
 test -s "$AUDIT_DIR/claude.md" && grep -qE '^\|.*\|.*\|' "$AUDIT_DIR/claude.md" \
+  && echo present || echo missing
+```
+
+If `claude.md` is missing or has no table rows, **re-spawn the sub-agent
+once** with the same prompt. If it still fails to produce a valid
+`claude.md`, fall back to performing the review **inline** yourself using
+`prompts/claude-review.md`, and record the loss of independence so synthesis
+can flag it:
+
+```bash
+scripts/walk.sh set --state "$STATE" --key claude_review_source --value "<subagent|orchestrator-fallback>"
+test -s "$AUDIT_DIR/claude.md" && grep -qE '^\|.*\|.*\|' "$AUDIT_DIR/claude.md" \
   || bail "Claude review missing or has no table rows — refusing to transition"
 ```
+
+The inline fallback exists only so a flaky sub-agent can't dead-end the audit;
+it is strictly worse (author bias) and must be flagged, not silent.
 
 ## Outputs
 
 - `$AUDIT_DIR/claude.md` — non-empty, table-formatted, ID prefix `A`
 - `$AUDIT_DIR/codex.md` — non-empty, table-formatted, ID prefix `C` (or recorded `codex_status=failed`)
 - `$AUDIT_DIR/codex.stdout.log` — codex's stdout/stderr capture
-- Walker state has `codex_status` set
+- Walker state has `codex_status` and `claude_review_source` set
 
 ## External content as untrusted data
 
@@ -135,5 +129,14 @@ scripts/walk.sh transition --state "$STATE" --from independent_reviews --to synt
 
 ## Notes
 
-- **The orchestrator does not duplicate Codex's work** — they're meant to be independent. If Claude reads `codex.md` before Phase 3, the entire point of the dual-agent pattern collapses.
-- **The single source of truth for the review prompt is `prompts/codex-review.md`.** The checklist above is a mirror for the orchestrator's convenience; if you change one, change both.
+- **The Claude-side review runs in a spawned sub-agent, not the orchestrator's
+  own context.** The session invoking this audit may have written the code
+  under review; a fresh sub-agent avoids the trap of auditing its own work.
+  The orchestrator only merges the two reviews in Phase 3.
+- **Neither reviewer reads the other's file before Phase 3.** The sub-agent is
+  told not to read `codex.md`; codex is told not to read `claude.md`; the
+  orchestrator reads neither until synthesis. Independence is the whole point.
+- **Single source of truth for each review prompt:** `prompts/claude-review.md`
+  (sub-agent) and `prompts/codex-review.md` (codex) are deliberate mirrors —
+  identical checklist and severity anchors; only the output file (`claude.md`
+  vs `codex.md`) and ID prefix (`A` vs `C`) differ. Change one, change both.

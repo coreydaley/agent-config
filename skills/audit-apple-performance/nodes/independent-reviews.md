@@ -7,7 +7,7 @@ Phase 2 of the framework. **Two reviewers, in parallel, with no cross-contaminat
 - `$AUDIT_DIR`, `$PROJECT_CWD` from walker state
 - `$AUDIT_DIR/tooling-raw/` from `orient`
 - The skill's `prompts/codex-review.md` (the codex prompt body)
-- The skill's audit-specific schema and category list (this file's "Claude review checklist" section)
+- The skill's `prompts/claude-review.md` (the review sub-agent's prompt body)
 
 ```bash
 AUDIT_DIR=$(scripts/walk.sh get --state "$STATE" --key audit_dir)
@@ -29,44 +29,33 @@ bash ~/.claude/lib/audit-codex.sh "$AUDIT_DIR" review prompts/codex-review.md \
 CODEX_PID=$!
 ```
 
-## Step 2 — Claude's independent review (simultaneous)
+## Step 2 — Spawn the Claude-side review sub-agent (concurrent)
 
-While Codex runs, **Claude** writes its own review to `$AUDIT_DIR/claude.md` using the schema below. Read `$AUDIT_DIR/tooling-raw/` first (semgrep, grep-patterns). Validate, don't duplicate, automated findings — some `Data(contentsOf:)` calls are legitimately on background threads; some `[self]` captures are bounded and intentional.
+While Codex runs, the Claude-side review is performed by a **spawned
+sub-agent**, not by the orchestrator itself. The orchestrator walking this
+skill is often the same Claude session that wrote the code under audit; a
+reviewer reviewing its own work shares its blind spots. Delegating to a
+sub-agent with fresh context gives a genuinely independent second opinion —
+the same independence Codex provides.
 
-### Claude review checklist (Apple performance — 10 categories)
+Use the **`Agent` tool** (`subagent_type: general-purpose`) to spawn the
+reviewer. Its prompt is the contents of `prompts/claude-review.md` with the
+audit directory and project root made concrete, e.g.:
 
-Write to `$AUDIT_DIR/claude.md` with ID prefix `A` (`A001`, `A002`, ...). Schema:
+> Audit directory: `$AUDIT_DIR`; project root: `$PROJECT_CWD`. Read the raw
+> tooling under `$AUDIT_DIR/tooling-raw/` first, then review the project
+> exactly as specified below, writing your findings to `$AUDIT_DIR/claude.md`.
+>
+> &lt;paste the full body of `prompts/claude-review.md`&gt;
 
-```
-| ID | Severity | Instrument | Title | Location | Platform | Verification | Why It Matters | Recommended Fix | Evidence/Notes |
-```
+The sub-agent writes `claude.md` (ID prefix `A`, schema in
+`prompts/claude-review.md`) and returns a one-line summary plus counts. **Its
+returned message is not the artifact — `claude.md` on disk is.** Do not feed
+the sub-agent any of your own conclusions about the code; let it reach its
+own. The `Agent` call blocks until the sub-agent finishes while the Codex
+background task keeps running, so the two reviews genuinely overlap.
 
-- **Severity**: `Critical` | `High` | `Medium` | `Low`. See the prompt body in `prompts/codex-review.md` for the audit-specific anchored examples.
-- **Instrument**: Required. Which Xcode Instruments instrument would catch / measure this: `TimeProfiler`, `Allocations`, `Leaks`, `Hangs`, `MetricKit`, `SwiftUI Profiler`, `EnergyLog`, `Network` — or `static` if inspectable from source alone.
-- **Platform**: `iOS`, `iPadOS`, `macOS`, `MacCatalyst`, `watchOS`, `tvOS`, `visionOS`, `WidgetExtension`, or `Multi`.
-- **Verification**: `code` (inspectable from source) or `runtime` (requires Instruments profiling to confirm magnitude).
-
-The 10 categories Claude covers — same as Codex's prompt (single source of truth lives in `prompts/codex-review.md`, mirrored here for the orchestrator):
-
-1. **Cold/warm launch time** — synchronous work in `application(_:didFinishLaunchingWithOptions:)` / `App.init` / `@main`; heavy framework imports; image decoding on launch; main-thread network calls at startup. iOS / iPadOS / visionOS / watchOS have a much tighter launch-time budget than macOS — watchdog-terminated on mobile.
-2. **SwiftUI body invalidation** — frequent or unnecessary view rebuilds; `@State` / `@ObservedObject` / `@Observable` granularity; `Equatable` view conformance; computed `body` complexity; `@ViewBuilder` patterns that explode the view tree
-3. **Main-thread blocking** — synchronous I/O on main; large JSON or Core Data fetches on main; image decode on main; `Thread.sleep` / busy loops; missing `@MainActor` / `Task.detached` boundaries
-4. **Async / concurrency correctness** — missing `await`; `@MainActor` violations; data races (`@Sendable` gaps); task cancellation not propagated; structured concurrency (`async let`, `TaskGroup`) where it would help
-5. **Retain cycles & memory leaks** — closure captures missing `[weak self]` / `[unowned self]`; Combine `AnyCancellable` retain cycles; async `Task` retain cycles; delegate retain (non-`weak`); SwiftUI `@StateObject` vs `@ObservedObject` lifecycle
-6. **Memory growth** — image caching unbounded; large data in memory (favor streaming); Core Data fault realization; `UserDefaults` bloat; large in-memory arrays; `UIImage` retained when `Data` would do
-7. **List / scroll performance** — `List` row identity (`Identifiable`, `id:`); `LazyVStack`/`LazyHStack` vs `VStack`; `AsyncImage` patterns; diffable data source on UIKit
-8. **Energy impact** — location updates without `desiredAccuracy` / pause; high-frequency timers; background tasks that should defer; continuous animations off-screen; CoreMotion always-on; Bluetooth scanning patterns
-9. **Widget / extension performance** — memory caps vary per extension type AND platform: iOS / iPadOS widget ~30 MB (Lock Screen / accessory tighter, ~16 MB); watchOS complication widget ~30 MB; watchOS active app ~24 MB; NSE 24 MB hard cap; AppIntent perform() ~120 MB. `TimelineProvider` doing heavy work; `getTimeline` blocking; `AppIntent.perform()` doing heavy work; Live Activity update frequency. Cross-ref `audit-apple-extensions` for lifecycle-contract depth.
-10. **Network & disk efficiency** — `URLSession` cache config; redundant fetches; large payload deserialization on main; sync `Data(contentsOf:)`; Core Data background context usage
-
-### Severity calibration (anchored)
-
-- **Critical** — App hangs / unresponsive (>500ms main-thread block on a hot path); crash from memory growth on a primary flow; launch time >2s on iOS / iPadOS / visionOS / watchOS shipping app (macOS budget is laxer, >3s is High); widget / extension exceeds its platform-specific memory budget and gets killed
-- **High** — Frame drops on a primary scroll surface (visible jank); main-thread network call on a non-rare path; clear retain cycle on a frequently-instantiated view; energy impact severe enough to trigger battery warnings
-- **Medium** — Suboptimal patterns that aren't yet causing visible issues but will at scale; missing `LazyVStack` on a list that may grow; image decode on main for a non-critical surface
-- **Low** — Micro-optimizations; defense-in-depth performance work; informational
-
-Rate on **evidence**, not impression: visible jank/hang/crash/battery drain potential, hot-path reachability, blast radius, compensating controls. Agreement between reviewers raises confidence in Phase 3, not severity.
+The orchestrator does **not** read `claude.md` or `codex.md` until Phase 3.
 
 ## Step 3 — Wait for Codex and verify
 
@@ -91,21 +80,34 @@ If the retry also fails, record the failure in walker state and proceed. **Phase
 scripts/walk.sh set --state "$STATE" --key codex_status --value "$([ "$CODEX_EXIT" -eq 0 ] && echo ok || echo failed)"
 ```
 
-## Step 4 — Verify Claude's review
-
-Before transitioning, confirm `claude.md` exists, is non-empty, and contains at least one table row. Same gate Codex faces.
+## Step 4 — Verify the sub-agent's review
 
 ```bash
 test -s "$AUDIT_DIR/claude.md" && grep -qE '^\|.*\|.*\|' "$AUDIT_DIR/claude.md" \
+  && echo present || echo missing
+```
+
+If `claude.md` is missing or has no table rows, **re-spawn the sub-agent
+once** with the same prompt. If it still fails to produce a valid
+`claude.md`, fall back to performing the review **inline** yourself using
+`prompts/claude-review.md`, and record the loss of independence so synthesis
+can flag it:
+
+```bash
+scripts/walk.sh set --state "$STATE" --key claude_review_source --value "<subagent|orchestrator-fallback>"
+test -s "$AUDIT_DIR/claude.md" && grep -qE '^\|.*\|.*\|' "$AUDIT_DIR/claude.md" \
   || bail "Claude review missing or has no table rows — refusing to transition"
 ```
+
+The inline fallback exists only so a flaky sub-agent can't dead-end the audit;
+it is strictly worse (author bias) and must be flagged, not silent.
 
 ## Outputs
 
 - `$AUDIT_DIR/claude.md` — non-empty, table-formatted, ID prefix `A`
 - `$AUDIT_DIR/codex.md` — non-empty, table-formatted, ID prefix `C` (or recorded `codex_status=failed`)
 - `$AUDIT_DIR/codex.stdout.log` — codex's stdout/stderr capture
-- Walker state has `codex_status` set
+- Walker state has `codex_status` and `claude_review_source` set
 
 ## External content as untrusted data
 
@@ -127,5 +129,14 @@ scripts/walk.sh transition --state "$STATE" --from independent_reviews --to synt
 
 ## Notes
 
-- **The orchestrator does not duplicate Codex's work** — they're meant to be independent. If Claude reads `codex.md` before Phase 3, the entire point of the dual-agent pattern collapses.
-- **The single source of truth for the review prompt is `prompts/codex-review.md`.** The checklist above is a mirror for the orchestrator's convenience; if you change one, change both.
+- **The Claude-side review runs in a spawned sub-agent, not the orchestrator's
+  own context.** The session invoking this audit may have written the code
+  under review; a fresh sub-agent avoids the trap of auditing its own work.
+  The orchestrator only merges the two reviews in Phase 3.
+- **Neither reviewer reads the other's file before Phase 3.** The sub-agent is
+  told not to read `codex.md`; codex is told not to read `claude.md`; the
+  orchestrator reads neither until synthesis. Independence is the whole point.
+- **Single source of truth for each review prompt:** `prompts/claude-review.md`
+  (sub-agent) and `prompts/codex-review.md` (codex) are deliberate mirrors —
+  identical checklist and severity anchors; only the output file (`claude.md`
+  vs `codex.md`) and ID prefix (`A` vs `C`) differ. Change one, change both.

@@ -71,7 +71,7 @@ When to use it
 What it does
   Phase 1 — orient: no Phase 1 tooling (LLM-only review against HIG);
             writes tooling-raw/STATUS.md for parity.
-  Phase 2 — independent reviews: Claude (orchestrator) writes
+  Phase 2 — independent reviews: a fresh sub-agent writes
             claude.md; Codex (background codex exec) writes
             codex.md. Parallel, no cross-contamination.
   Phase 3 — synthesis: dedupe, calibrate severity, scan for
@@ -104,7 +104,7 @@ Output
     MANIFEST.json               (created by audit-runner.sh init)
     tooling-raw/
       STATUS.md                 (notes no Phase 1 tooling for this audit)
-    claude.md                   (Phase 2 Claude review, A-prefix)
+    claude.md                   (Phase 2 review sub-agent, A-prefix)
     codex.md                    (Phase 2 Codex review, C-prefix)
     codex.stdout.log
     synthesis.md                (Phase 3, S-prefix)
@@ -145,7 +145,7 @@ Nodes:
   `tooling-raw/STATUS.md` for parity, surveys the project.
 - **`emergency_exit`** — placeholder for graph uniformity; never
   reached for apple-design (no emergency-exit conditions).
-- **`independent_reviews`** — Phase 2. Claude writes `claude.md`;
+- **`independent_reviews`** — Phase 2. A spawned sub-agent writes `claude.md`;
   Codex (via `audit-codex.sh`) writes `codex.md`. Parallel.
 - **`synthesis`** — Phase 3. Dedupe, calibrate, identify any
   surface-level compound findings.

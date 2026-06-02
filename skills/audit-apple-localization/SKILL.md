@@ -72,7 +72,7 @@ What it does
             reads CFBundleLocalizations, lists *.lproj directories,
             greps for hardcoded-string candidates into tooling-raw/.
             No emergency-exit conditions for this audit.
-  Phase 2 — independent reviews: Claude (orchestrator) writes
+  Phase 2 — independent reviews: a fresh sub-agent writes
             claude.md; Codex (background codex exec) writes codex.md.
             Parallel, no cross-contamination. Both read
             supported-languages.txt first.
@@ -119,7 +119,7 @@ Output
       lproj-dirs.txt
       grep-candidates.txt
       STATUS.md
-    claude.md                   (Phase 2 Claude review, A-prefix)
+    claude.md                   (Phase 2 review sub-agent, A-prefix)
     codex.md                    (Phase 2 Codex review, C-prefix)
     codex.stdout.log
     synthesis.md                (Phase 3, S-prefix)
@@ -160,7 +160,7 @@ Nodes:
   `tooling-raw/`, survey. No emergency-exit conditions apply.
 - **`emergency_exit`** — Unreachable for this audit. Exists in the
   graph only for uniformity.
-- **`independent_reviews`** — Phase 2. Claude writes `claude.md`;
+- **`independent_reviews`** — Phase 2. A spawned sub-agent writes `claude.md`;
   Codex (via `audit-codex.sh`) writes `codex.md`. Parallel.
 - **`synthesis`** — Phase 3. Dedupe, calibrate against declared
   target languages, identify compound findings.

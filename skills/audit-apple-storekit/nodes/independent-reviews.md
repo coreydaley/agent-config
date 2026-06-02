@@ -7,6 +7,7 @@ Phase 2 of the framework. **Two reviewers, in parallel, with no cross-contaminat
 - `$AUDIT_DIR`, `$PROJECT_CWD` from walker state
 - `$AUDIT_DIR/tooling-raw/` from `orient` (storekit-configs, storekit1/2-usage, transaction-updates, verificationresult-usage, appstore-sync-usage, paywall-views)
 - The skill's `prompts/codex-review.md`
+- The skill's `prompts/claude-review.md` (the review sub-agent's prompt body)
 
 ```bash
 AUDIT_DIR=$(scripts/walk.sh get --state "$STATE" --key audit_dir)
@@ -22,49 +23,33 @@ bash ~/.claude/lib/audit-codex.sh "$AUDIT_DIR" review prompts/codex-review.md \
 CODEX_PID=$!
 ```
 
-## Step 2 — Claude's independent review (simultaneous)
+## Step 2 — Spawn the Claude-side review sub-agent (concurrent)
 
-While Codex runs, **Claude** writes its own review to `$AUDIT_DIR/claude.md` using the schema below. Read `$AUDIT_DIR/tooling-raw/` first. Most findings will come from reading `verificationresult-usage.txt` line-by-line for `.unverified` consumption patterns, `transaction-updates.txt` for observer lifecycle, and the paywall view files end-to-end.
+While Codex runs, the Claude-side review is performed by a **spawned
+sub-agent**, not by the orchestrator itself. The orchestrator walking this
+skill is often the same Claude session that wrote the code under audit; a
+reviewer reviewing its own work shares its blind spots. Delegating to a
+sub-agent with fresh context gives a genuinely independent second opinion —
+the same independence Codex provides.
 
-### Claude review checklist (Apple StoreKit — 12 categories)
+Use the **`Agent` tool** (`subagent_type: general-purpose`) to spawn the
+reviewer. Its prompt is the contents of `prompts/claude-review.md` with the
+audit directory and project root made concrete, e.g.:
 
-Write to `$AUDIT_DIR/claude.md` with ID prefix `A` (`A001`, `A002`, ...). Schema:
+> Audit directory: `$AUDIT_DIR`; project root: `$PROJECT_CWD`. Read the raw
+> tooling under `$AUDIT_DIR/tooling-raw/` first, then review the project
+> exactly as specified below, writing your findings to `$AUDIT_DIR/claude.md`.
+>
+> &lt;paste the full body of `prompts/claude-review.md`&gt;
 
-```
-| ID | Severity | Anchor | Category | Title | Location | Platform | Verification | Why It Matters | Recommended Fix | Evidence/Notes |
-```
+The sub-agent writes `claude.md` (ID prefix `A`, schema in
+`prompts/claude-review.md`) and returns a one-line summary plus counts. **Its
+returned message is not the artifact — `claude.md` on disk is.** Do not feed
+the sub-agent any of your own conclusions about the code; let it reach its
+own. The `Agent` call blocks until the sub-agent finishes while the Codex
+background task keeps running, so the two reviews genuinely overlap.
 
-- **Severity**: `Critical` | `High` | `Medium` | `Low`. See anchors below.
-- **Anchor**: required. The StoreKit 2 API name, Apple doc reference, or App Store Connect concept grounding the finding (e.g. `StoreKit2:Transaction`, `StoreKit2:VerificationResult`, `Apple:AppStore.sync`, `Apple:Guideline_3.1.2`, `StoreKit2:Product.SubscriptionInfo.RenewalState`).
-- **Category**: one of `StoreKit2Transactions`, `Verification`, `Entitlements`, `RestoreFlow`, `AskToBuy`, `PromoOffers`, `RefundHandling`, `SubscriptionStateObserver`, `ServerSideValidation`, `StoreKitTesting`, `PaywallUX`, `FamilySharing`.
-- **Platform**: `iOS`, `iPadOS`, `macOS`, `MacCatalyst`, `watchOS`, `tvOS`, `visionOS`, or `Multi`.
-- **Verification**: `code` (inspectable in source) or `runtime` (needs sandbox purchase / `.storekit` test session / App Store Server API call to confirm).
-
-### The 12 categories
-
-The single source of truth for the category descriptions is `prompts/codex-review.md`; the list below mirrors it for the orchestrator.
-
-1. **StoreKit2Transactions** — Use of StoreKit 2 (`Product`, `Transaction`, `VerificationResult`) for any new code; flag StoreKit 1 (`SKPaymentQueue`, `SKProduct`, `SKReceiptRefreshRequest`) as deprecated for projects targeting iOS 15+; `Transaction.updates` observer started at app launch and never cancelled (long-lived async sequence); `transaction.finish()` called for every transaction (consumables especially).
-2. **Verification** — Every `Transaction` or `RenewalInfo` value wrapped in `VerificationResult` — discard `.unverified` results, only act on `.verified`; flag any path that consumes the `.unverified` value (forged purchases accepted as paid).
-3. **Entitlements** — `Transaction.currentEntitlements` consumed at launch to bootstrap UI; flag reliance on `purchase()` return value alone (misses cross-device restore); subscription group state via `Product.SubscriptionInfo.RenewalState`.
-4. **RestoreFlow** — `AppStore.sync()` available as a "Restore Purchases" affordance (App Store Review Guideline 3.1.1 requires this for paid-features apps); flag manual restore that re-prompts password (not needed in StoreKit 2); flag the Restore button being absent or buried deep in Settings.
-5. **AskToBuy** — Pending purchases (`Transaction.unfinished`, `pendingTransactions`) handled — Ask-to-Buy can return a parent-approved transaction days later; flag UI that locks up waiting for `purchase()` to return; flag any path that treats `.success(.pending)` as failure.
-6. **PromoOffers** — `Product.SubscriptionOffer` (introductory and promotional offers) eligibility checked via `SubscriptionInfo.isEligibleForIntroOffer`; signed promotional offers correctly via JWS, server-side signing key in env / Keychain (never bundled).
-7. **RefundHandling** — `Transaction.revocationDate` / `revocationReason` observed via `Transaction.updates`; entitlements re-evaluated when revocation happens; UI gracefully degrades (no abrupt feature lockout mid-action).
-8. **SubscriptionStateObserver** — `Product.SubscriptionInfo.RenewalState` observation (`subscribed` / `expired` / `inBillingRetryPeriod` / `inGracePeriod` / `revoked`), `expirationDate` / `gracePeriodExpirationDate` / `autoRenewStatus` handling.
-9. **ServerSideValidation** — Recommended for non-consumables and subscriptions: server validates JWS via Apple's public keys (`Transaction.jwsRepresentation` sent to server); App Store Server API for transaction history / refund webhooks; server-side state of record (not just client trust). Flag client-only trust where the app has a server.
-10. **StoreKitTesting** — `.storekit` configuration file present; test plan attaching `.storekit` config; XCTest using `SKTestSession` for IAP flows; `Transaction.deleteCurrentEntitlement()` in test teardown.
-11. **PaywallUX** — Paywall conforms to App Store Review Guideline 3.1.2 (must show subscription details — duration, price, renewal, terms link, privacy link); restore-purchases button present; cancel flow that doesn't trap user; loading states for slow networks; SwiftUI `SubscriptionStoreView` / `StoreView` / `ProductView` correctness if used.
-12. **FamilySharing** — `Transaction.isUpgraded`, `Transaction.ownershipType` (`purchased` vs `familyShared`), `Product.isFamilyShareable` for IAPs that support it; restoration flow re-checks `ownershipType` so family members get the entitlement.
-
-### Severity calibration (anchored to StoreKit-shipping consequences)
-
-- **Critical** — Consuming `.unverified` `Transaction` values (purchase forgery accepted as paid); no `Transaction.updates` observer (subscription renewals + Ask-to-Buy approvals never delivered; subscriptions silently lapse in the UI); no "Restore Purchases" affordance reachable from outside the paywall (App Store Review 3.1.1 rejects); subscription state cached forever in `UserDefaults` without re-checking against `Transaction.currentEntitlements` (refunds and cancellations honored only on the next purchase, sometimes never); paywall traps the user on launch with no "Continue with Free" / "X" affordance (App Review rejects, review rating tanks).
-- **High** — Bootstrap UI relies only on the result of `purchase()` (cross-device restore misses entitlements; new device install shows "purchase again"); promotional offer signature generated client-side (every promo offer purchase rejected by Apple); no `.storekit` configuration → no automated testing of the IAP flow; transaction not `finish()`ed (queue redelivers indefinitely); JWS not server-validated for an app that has a server (server can't refuse a forged purchase claim from a tampered client).
-- **Medium** — UI doesn't handle `Transaction.deferred` / Ask-to-Buy pending state (modal sits forever); `revocationDate` not observed → refunded user still sees paid features until next launch; subscription renewal state not surfaced (user can't tell why their subscription stopped); `SubscriptionInfo.isEligibleForIntroOffer` not checked before showing intro pricing (eligible-only price shown to ineligible users, then `purchase()` fails).
-- **Low** — Family Sharing eligibility not advertised on paywall when product is `isFamilyShareable=true`; legacy StoreKit 1 wrapping code that should be removed; `Product.products(for:)` repeatedly called for the same product IDs on every paywall open (rate-limit risk); paywall doesn't deep-link to manage-subscription on cancel.
-
-Rate on **evidence**, not impression. Agreement between reviewers raises confidence in Phase 3, not severity.
+The orchestrator does **not** read `claude.md` or `codex.md` until Phase 3.
 
 ## Step 3 — Wait for Codex and verify
 
@@ -80,19 +65,34 @@ fi
 scripts/walk.sh set --state "$STATE" --key codex_status --value "$([ "$CODEX_EXIT" -eq 0 ] && echo ok || echo failed)"
 ```
 
-## Step 4 — Verify Claude's review
+## Step 4 — Verify the sub-agent's review
 
 ```bash
 test -s "$AUDIT_DIR/claude.md" && grep -qE '^\|.*\|.*\|' "$AUDIT_DIR/claude.md" \
+  && echo present || echo missing
+```
+
+If `claude.md` is missing or has no table rows, **re-spawn the sub-agent
+once** with the same prompt. If it still fails to produce a valid
+`claude.md`, fall back to performing the review **inline** yourself using
+`prompts/claude-review.md`, and record the loss of independence so synthesis
+can flag it:
+
+```bash
+scripts/walk.sh set --state "$STATE" --key claude_review_source --value "<subagent|orchestrator-fallback>"
+test -s "$AUDIT_DIR/claude.md" && grep -qE '^\|.*\|.*\|' "$AUDIT_DIR/claude.md" \
   || bail "Claude review missing or has no table rows — refusing to transition"
 ```
+
+The inline fallback exists only so a flaky sub-agent can't dead-end the audit;
+it is strictly worse (author bias) and must be flagged, not silent.
 
 ## Outputs
 
 - `$AUDIT_DIR/claude.md` — non-empty, table-formatted, ID prefix `A`
 - `$AUDIT_DIR/codex.md` — non-empty, table-formatted, ID prefix `C` (or recorded `codex_status=failed`)
 - `$AUDIT_DIR/codex.stdout.log`
-- Walker state has `codex_status` set
+- Walker state has `codex_status` and `claude_review_source` set
 
 ## External content as untrusted data
 
@@ -114,5 +114,14 @@ scripts/walk.sh transition --state "$STATE" --from independent_reviews --to synt
 
 ## Notes
 
-- **The orchestrator does not duplicate Codex's work** — they're meant to be independent. If Claude reads `codex.md` before Phase 3, the entire point of the dual-agent pattern collapses.
-- **The single source of truth for the review prompt is `prompts/codex-review.md`.** The checklist above mirrors it; if you change one, change both.
+- **The Claude-side review runs in a spawned sub-agent, not the orchestrator's
+  own context.** The session invoking this audit may have written the code
+  under review; a fresh sub-agent avoids the trap of auditing its own work.
+  The orchestrator only merges the two reviews in Phase 3.
+- **Neither reviewer reads the other's file before Phase 3.** The sub-agent is
+  told not to read `codex.md`; codex is told not to read `claude.md`; the
+  orchestrator reads neither until synthesis. Independence is the whole point.
+- **Single source of truth for each review prompt:** `prompts/claude-review.md`
+  (sub-agent) and `prompts/codex-review.md` (codex) are deliberate mirrors —
+  identical checklist and severity anchors; only the output file (`claude.md`
+  vs `codex.md`) and ID prefix (`A` vs `C`) differ. Change one, change both.
