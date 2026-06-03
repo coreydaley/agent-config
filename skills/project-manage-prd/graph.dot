@@ -1,6 +1,6 @@
-// Project Create PRD state machine.
+// Project Manage PRD state machine.
 //
-// Source of truth for the /project-create-prd skill. A guided, Socratic
+// Source of truth for the /project-manage-prd skill. A guided, Socratic
 // discussion that walks the user through authoring (or revising) a Product
 // Requirements Document, then publishes it to the repo's Forgejo wiki as the
 // `PRD` page. The walker (Claude, per SKILL.md) reads each node's prose from
@@ -12,7 +12,7 @@
 //
 // Render to SVG with scripts/render.sh. Validate with scripts/validate.py.
 
-digraph project_create_prd {
+digraph project_manage_prd {
     rankdir=TB;
     bgcolor="white";
     node  [fontname="Helvetica", fontsize=11];

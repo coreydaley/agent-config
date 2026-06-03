@@ -62,8 +62,6 @@ scripts/walk.sh set --state "$STATE" --key project_cwd      --value "$(jq -r .pr
 scripts/walk.sh set --state "$STATE" --key source_kind      --value "$(jq -r .source_kind "$M")"
 scripts/walk.sh set --state "$STATE" --key source_ref       --value "$(jq -r .source_ref "$M")"
 scripts/walk.sh set --state "$STATE" --key prd_title        --value "$(jq -r .prd_title "$M")"
-scripts/walk.sh set --state "$STATE" --key companion_kind   --value "$(jq -r .companion_kind "$M")"
-scripts/walk.sh set --state "$STATE" --key companion_target --value "$(jq -r .companion_target "$M")"
 ```
 
 ### 4. Print an opening line
@@ -75,7 +73,7 @@ Tell the user the resolved source (kind + ref), the PRD title, the resolved
 
 - `$AUDIT_DIR` exists under `~/Reports/<org>/<repo>/audits/<TS>-prd/`
 - `$AUDIT_DIR/prd-source.md` holds the fetched PRD (the unit of audit)
-- `$AUDIT_DIR/MANIFEST.json` exists with source metadata + companion target
+- `$AUDIT_DIR/MANIFEST.json` exists with source metadata
 - `$AUDIT_DIR/.walk-state.json` exists with run-scoped variables
 
 ## Outgoing edges

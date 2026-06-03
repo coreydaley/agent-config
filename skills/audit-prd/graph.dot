@@ -38,7 +38,7 @@ digraph audit_prd {
     emergency_exit      [shape=box, style="rounded,filled", fillcolor="#ffcdd2",
                          label="emergency-exit\n(not a reviewable PRD —\nwrite EMERGENCY.md, halt)"];
     handoff             [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
-                         label="handoff\n(write companion copy beside source,\nprint hand-off with verify output)"];
+                         label="handoff\n(print hand-off with verify output;\nread-only — no writes to source)"];
 
     // -- Decision nodes (diamonds) -------------------------------------
     verify              [shape=diamond, style=filled, fillcolor="#ffe0b2",

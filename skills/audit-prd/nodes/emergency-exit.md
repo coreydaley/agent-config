@@ -83,4 +83,4 @@ scripts/walk.sh transition --state "$STATE" --from emergency_exit --to terminal
 
 - This node is **terminal-bound**, mirroring the rest of the audit-* family's
   emergency-exit. The handoff format differs: point the user at
-  `EMERGENCY.md`. No companion copy is written beside the source on this path.
+  `EMERGENCY.md`. The audit is read-only — nothing is written to the source.

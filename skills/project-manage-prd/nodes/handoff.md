@@ -33,7 +33,7 @@ steering planning — that's the payoff.
 ```
 ⚠ The wiki write didn't land (see the error above).
 Your work is safe in the local draft:  $SESSION_DIR/PRD.md
-Retry: re-run /project-create-prd (revise mode will pick up where the wiki is),
+Retry: re-run /project-manage-prd (revise mode will pick up where the wiki is),
 or paste the draft into the <org/repo> wiki "PRD" page by hand.
 ```
 

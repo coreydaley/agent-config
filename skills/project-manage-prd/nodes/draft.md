@@ -60,7 +60,7 @@ qualitative completion signal. Don't fabricate numbers.>
 - <genuinely undecided items>
 
 ---
-*Authored via `/project-create-prd` on <YYYY-MM-DD>. Lives on the
+*Authored via `/project-manage-prd` on <YYYY-MM-DD>. Lives on the
 `<org>/<repo>` Forgejo wiki (page `PRD`).*
 ```
 

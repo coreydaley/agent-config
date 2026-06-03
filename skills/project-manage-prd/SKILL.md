@@ -1,5 +1,5 @@
 ---
-name: project-create-prd
+name: project-manage-prd
 description: >-
   State-machine-driven, guided authoring of a project's PRD (Product
   Requirements Document). Walks the user through the thinking a real PRD
@@ -10,12 +10,12 @@ description: >-
   not (create mode). The durable output is the repo's Forgejo wiki page
   `PRD` (created or updated); the discussion is ephemeral. The PRD it
   produces is what /sprint-seed auto-reads to steer planning. Invoke via
-  /project-create-prd.
-argument-hint: "[<owner>/<repo>] [--help]"
+  /project-manage-prd.
+argument-hint: "[<owner>/<repo>] [--from-review <path>] [--help]"
 disable-model-invocation: false
 ---
 
-# Project Create PRD
+# Project Manage PRD
 
 State-machine-driven, guided creation (or revision) of a project's **Product
 Requirements Document**. The skill walks the graph in `graph.dot`, executing
@@ -36,7 +36,7 @@ anything else.** Help mode is a pure print-and-exit; no state file, no Forgejo
 calls.
 
 ```
-/project-create-prd — guided authoring of a repo's PRD, published to its
+/project-manage-prd — guided authoring of a repo's PRD, published to its
                       Forgejo wiki.
 
 What it does
@@ -59,10 +59,14 @@ Before you run it
   - `tea` configured with the homelab login (for the wiki read/write).
 
 Usage
-  /project-create-prd [<owner>/<repo>] [--help]
+  /project-manage-prd [<owner>/<repo>] [--from-review <path>] [--help]
 
-  <owner>/<repo>   Optional. Override the repo resolved from the cwd remote.
-  --help, -h       Print this help.
+  <owner>/<repo>      Optional. Override the repo resolved from the cwd remote.
+  --from-review <p>   Optional. A findings doc to work through in revise mode
+                      (e.g. a fresh audit-prd REPORT.md). Seeds the discussion
+                      only — the PRD edited is always the live wiki copy, never
+                      this file. Never auto-discovered.
+  --help, -h          Print this help.
 
 What you'll see while it runs
   An opening that frames create-vs-revise, then a back-and-forth that walks

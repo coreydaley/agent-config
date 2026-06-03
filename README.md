@@ -60,7 +60,7 @@ Invoke with `/command-name` in Claude Code. Commands with `disable-model-invocat
 |---|---|
 | `/commit` | Analyze uncommitted changes and create grouped conventional commits |
 | `/tag` | Analyze commits since last tag and propose the next semantic version |
-| `/project-create-prd` | Guided, Socratic authoring (or revision) of a project's PRD; publishes it to the repo's Forgejo wiki |
+| `/project-manage-prd` | Guided, Socratic authoring (or revision) of a project's PRD; publishes it to the repo's Forgejo wiki |
 | `/sprint-seed` | Pre-plan exploratory discussion; produces a `SEED.md` (auto-reads the repo's PRD to ground candidates) |
 | `/sprint-plan` | Multi-agent collaborative sprint planning |
 | `/sprint-plan-to-issues` | Decompose an existing sprint milestone into one Forgejo issue per task |
@@ -107,7 +107,7 @@ Skills are auto-discovered from `~/.claude/skills/`. Each skill has a `SKILL.md`
 | `gws` | Google Workspace operations — Gmail, Calendar, Drive, Docs, Sheets, Tasks |
 | `obsidian` | Obsidian vault operations via the `obsidian` CLI |
 | `orbstack` | OrbStack management — Linux machines, Docker, Kubernetes |
-| `project-create-prd` | Guided authoring/revision of a project's PRD; auto-detects create vs revise, publishes to the repo's Forgejo wiki |
+| `project-manage-prd` | Guided authoring/revision of a project's PRD; auto-detects create vs revise, publishes to the repo's Forgejo wiki |
 | `sprint-seed` | Pre-plan exploratory discussion; shapes fuzzy ideas into a `SEED.md` (grounds candidates in the repo's PRD) |
 | `sprint-plan` | Multi-agent collaborative planning with strict orchestrator/worker separation |
 | `sprint-plan-to-issues` | Decompose an existing sprint milestone into one Forgejo issue per task (self-assigned, priority-labeled, dependency-linked) |

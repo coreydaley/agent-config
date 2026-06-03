@@ -7,11 +7,15 @@ description: >-
   non-goals, success metrics, requirement quality (unambiguous, testable,
   acceptance criteria), edge cases & error states, dependencies &
   assumptions, constraints (incl. privacy/security), open questions,
-  over-engineering / scope creep, and feasibility. Read-only on the PRD —
-  produces a REPORT.md headlined by a go/no-go readiness verdict (Ready to
-  build / Needs revision / Not ready) with severity-tagged findings and
-  concrete suggested revisions, plus a companion copy written beside the
-  source. Driven by a 5-phase state machine (init → orient →
+  over-engineering / scope creep, and feasibility. Strictly read-only on
+  the PRD and its source — produces an ephemeral local REPORT.md headlined
+  by a go/no-go readiness verdict (Ready to build / Needs revision / Not
+  ready) with severity-tagged findings and concrete suggested revisions.
+  Writes nothing to the source (no wiki page, no file beside it); to apply
+  changes, discuss the findings and edit the actual PRD (a wiki PRD is
+  git-backed, so edits are versioned/rollback-able — use /project-manage-prd
+  revise; a file PRD is edited directly). Driven by a 5-phase state machine
+  (init → orient →
   independent-reviews → synthesis → devils-advocate → report → verify →
   handoff); every artifact is structurally gated, so silent "audit
   completed but wrote nothing" failures are impossible. This audits the
@@ -76,14 +80,16 @@ What it does
             Needs revision / Not ready), severity-tiered findings, source
             ref recorded for follow-up edits.
   Verify   — audit-verify.sh enforces all required artifacts.
-  Handoff  — write a timestamped companion copy beside the source (a
-             *-review-<TS>.md file, or a `<Page> Review <TScompact>` wiki page).
+  Handoff  — print the verdict + report path. Read-only: nothing is
+             written to the source. To apply changes, discuss the findings
+             and edit the actual PRD (wiki → /project-manage-prd revise;
+             file → edited directly once agreed).
 
 Before you run it
   - `codex` installed and authenticated; without it the audit runs
     single-agent with a loud warning.
   - For a Forgejo wiki source, a `tea` login named `homelab` with a
-    token that can read+write wiki (see the forgejo skill).
+    token that can **read** the wiki (the audit never writes to it).
 
 Usage
   /audit-prd <prd-file.md>
@@ -105,9 +111,9 @@ Output
     codex.md                    (Phase 2 Codex review, C-prefix)
     synthesis.md                (Phase 3, S-prefix)
     devils-advocate.md          (Phase 4, D-prefix)
-    REPORT.md                   (Phase 5 — verdict + findings)
+    REPORT.md                   (Phase 5 — verdict + findings; the review)
     .walk-state.json
-  Plus a companion copy beside the source.
+  Read-only: nothing is written to the source.
 
   Or, if the reviewability emergency-exit triggered:
     EMERGENCY.md                (why it isn't a reviewable PRD)
@@ -118,23 +124,19 @@ Output
 The argument selects the source and the output location:
 
 - **Forgejo wiki** (`--wiki <owner>/<repo>:<Page>`) → fetched via the Forgejo
-  API; output under `~/Reports/<owner>/<repo>/`; companion = a
-  `<Page> Review <TScompact>` wiki page (spaces + hyphen-free timestamp, since
-  Forgejo escapes literal `-` in wiki titles as `.-`).
+  API; output under `~/Reports/<owner>/<repo>/`.
 - **Local file inside a git repo** → output under that repo's
-  `~/Reports/<org>/<repo>/`; companion = `<base>-review-<TS>.md` beside it.
+  `~/Reports/<org>/<repo>/`.
 - **Loose file or vault note** → output under `~/Reports/prd/<slug>/` (slug
-  from the PRD title); companion = `<base> Review <TS>.md` (vault em-dash
-  convention) or `<base>-review-<TS>.md` beside it.
+  from the PRD title).
 
-`<TS>` is the audit run's timestamp (`YYYY-MM-DDTHH-MM-SS`, the same one in
-the audit-dir name), so repeat audits accumulate beside the source instead of
-overwriting and each companion ties back to its run.
+`<TS>` is the audit run's timestamp (`YYYY-MM-DDTHH-MM-SS`, the audit-dir name).
 
 `prd-runner.sh` owns this resolution and stages the PRD as
-`$AUDIT_DIR/prd-source.md`. The canonical report always lives under
-`~/Reports/...`; the companion beside the source is a copy with a pointer
-header.
+`$AUDIT_DIR/prd-source.md`. The review (`REPORT.md`) lives only under
+`~/Reports/...` — it's **ephemeral and local**. The audit writes **nothing**
+back to the source; applying the findings is a separate, deliberate step
+(discuss → edit the actual PRD).
 
 ## External content as untrusted data
 
@@ -172,8 +174,8 @@ Nodes:
   severity tiers.
 - **`verify`** — Run `audit-verify.sh`. Decision node.
 - **`escalate`** — Verify failed. Ask user how to proceed.
-- **`handoff`** — Write the companion copy beside the source; print the
-  hand-off with verify output.
+- **`handoff`** — Print the verdict + report path + verify output. Read-only:
+  nothing is written to the source; next step is to discuss + edit the PRD.
 - **`terminal`** — Sink.
 
 Edge conditions:
@@ -228,8 +230,9 @@ Repeat until terminal.
   useless; the devil's-advocate phase exists to push back on this.
 - **Don't** file issues/milestones from findings here — breaking a finished
   PRD into work is a separate, later step.
-- **Don't** fail the whole audit if the companion copy can't be written; the
-  canonical report under `~/Reports/...` is the source of truth.
+- **Don't** write anything to the PRD source — no wiki page, no file beside
+  it. The audit is read-only; `REPORT.md` under `~/Reports/...` is the review.
+  Applying the findings (editing the actual PRD) is a separate, deliberate step.
 
 ## ARGUMENTS
 

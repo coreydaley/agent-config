@@ -49,11 +49,11 @@ forgejo_token() {
 
 prd_init() {
   local source_kind source_ref org_repo prd_title prd_slug
-  local companion_kind companion_target is_vault staged_content report_ts
+  local is_vault staged_content report_ts
   is_vault="false"
-  # One timestamp per run, shared by the audit dir and the companion name so
-  # the companion beside the source ties back to its audit run and repeat
-  # audits accumulate instead of overwriting.
+  # One timestamp per run — names the audit dir under ~/Reports. The audit is
+  # read-only on the PRD; the review is the local REPORT.md, nothing is written
+  # back to the source.
   report_ts="$(date +%Y-%m-%dT%H-%M-%S)"
 
   if [[ "${1:-}" == "--wiki" ]]; then
@@ -90,11 +90,6 @@ prd_init() {
     staged_content="$(printf '%s' "$json" | jq -r '.content_base64' | base64 --decode)"
     org_repo="$owner/$repo"
     prd_title="$page"
-    companion_kind="wiki"
-    # Forgejo wiki escapes literal hyphens in titles as ".-" (ugly URLs), but
-    # round-trips spaces↔hyphens cleanly. So use spaces between tokens and a
-    # hyphen-free timestamp for the wiki companion page title.
-    companion_target="${page} Review ${report_ts//-/}"
 
   else
     # ---- Local markdown file (loose or vault note) ------------------------
@@ -111,7 +106,7 @@ prd_init() {
     prd_title="$(grep -m1 -E '^# ' "$source_ref" 2>/dev/null | sed -E 's/^#[[:space:]]+//')"
     [[ -z "$prd_title" ]] && prd_title="$(basename "${source_ref%.*}")"
 
-    # Under the vault? Drives companion naming (em-dash sub-file convention).
+    # Under the vault? Recorded in the manifest as source metadata.
     if [[ "$source_ref" == "$HOME/Vault/"* ]]; then
       is_vault="true"
     fi
@@ -127,17 +122,6 @@ prd_init() {
       org_repo="$(org_repo_from_remote "$remote")"
     else
       org_repo="prd/$(slugify "$prd_title")"
-    fi
-
-    companion_kind="file"
-    local base dir
-    dir="$(dirname "$source_ref")"
-    base="$(basename "${source_ref%.*}")"
-    if [[ "$is_vault" == "true" ]]; then
-      # Vault sub-file convention: "<base> Review <TS>.md" beside the note.
-      companion_target="$dir/$base Review $report_ts.md"
-    else
-      companion_target="$dir/${base}-review-${report_ts}.md"
     fi
   fi
 
@@ -170,8 +154,6 @@ prd_init() {
   "prd_title": "$prd_title",
   "prd_slug": "$prd_slug",
   "is_vault": $is_vault,
-  "companion_kind": "$companion_kind",
-  "companion_target": "$companion_target",
   "started_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "expected_artifacts": [
     "claude.md",

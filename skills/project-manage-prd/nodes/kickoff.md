@@ -5,11 +5,12 @@ first real question. One message, then wait.
 
 ## Inputs
 
-- `prd_mode`, `org_repo`, `orient_summary`, `existing_summary` from walker state
+- `prd_mode`, `org_repo`, `orient_summary`, `existing_summary`, `findings_path` from walker state
 
 ```bash
 STATE="$SESSION_DIR/.walk-state.json"
 PRD_MODE=$(scripts/walk.sh get --state "$STATE" --key prd_mode)
+FINDINGS_PATH=$(scripts/walk.sh get --state "$STATE" --key findings_path)
 ```
 
 ## Steps
@@ -32,6 +33,21 @@ Compose a tight opening. No preamble, no "Great! Let's get started."
 >
 > What do you want to change — extend a section, add a phase, re-scope, fix
 > something that's drifted? Tell me where to start and we'll work through it."
+
+**If `findings_path` is set** (e.g. a fresh `audit-prd` review handed off), read
+that file and open against it instead — list the findings as a short agenda and
+work them one at a time, deciding apply-vs-leave together:
+
+> "I've got the audit findings for the **<org/repo>** PRD. Quick agenda — N to
+> work through:
+>   1. [Blocker] <finding> — suggested: <revision>
+>   2. [Major]   <finding> — …
+> Let's take them one at a time: for each, you decide apply / change / leave
+> as-is, and I edit the live PRD accordingly. Start with #1?"
+
+The findings doc is **discussion input only** — the PRD content being edited is
+the live wiki copy `orient` fetched, never the findings file or the audit's
+snapshot.
 
 ## The PRD sections we're walking toward
 

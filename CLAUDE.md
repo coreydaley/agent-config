@@ -90,7 +90,7 @@ Currently:
 
 Skills with multi-phase workflows (review pipelines, sprint planning, address-feedback loops) use the **dot-graph skill pattern**: the flow is a `graph.dot` with per-node markdown sidecars under `nodes/`, walked deterministically by `lib/graph_walker.py`. The graph is the source of truth — drift between prose and routing is structurally impossible. Reference: [`docs/DOT-GRAPH-SKILL-PATTERN.md`](docs/DOT-GRAPH-SKILL-PATTERN.md).
 
-Skills currently on this pattern: `commit`, `polish-pull-request`, `review-address-feedback`, `review-pr-comprehensive`, `review-pr-simple`, `project-create-prd`, `sprint-plan`, `sprint-plan-to-issues`, `sprint-seed`, `sprint-work`, all 30 `audit-*` skills (22 apple + 8 general/web). CLI-wrapper skills (`forgejo`, `gh`, `gws`, `obsidian`, `orbstack`) are not on this pattern — they're one-shot operations with no internal state machine.
+Skills currently on this pattern: `commit`, `polish-pull-request`, `review-address-feedback`, `review-pr-comprehensive`, `review-pr-simple`, `project-manage-prd`, `sprint-plan`, `sprint-plan-to-issues`, `sprint-seed`, `sprint-work`, all 30 `audit-*` skills (22 apple + 8 general/web). CLI-wrapper skills (`forgejo`, `gh`, `gws`, `obsidian`, `orbstack`) are not on this pattern — they're one-shot operations with no internal state machine.
 
 ## Sprint workflow
 

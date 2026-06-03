@@ -25,7 +25,7 @@ accordingly.
 
 ```bash
 PRD_B64=$(base64 < "$SESSION_DIR/PRD.md" | tr -d '\n')
-MSG="project-create-prd: $SESSION_TS"
+MSG="project-manage-prd: $SESSION_TS"
 
 # Build the JSON body safely with jq (avoids quoting issues in the content).
 BODY=$(jq -n --arg t "PRD" --arg c "$PRD_B64" --arg m "$MSG" \
