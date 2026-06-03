@@ -10,8 +10,8 @@ description: >-
   before work begins. Output is SPRINT.md plus an intent doc and the
   draft + critique + review trail; the sprint is registered in the
   ledger so /sprint-work can find it.
-argument-hint: "[--auto|--full|--base|--dry] [--tier=high|mid] [--help] <seed prompt or path to SEED.md>"
-disable-model-invocation: true
+argument-hint: "[--auto|--full|--base|--dry] [--tier=high|mid] [--help] <seed prompt | path to SEED.md | path to audit REPORT.md>"
+disable-model-invocation: false
 ---
 
 # Sprint Plan: Collaborative Multi-Agent Planning
@@ -85,11 +85,12 @@ When to use it
 Before you run it
   - You're in a checkout of the project (the orchestrator reads
     CLAUDE.md and recent commits during Orient).
-  - `linear` and `gh` aren't required for sprint-plan itself, but
-    /sprint-work later will want them.
+  - `tea` (the Forgejo CLI) isn't required for sprint-plan itself, but
+    registering the milestone and the later /sprint-plan-to-issues +
+    /sprint-work steps will want it.
 
 Usage
-  /sprint-plan [flags] <seed prompt or path to SEED.md>
+  /sprint-plan [flags] <seed prompt | path to SEED.md | path to audit REPORT.md>
 
   --auto              Use Orient's pre-filled phase + tier picks.
   --full              Enable all optional phases at recommended tiers.
@@ -101,6 +102,7 @@ Usage
 Examples
   /sprint-plan "explore caching for python images"
   /sprint-plan ~/Reports/.../sprints/<TS>/SEED.md
+  /sprint-plan ~/Reports/.../audits/<TS>-apple-security/REPORT.md
   /sprint-plan --full "rewrite the auth middleware"
   /sprint-plan --base --tier=mid <seed>
   /sprint-plan --dry <seed>      # phase + tier preview, no work
@@ -124,7 +126,7 @@ What you'll see while it runs
 What this skill won't do
   - Run an interactive interview. The seed step (/sprint-seed) is the
     discovery phase; this skill plans against the seed.
-  - Push to Linear (use /sprint-plan-to-linear after).
+  - Push to Forgejo (use /sprint-plan-to-issues after).
   - Run /sprint-work or commit/push anything.
   - Mark the sprint completed (only /sprint-work --retro does that).
 ```
@@ -274,7 +276,9 @@ folder, that folder is reused — SEED.md and SPRINT.md live together.
   jobs. The orchestrator synthesizes only.
 - **Don't run an interactive interview.** Surface Area decisions
   flow through intent → drafts → critiques as the calibration path.
-- **Don't push to Linear, run /sprint-work, or commit anything.**
+- **Don't create issues, run /sprint-work, or commit anything.** This skill
+  registers the milestone (the plan) only; `/sprint-plan-to-issues` creates
+  the issues.
 - **Don't auto-spike on Medium-only findings.** The escape hatch is
   for structural uncertainty, not patch-level concerns.
 - **Don't register without user approval.** `register` is gated by
@@ -287,9 +291,10 @@ folder, that folder is reused — SEED.md and SPRINT.md live together.
 
 ## ARGUMENTS
 
-The user passes a seed prompt (inline text) or a path to a SEED.md,
-plus optional flags (`--auto` / `--full` / `--base` / `--dry` /
-`--tier=high|mid` / `--help`).
+The user passes a seed prompt (inline text), a path to a SEED.md, or a
+path to an audit REPORT.md — all ephemeral local seeds; this skill turns
+them into the durable Forgejo milestone. Plus optional flags (`--auto` /
+`--full` / `--base` / `--dry` / `--tier=high|mid` / `--help`).
 
 The literal arguments passed by the user follow:
 

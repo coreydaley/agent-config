@@ -20,7 +20,7 @@ description: >-
   a finished PRD into milestones/issues is a separate, later step, not
   this skill.
 argument-hint: "[<prd-file.md> | --wiki <owner>/<repo>:<Page>] [--help]"
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # PRD Audit
@@ -76,8 +76,8 @@ What it does
             Needs revision / Not ready), severity-tiered findings, source
             ref recorded for follow-up edits.
   Verify   — audit-verify.sh enforces all required artifacts.
-  Handoff  — write a companion copy beside the source (a *-review.md file,
-             or a <Page>-Review Forgejo wiki page).
+  Handoff  — write a timestamped companion copy beside the source (a
+             *-review-<TS>.md file, or a `<Page> Review <TScompact>` wiki page).
 
 Before you run it
   - `codex` installed and authenticated; without it the audit runs
@@ -118,13 +118,18 @@ Output
 The argument selects the source and the output location:
 
 - **Forgejo wiki** (`--wiki <owner>/<repo>:<Page>`) → fetched via the Forgejo
-  API; output under `~/Reports/<owner>/<repo>/`; companion = a `<Page>-Review`
-  wiki page.
+  API; output under `~/Reports/<owner>/<repo>/`; companion = a
+  `<Page> Review <TScompact>` wiki page (spaces + hyphen-free timestamp, since
+  Forgejo escapes literal `-` in wiki titles as `.-`).
 - **Local file inside a git repo** → output under that repo's
-  `~/Reports/<org>/<repo>/`; companion = `<base>-review.md` beside it.
+  `~/Reports/<org>/<repo>/`; companion = `<base>-review-<TS>.md` beside it.
 - **Loose file or vault note** → output under `~/Reports/prd/<slug>/` (slug
-  from the PRD title); companion = `<base> Review.md` (vault em-dash
-  convention) or `<base>-review.md` beside it.
+  from the PRD title); companion = `<base> Review <TS>.md` (vault em-dash
+  convention) or `<base>-review-<TS>.md` beside it.
+
+`<TS>` is the audit run's timestamp (`YYYY-MM-DDTHH-MM-SS`, the same one in
+the audit-dir name), so repeat audits accumulate beside the source instead of
+overwriting and each companion ties back to its run.
 
 `prd-runner.sh` owns this resolution and stages the PRD as
 `$AUDIT_DIR/prd-source.md`. The canonical report always lives under

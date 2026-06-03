@@ -177,8 +177,7 @@ Edge conditions:
 
 - `orient → independent_reviews`: `proceed` (always taken)
 - `orient → emergency_exit`: `emergency` (never taken for this audit)
-- `verify → ingest`: `ok`
-- `ingest → handoff`: (single outgoing edge)
+- `verify → handoff`: `ok`
 - `verify → escalate`: `incomplete`
 - `escalate → terminal`: `user_acknowledge`
 

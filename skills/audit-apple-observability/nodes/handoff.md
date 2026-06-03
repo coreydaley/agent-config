@@ -84,10 +84,6 @@ If `DA_STATUS=failed`, add:
 If `INGEST_STATUS` is `failed` or `unavailable`, add:
 
 ```
-> - **Plane ingest**: <failed | unavailable>. Audit artifacts are
->   complete; only the work-item generation failed. Re-run with
->   `/plane-audit-ingest <audit-dir>` after fixing the underlying issue.
-```
 
 ### 3. Mark the audit complete in walker state
 

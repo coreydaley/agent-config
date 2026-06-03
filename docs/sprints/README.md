@@ -20,8 +20,8 @@ flowchart TD
     Direct["direct seed text"] -.->|inline prompt| Plan
     Plan["/sprint-plan"] -->|SPRINT.md| Path{execution path}
     Path -->|SPRINT.md path| Work["/sprint-work"]
-    Path -->|Linear path| ToLinear["/sprint-plan-to-linear"]
-    ToLinear -->|milestone + issues<br/>+ LINEAR.md| Work
+    Path -->|Forgejo path| ToForgejo["/sprint-plan-to-issues"]
+    ToForgejo -->|milestone + issues<br/>+ FORGEJO.md| Work
     Work -->|"opens draft PR(s)<br/>per repo in manifest"| PR(("PR(s) opened<br/>draft"))
 
     PR --> SelfCycle
@@ -72,12 +72,12 @@ cycles* section below for details.
 
 | Stage | Skill | Output |
 |---|---|---|
-| Audit (optional input) | General: `/audit-architecture` `/audit-design` `/audit-test-coverage` • Web: `/audit-web-accessibility` `/audit-web-responsive` `/audit-web-security` • Apple: `/audit-apple-accessibility` `/audit-apple-adaptivity` `/audit-apple-app-store-review` `/audit-apple-architecture` `/audit-apple-design` `/audit-apple-localization` `/audit-apple-performance` `/audit-apple-persistence` `/audit-apple-privacy` `/audit-apple-security` `/audit-apple-testing` | Findings written as sprint-able tasks; all are 5-phase dot-graph skills using shared `lib/audit-*.sh` helpers |
+| Audit (optional input) | General: `/audit-architecture` `/audit-design` • Web: `/audit-web-accessibility-human` `/audit-web-responsive` `/audit-web-security` • Apple: `/audit-apple-accessibility` `/audit-apple-adaptivity` `/audit-apple-app-store-review` `/audit-apple-architecture` `/audit-apple-design` `/audit-apple-localization` `/audit-apple-performance` `/audit-apple-persistence` `/audit-apple-privacy` `/audit-apple-security` `/audit-apple-testing` | Findings written as sprint-able tasks; all are 5-phase dot-graph skills using shared `lib/audit-*.sh` helpers |
 | Pre-plan discussion (optional) | `/sprint-seed` | `SEED.md` (refined seed prompt + discussion summary) in a fresh session folder |
 | Plan | `/sprint-plan` | `SPRINT.md` + supporting drafts/critiques/reviews |
-| Capture in Linear | `/sprint-plan-to-linear` | Linear milestone + issues, `LINEAR.md` sidecar |
-| Ledger | `/sprints` | `ledger.tsv`; lookup by `--current` / `--path <query>` (session prefix or title fragment) |
-| Execute | `/sprint-work` | Auto-detects SPRINT.md vs Linear path from input. Cwd-independent — reads SPRINT.md's `Repositories` manifest, finds-or-creates a worktree per repo on a shared branch name, opens draft PR(s) per repo. |
+| Capture in Forgejo | `/sprint-plan-to-issues` | Forgejo milestone + issues, `FORGEJO.md` sidecar |
+| Tracking | `python3 ~/.claude/lib/forgejo_sprints.py` | A **Forgejo milestone** per sprint (open = active, closed = finished); lookup by `--current` / `--list` / `--path <query>` (session prefix or title fragment). No local ledger — Forgejo is the source of truth. The sprint-* skills call this lib CLI directly (there is no `sprints` skill). |
+| Execute | `/sprint-work` | Auto-detects SPRINT.md vs Forgejo path from input. Cwd-independent — reads SPRINT.md's `Repositories` manifest, finds-or-creates a worktree per repo on a shared branch name, opens draft PR(s) per repo. |
 | Self-review (pre-push, one-skill loop) | `/sprint-self-review` | Sprint-scoped review of the draft PR(s) — reads SPRINT.md's Repositories manifest, bundles per-repo diffs for cross-repo finding detection, fixes apply in the right worktree per finding. Per-iteration `REVIEW.md` + `ADDRESSED.md`, rolled into a per-sprint `findings.md` ledger |
 | Review (single agent) | `/review-pr-simple` | `REVIEW.md` |
 | Review (dual agent) | `/review-pr-comprehensive` | `REVIEW.md` (Claude + Codex synthesis) |
@@ -89,8 +89,9 @@ cycles* section below for details.
 
 ## Two execution paths
 
-Both start from the same `SPRINT.md`. Pick based on whether the team
-operates from Linear or directly from the plan document.
+Both start from the same `SPRINT.md`. Pick based on whether you want
+the work tracked as Forgejo issues or driven directly from the plan
+document.
 
 ### SPRINT.md path
 
@@ -98,24 +99,23 @@ operates from Linear or directly from the plan document.
 /sprint-plan → /sprint-work → PR → review/fix cycle → merge → retro
 ```
 
-Use when: solo work, small team, or work that doesn't need to be
-visible to a broader Linear audience. Faster start; no Linear setup
-overhead.
+Use when: quick solo work, or work that doesn't need a tracked
+milestone/issue trail. Faster start; no Forgejo issue setup overhead.
 
-### Linear path
+### Forgejo path
 
 ```
-/sprint-plan → /sprint-plan-to-linear → /sprint-work [<query> | <LINEAR-ID>]
+/sprint-plan → /sprint-plan-to-issues → /sprint-work [<query> | <owner>/<repo>#N]
             → PR → review/fix cycle → merge → retro
 ```
 
-`/sprint-work` auto-detects the Linear path when the session folder
-has a `LINEAR.md` sidecar, or when the argument is a Linear issue ID
-(`<LINEAR-ID>`), milestone name, or Linear URL.
+`/sprint-work` auto-detects the Forgejo path when the session folder
+has a `FORGEJO.md` sidecar, or when the argument is a Forgejo issue ref
+(`<owner>/<repo>#N`), milestone name, or Forgejo issue URL.
 
-Use when: team-visible work, work that benefits from Linear's tracking
-(milestones, priority, issue threading, GitHub-integration state
-transitions), or anything you want Linear's automated quality coaching on.
+Use when: work that benefits from a tracked milestone + issues
+(priority, issue threading, `Closes #N` auto-close on merge), or when
+you want the change set discoverable on the Forgejo board.
 
 The two paths are equally valid — they end at the same place (PR
 opened, review cycle, merge, retro).
@@ -187,7 +187,7 @@ won't-fixed.
 The skill doesn't push, doesn't undraft, and doesn't comment on the
 PR(s). The user pushes once at the end **per repo** (so CI runs
 against each repo's final self-reviewed state), then marks each PR
-ready-for-review (`gh pr ready` or the GitHub UI). For details:
+ready-for-review by toggling off draft in the Forgejo UI. For details:
 `skills/sprint-self-review/SKILL.md`.
 
 ### Human review cycle
@@ -225,19 +225,20 @@ loop, not a state machine).
 and only Low/Nit findings remain (or none at all). See *Acceptable
 terminal states* below.
 
-### Deferring findings — write them into Linear
+### Deferring findings — write them into a Forgejo issue
 
 Some findings are real but not in scope for the current PR. Defer them
-with `/review-address-feedback`'s **defer** action and choose **Linear
-issue** as the destination. The skill creates a Linear issue describing
-the deferred work in its own terms (no internal review IDs in the
-title or description) and returns the new issue ID, e.g. `PROJ-1234`.
+with `/review-address-feedback`'s **defer** action and choose **Forgejo
+issue** as the destination. The skill creates a Forgejo issue
+(`tea issues create --repo <owner>/<repo>`) describing the deferred work
+in its own terms (no internal review IDs in the title or description)
+and returns the new issue ref, e.g. `coreydaley/enclave#42`.
 
 When the deferred work would live at a specific spot in the code, the
 skill also offers to leave a marker comment at that file:line:
 
 ```go
-// TODO(PROJ-1234): handle the empty-batch case once the upstream API
+// TODO(#42): handle the empty-batch case once the upstream API
 // stops returning nil for empty queries.
 ```
 
@@ -246,11 +247,11 @@ The marker accomplishes three things:
   see it in context.
 - **Links the gap to a tracked work item** so it doesn't fall off
   everyone's radar.
-- Lets `grep -r 'TODO(CON-' .` produce a complete list of deferred
+- Lets `grep -rn 'TODO(#' .` produce a complete list of deferred
   items in the codebase.
 
-The Linear-ID reference in the code comment (e.g. `PROJ-1234`) is a public team-visible
-identifier and is **explicitly allowed in code**. This is distinct
+The Forgejo issue ref in the code comment (e.g. `#42`) is a public
+repo identifier and is **explicitly allowed in code**. This is distinct
 from internal review IDs (`R001`, `SR042`, `CR007`, etc.) which never
 appear in code, commits, or PR comments — those are scratch artifacts
 that live only in `REVIEW.md` / `ADDRESSED.md`.
@@ -265,11 +266,11 @@ are scratch artifacts of the review process. They live only in
 - PR titles, PR bodies, or PR replies
 - any user-facing summary
 
-**Linear issue IDs (e.g. `PROJ-1234`) are explicitly exempt** — they're
-public team-visible identifiers, not internal review artifacts.
-Leaving a `// TODO(PROJ-1234): ...` marker in code when deferring a
-finding to Linear is correct and expected (see "Deferring findings"
-below).
+**Forgejo issue refs (e.g. `#42`, `coreydaley/enclave#42`) are explicitly
+exempt** — they're public repo identifiers, not internal review
+artifacts. Leaving a `// TODO(#42): ...` marker in code when deferring a
+finding to a Forgejo issue is correct and expected (see "Deferring
+findings" above).
 
 `/review-address-feedback` enforces this rule directly. Other skills
 in the cycle (`/review-pr-*`, `/polish-pull-request`) inherit it —
@@ -302,7 +303,7 @@ space by describing a *why* that genuinely takes more than ~80
 characters — usually a hidden constraint or non-obvious workaround.
 
 The ID Suppression Rule (above) also applies to comments: no
-internal review IDs in code. Linear IDs in `// TODO(PROJ-1234): ...`
+internal review IDs in code. Forgejo issue refs in `// TODO(#42): ...`
 markers are exempt and explicitly correct.
 
 `/sprint-work`, `/sprint-self-review` (its `address` node), and
@@ -327,7 +328,7 @@ runs against those drafts, on the local diffs across every repo in
 the sprint's manifest, so the team isn't notified during initial
 iteration and CI doesn't run on every fix attempt. The user pushes
 once per repo at the end of self-review, then manually marks each
-PR ready-for-review (`gh pr ready` or the GitHub UI) — that's the
+PR ready-for-review (toggle off draft in the Forgejo UI) — that's the
 gate into the human review cycle. `/polish-pull-request` is also a
 good moment to run right before marking each PR ready, so titles
 and bodies are clean when reviewers see them. Skills in this repo
@@ -337,6 +338,30 @@ never push or undraft a PR on the user's behalf.
 
 ## Artifact map
 
+**Forgejo is the system of record; `~/Reports/` is ephemeral local scratch.**
+The durable product of a sprint lives in Forgejo:
+
+- the **milestone** — its *description* is the SPRINT document plus a
+  `## Sprint metadata` footer, and the RETRO is appended to that same
+  description at close;
+- its **issues** (created by `/sprint-plan-to-issues`) and the **commits**
+  that close them.
+
+The local files under the session folder are either **ephemeral seeds** or
+**regenerable caches**, never the source of truth:
+
+| Local file | Role |
+|---|---|
+| `SEED.md` | Ephemeral seed (from `/sprint-seed`) fed into `/sprint-plan`. Not published anywhere — same role an audit's `REPORT.md` plays. |
+| `SPRINT.md` | Working copy of the milestone description. `/sprint-work` regenerates it from the milestone (`forgejo_sprints.py --get-doc`) if it's gone. |
+| `RETRO.md` | Working copy of the retro that gets appended to the milestone. |
+| `FORGEJO.md` | Local record of the milestone→issues mapping (from `/sprint-plan-to-issues`). |
+
+There is **no wiki** in the loop (the old `forgejo-wiki.sh` transport was
+removed). **Repo-less / cross-cutting sprints** (under `~/Reports/seeds/`,
+`~/Reports/forgejo/`, `~/Reports/no-repo/`) have no milestone home — they're
+the one genuine exception: local-only, untracked.
+
 Sprint sessions live under one of four scoping roots, depending on
 whether the seed had a clear repo context:
 
@@ -344,19 +369,20 @@ whether the seed had a clear repo context:
 |---|---|
 | `~/Reports/<org>/<repo>/` | Standard case — `/sprint-seed` ran inside a git repo with a usable remote. `<org>/<repo>` derived from `upstream`, falling back to `origin`. |
 | `~/Reports/seeds/` | Pure-seed mode — `/sprint-seed` ran from a non-repo cwd or on a fuzzy idea, or the sprint is genuinely cross-cutting (multi-repo with no obvious primary). |
-| `~/Reports/linear/` | Pure-Linear mode — `/sprint-seed <linear-project-url>` with no repo context, or work captured in Linear directly with no local clone. |
+| `~/Reports/forgejo/` | Pure-Forgejo mode — work captured directly as Forgejo issues/milestones with no repo-scoped seed context. |
 | `~/Reports/no-repo/` | Ledger fallback when the current directory isn't a git repo or has no usable remote. |
 
 Two distinct scoping layers — the sprint folder and the per-PR folder live
 in different roots and serve different cycles.
 
 **Sprint-scoped (under the sprint's root):** SEED.md, SPRINT.md, RETRO.md,
-self-review/, plus the planning artifacts. One sprint, one folder, one
-ledger entry.
+plus the planning artifacts — all local **working copies / ephemeral seeds**.
+The canonical record is the sprint's **Forgejo milestone** (its description
+holds the SPRINT doc + metadata + retro); there's no wiki and no local
+`ledger.tsv` anymore.
 
 ```
 <sprint-root>/
-├── ledger.tsv                                    # sprint index (per root)
 └── sprints/
     └── YYYY-MM-DDTHH-MM-SS/                      # the sprint session folder
         ├── intent.md
@@ -365,7 +391,7 @@ ledger entry.
         ├── ...                                   # critiques, reviews
         ├── SEED.md                               # if /sprint-seed ran
         ├── SPRINT.md                             # the plan (incl. ## Repositories manifest)
-        ├── LINEAR.md                             # Linear mapping (if /sprint-plan-to-linear ran)
+        ├── FORGEJO.md                            # Forgejo mapping (if /sprint-plan-to-issues ran)
         ├── .branch                               # branch name sidecar (sprintmd path)
         ├── self-review/                          # /sprint-self-review's per-sprint output
         │   ├── findings.md                       # rolling ledger across runs (sprint-scoped)
@@ -381,8 +407,8 @@ ledger entry.
 ```
 
 `<sprint-root>` is one of `~/Reports/<org>/<repo>/` (repo-scoped sprint),
-`~/Reports/seeds/` (cross-cutting or pure-seed), `~/Reports/linear/`
-(pure-Linear), or `~/Reports/no-repo/`.
+`~/Reports/seeds/` (cross-cutting or pure-seed), `~/Reports/forgejo/`
+(pure-Forgejo), or `~/Reports/no-repo/`.
 
 **Per-PR (under each touched repo's root):** post-push human-cycle artifacts.
 A multi-repo sprint produces N PRs, one in each manifest repo. Each PR's
@@ -418,9 +444,11 @@ fixes back to the right worktree) read it. So a multi-repo sprint stored
 under `~/Reports/seeds/` still drives PRs and review cycles in every repo
 named in the manifest, cwd-independently.
 
-The ledger's `session` column points each sprint at its folder; the
-folder timestamp is the only identifier (sprint numbers live in the
-ledger and inside `SPRINT.md`, not in any path).
+The session timestamp is the only sprint identifier — it's the milestone's
+`## Sprint metadata` → `Session` field and the local folder name. The sprint
+tracker (`forgejo_sprints.py`) resolves a query to a milestone, then derives
+the local folder as `~/Reports/<owner>/<repo>/sprints/<TS>/`. There are no
+sprint numbers.
 
 ---
 
@@ -437,25 +465,23 @@ plan will use the audit findings as the basis for tasks.
 **"I don't know what to work on next."**
 `/sprint-seed` (no args, from a repo directory) → agent surveys
 `~/Reports/<org>/<repo>/` and proposes 2–3 next-step candidates
-based on past sprints / retros / git log. Or `/sprint-seed
-<linear-project-url>` to orient on a Linear project's milestone
-progression.
+based on past sprints / retros / git log.
 
 **"I'm starting fresh on a sprint."**
-`/sprint-plan` → review/approve → `/sprint-plan-to-linear` (if you want
-Linear) → `/sprint-work` to execute.
+`/sprint-plan` → review/approve → `/sprint-plan-to-issues` (if you want
+Forgejo issues) → `/sprint-work` to execute.
 
-**"I'm picking up an in-flight Linear issue."**
-`/sprint-work <LINEAR-ID>` from anywhere — the skill reads the SPRINT.md
-Repositories manifest to locate worktrees and asks before creating any
-that don't exist yet. As a convenience, if you happen to be in a worktree
-whose branch matches the Linear pattern (`coreydaley/proj-1234-…`),
-running `/sprint-work` with no arguments detects the issue from the
-branch name.
+**"I'm picking up an in-flight Forgejo issue."**
+`/sprint-work <owner>/<repo>#N` from anywhere — the skill reads the
+SPRINT.md Repositories manifest to locate worktrees and asks before
+creating any that don't exist yet. As a convenience, if you happen to be
+in a worktree whose branch matches the Forgejo convention
+(`coreydaley/<repo>-<n>-…`), running `/sprint-work` with no arguments
+detects the issue from the branch name via the FORGEJO.md sidecar.
 
 **"My draft PR(s) are open. What now?"**
-`/sprint-self-review` — pass a sprint reference (Linear ID, sprint
-query) or run from any of the sprint's worktrees with no args.
+`/sprint-self-review` — pass a sprint reference (Forgejo issue ref,
+sprint query) or run from any of the sprint's worktrees with no args.
 Iterate on the local diff(s) across every repo the sprint touches
 until you're ready for human eyes. For multi-repo sprints, fixes
 apply in the right worktree per finding (cross-repo coupling
@@ -464,7 +490,7 @@ each PR ready-for-review, then let humans and bots take over.
 
 **"My PR has review comments to address."**
 `/review-address-feedback <PR-url>` and walk through them. If a
-finding is real but out of scope, defer to Linear with a code marker.
+finding is real but out of scope, defer to a Forgejo issue with a code marker.
 
 **"I want a fresh review on my PR."**
 `/review-pr-simple <PR-url>` for a quick check, or
@@ -481,14 +507,14 @@ Mid-sprint amendment isn't a first-class flow yet (see Known Gaps).
 
 Future work that hasn't shipped:
 
-- **Audit → Linear bridge.** Audit findings currently route through
-  `/sprint-plan` first. A direct `/audit-to-linear` path would short-
-  circuit small audit findings into Linear issues without requiring a
+- **Audit → Forgejo bridge.** Audit findings currently route through
+  `/sprint-plan` first. A direct `/audit-to-forgejo` path would short-
+  circuit small audit findings into Forgejo issues without requiring a
   sprint plan.
 - **Mid-sprint amend.** Re-running `/sprint-plan` produces a new
   session folder rather than updating the existing one. Fine for short
   sprints; bites if you find yourself wanting to revise mid-flight.
-- **Linear → SPRINT.md sync.** Issues that evolve in Linear during
+- **Forgejo → SPRINT.md sync.** Issues that evolve in Forgejo during
   execution don't flow back to `SPRINT.md`. The bridge is one-way for
   now; mostly OK since `SPRINT.md` is the immutable plan.
 - **Multi-repo merge aggregator.** For multi-repo sprints, each PR
@@ -506,12 +532,12 @@ Future work that hasn't shipped:
 | The skill format used by these skills (graph + walker) | `DOT-GRAPH-SKILL-PATTERN.md` |
 | Pre-plan discussion / seed shaping | `skills/sprint-seed/SKILL.md` |
 | Phase-by-phase planning workflow | `skills/sprint-plan/SKILL.md` |
-| Sprint execution (SPRINT.md or Linear) | `skills/sprint-work/SKILL.md` |
-| Linear bridge | `skills/sprint-plan-to-linear/SKILL.md` |
+| Sprint execution (SPRINT.md or Forgejo) | `skills/sprint-work/SKILL.md` |
+| Forgejo bridge | `skills/sprint-plan-to-issues/SKILL.md` |
 | Self-review cycle (sprint-scoped, one-skill loop across all repos) | `skills/sprint-self-review/SKILL.md` |
 | PR review (single agent) | `skills/review-pr-simple/SKILL.md` |
 | PR review (dual agent) | `skills/review-pr-comprehensive/SKILL.md` |
 | Address PR feedback | `skills/review-address-feedback/SKILL.md` |
 | Pre-merge PR polish | `skills/polish-pull-request/SKILL.md` |
-| Sprint ledger / velocity | `skills/sprints/SKILL.md` |
+| Sprint tracking (Forgejo milestones) | `lib/forgejo_sprints.py` (library + CLI; no skill) |
 | Audit lenses | `subagents/audit-*.md` |

@@ -303,9 +303,8 @@ cleanup) is rejected.
 ### Parallel delegation
 
 A single node launches multiple workers in parallel and waits for
-all. Used in `/review-pr-comprehensive` (Claude + Codex), `/sprint-
-self-review` (Claude subagent + Codex exec), `/sprint-plan` (up to 7
-parallel review lenses).
+all. Used in `/review-pr-comprehensive` (Claude + Codex) and
+`/sprint-plan` (up to 7 parallel review lenses).
 
 ```
                             ┌─ Codex (background)
@@ -314,21 +313,9 @@ independent-reviews ────────┤                       → wait �
 ```
 
 The graph shows one node; the parallelism is internal. The skill's
-node prose covers launch + wait + artifact verification.
-
-`/sprint-self-review` is a good showcase — it combines parallel
-delegation (`independent-reviews`) with an iteration loop (back-edge
-from `decide` and `escalate` through `compute-diff`):
-
-![/sprint-self-review graph](images/sprint-self-review.png)
-
-The `independent-reviews` node hides Claude (subagent via the `Agent`
-tool) and Codex (`codex exec`) running in parallel; the orchestrator
-waits for both, then `synthesis`, `devils-advocate`, and
-`write-iteration-review` run sequentially. The `keep_iterating`
-back-edge from `decide` and the `user_continue` back-edge from
-`escalate` both route through `compute-diff` so each iteration sees a
-fresh diff against the post-`address` working tree.
+node prose covers launch + wait + artifact verification. The
+orchestrator waits for both workers, then the synthesis node merges
+their output before the flow continues.
 
 ### Mode dispatch (flag-driven subgraphs)
 
@@ -351,7 +338,7 @@ upstream context-loading nodes and the terminal sink.
 When a node walks N items (per-finding, per-PR, per-issue, per-group),
 the loop is internal to one node — no graph node per iteration. Used
 in `/commit` (per-group), `/review-address-feedback` (per-finding),
-`/sprint-work` linear-walk (per-issue), `/sprint-plan-to-linear`
+`/sprint-work` forgejo-walk (per-issue), `/sprint-plan-to-issues`
 (per-issue creation).
 
 The node's prose describes the loop: "for each X in Y, do Z; on
@@ -467,8 +454,8 @@ grouped by source node>
 ## <skill-specific sections as needed>
 
 <e.g., "Worktree lifecycle" for /review-pr-comprehensive,
-"Re-run detection" for /sprint-plan-to-linear, "Strict separation of
-duties" for /sprint-self-review>
+"Re-run detection" for /sprint-plan-to-issues, "Strict separation of
+duties" for /review-pr-comprehensive>
 
 ## Artifacts and paths
 
@@ -636,12 +623,11 @@ just leave it procedural.
 | `/sprint-seed` | 9 | 11 | Discuss loop with mode-dispatch in node prose |
 | `/review-pr-simple` | 12 | 17 | Discuss loop, four-style post fork |
 | `/review-address-feedback` | 13 | 19 | Strategy-driven per-finding loop |
-| `/sprint-plan-to-linear` | 15 | 21 | Re-run pre-flight, per-match decisions |
+| `/sprint-plan-to-issues` | 11 | 12 | Reuse pre-flight (same-title milestone), discuss loop |
 | `/polish-pull-request` | 16 | 25 | Two-stage approval, preflight before destructive op |
 | `/sprint-plan` | 16 | 21 | N-way parallel delegation (drafts, critiques, reviews) |
 | `/review-pr-comprehensive` | 17 | 23 | Persistent worktree lifecycle + cleanup sink |
-| `/sprint-self-review` | 10 | 14 | Iteration loop with full review pipeline per iteration |
-| `/sprint-work` | 18 | 25 | Three-way subgraph fork (review / retro / normal) |
+| `/sprint-work` | 16 | 22 | Three-way subgraph fork (review / retro / normal), autonomous normal path |
 
 The shared walker is `lib/graph_walker.py`. Each skill's
 `scripts/walk.sh` thin-wraps it with the skill's `graph.dot` path

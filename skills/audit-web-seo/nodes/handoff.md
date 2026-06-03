@@ -45,7 +45,7 @@ Parse the audit summary table to populate the hand-off counts.
 >   schedule them first, treat as block-deploy / hotfix.
 > - The AI-agent / LLM-crawler surface (GPTBot / ClaudeBot directives,
 >   llms.txt, no-JS extraction, API/MCP access) is NOT covered here —
->   run /audit-web-agent-accessibility for that.
+>   run /audit-web-accessibility-agent for that.
 > - Sensitive-content warning: REPORT.md may reference internal file
 >   paths and unpublished URLs. Treat as confidential before sharing.
 >

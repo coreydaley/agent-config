@@ -174,7 +174,6 @@ Nodes:
   inside the audit window to Immediate Action.
 - **`verify`** — Run `audit-verify.sh`. Decision node.
 - **`escalate`** — Verify failed. Ask user.
-- **`ingest`** — Run `/plane-audit-ingest` against REPORT.md.
 - **`handoff`** — Print hand-off message.
 - **`terminal`** — Sink.
 

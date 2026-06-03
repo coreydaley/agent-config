@@ -1,8 +1,11 @@
 // Sprint Work state machine.
 //
 // Source of truth for the /sprint-work skill. Three execution paths
-// (sprintmd / linear-issue / linear-walk) plus three flag-driven
-// modes (--review / --retro / normal) merging at terminal. The
+// (sprintmd / forgejo-issue / forgejo-walk) plus three flag-driven
+// modes (--review / --retro / normal) merging at terminal. A normal run
+// auto-fires the retro (check-milestone) when its work closes the last
+// open issue in the milestone, so closing out a sprint needs no separate
+// --retro invocation. The
 // walker (Claude, per SKILL.md) reads each node's prose from
 // nodes/<id>.md, performs the work, evaluates the outgoing edges'
 // conditions, and transitions via scripts/walk.sh.
@@ -19,29 +22,27 @@ digraph sprint_work {
     init                 [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
                           label="init\n(parse args + flags,\nhandle --help inline)"];
     resolve_target       [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
-                          label="resolve-target\n(detect sprintmd / linear-issue /\nlinear-walk)"];
+                          label="resolve-target\n(detect sprintmd / forgejo-issue /\nforgejo-walk)"];
     load_context         [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
-                          label="load-context\n(Linear issue/milestone +\nSPRINT.md/LINEAR.md)"];
+                          label="load-context\n(Forgejo issue/milestone +\nSPRINT.md/FORGEJO.md)"];
     render_plan_and_exit [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
                           label="render-plan-and-exit\n(--review: print plan,\nstop)"];
     verify_merged        [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
-                          label="verify-merged\n(--retro: confirm PRs merged,\nuser can override)"];
+                          label="verify-merged\n(--retro: confirm issues closed /\ncommits pushed, user can override)"];
     write_retro          [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
                           label="write-retro\n(RETRO.md, ledger fit,\nmark complete)"];
     detect_repo          [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
                           label="detect-repo\n(single-repo or multi-repo)"];
     detect_inflight      [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
-                          label="detect-inflight\n(existing PR + sprint state,\nask user)"];
+                          label="detect-inflight\n(auto: skip closed issues,\nproceed otherwise)"];
     show_plan            [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
-                          label="show-plan\n(render proposals inline)"];
-    discuss_plan         [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
-                          label="discuss-plan\n(iterate before approval)"];
+                          label="show-plan\n(render plan inline,\nnon-blocking)"];
     implement            [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
                           label="implement\n(mark in_progress + tasks,\ntargeted tests, per-issue loop)"];
     validate_success     [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
-                          label="validate-success\n(full tests + Success Criteria,\nask if not met)"];
-    open_prs             [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
-                          label="open-prs\n(draft PR(s),\nmulti-repo cross-link)"];
+                          label="validate-success\n(full tests + Success Criteria,\nauto-proceed unless tests fail)"];
+    commit_push          [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="commit-push\n(one commit per issue,\nCloses #N, push to default)"];
     summarize            [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
                           label="summarize\n(final summary +\nnext-step suggestion)"];
 
@@ -49,11 +50,9 @@ digraph sprint_work {
     dispatch_mode        [shape=diamond, style=filled, fillcolor="#ffe0b2",
                           label="dispatch-mode\n(review / retro / normal)"];
     verify_worktree      [shape=diamond, style=filled, fillcolor="#ffe0b2",
-                          label="verify-worktree\n(per-repo: find/create\nworktree on sprint branch)"];
-
-    // -- User-input nodes (escalate-shaped diamonds) -------------------
-    ask_approval         [shape=diamond, style=filled, fillcolor="#ffccbc",
-                          label="ask-approval\n(approve / discuss / cancel)"];
+                          label="verify-worktree\n(per-repo: find/create\ndefault-branch worktree, auto)"];
+    check_milestone      [shape=diamond, style=filled, fillcolor="#ffe0b2",
+                          label="check-milestone\n(open issues left in the\nmilestone? auto-retro if none)"];
 
     // -- Terminal node (green double-circle) ---------------------------
     terminal             [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
@@ -67,9 +66,8 @@ digraph sprint_work {
     render_plan_and_exit -> terminal;
     write_retro          -> terminal;
     detect_repo          -> verify_worktree;
-    show_plan            -> ask_approval;
-    open_prs             -> summarize;
-    summarize            -> terminal;
+    show_plan            -> implement;
+    commit_push          -> summarize;
 
     // dispatch-mode: route on flags.
     dispatch_mode -> render_plan_and_exit [label="review"];
@@ -80,30 +78,40 @@ digraph sprint_work {
     verify_merged -> write_retro [label="proceed"];
     verify_merged -> terminal    [label="user_cancel"];
 
-    // verify-worktree: pushable + right branch?
+    // check-milestone: after the work summary, auto-fire the retro when
+    // the milestone has no open issues left (last one closed, or the rest
+    // were moved out). Otherwise stop — more work remains for a later run.
+    // This is how a normal run closes out a sprint without a separate
+    // --retro invocation.
+    summarize     -> check_milestone;
+    check_milestone -> write_retro [label="milestone_complete"];
+    check_milestone -> terminal    [label="milestone_incomplete"];
+
+    // verify-worktree: auto-create the default-branch worktree. Only a
+    // genuine blocker (bare clone absent) routes to terminal.
     verify_worktree -> detect_inflight [label="worktree_ok"];
     verify_worktree -> terminal        [label="worktree_missing"];
 
-    // detect-inflight: continue, exit (cancel or address-feedback hint).
-    detect_inflight -> show_plan [label="user_continue"];
-    detect_inflight -> terminal  [label="user_exit"];
+    // detect-inflight: automatic. Proceed in the normal case; only route
+    // to terminal when there's literally nothing to do (every targeted
+    // issue is already closed).
+    detect_inflight -> show_plan [label="proceed"];
+    detect_inflight -> terminal  [label="nothing_to_do"];
 
-    // ask-approval: approve / discuss / cancel.
-    ask_approval -> implement    [label="user_approve"];
-    ask_approval -> discuss_plan [label="user_discuss"];
-    ask_approval -> terminal     [label="user_cancel"];
+    // No approval gate — show_plan flows straight into implement. The
+    // run is autonomous; --review is the way to preview without acting.
 
-    // discuss-plan: loop back.
-    discuss_plan -> ask_approval [label="discussion_done"];
+    // implement: route on path mode. forgejo-walk runs validate-success
+    // and commit-push internally per issue (one commit per issue) and
+    // never halts on a single-issue failure — it collects failures and
+    // surfaces them in summarize. Other paths flow through the regular
+    // graph-level validate-success → commit-push.
+    implement -> validate_success [label="non_forgejo_walk"];
+    implement -> summarize        [label="forgejo_walk_complete"];
 
-    // implement: route on path mode. linear-walk runs validate-success
-    // and open-prs internally per issue (active-set rotation), so it
-    // short-circuits to summarize. Other paths flow through the regular
-    // graph-level validate-success → open-prs.
-    implement -> validate_success [label="non_linear_walk"];
-    implement -> summarize        [label="linear_walk_complete"];
-
-    // validate-success: criteria satisfied / user blocks.
-    validate_success -> open_prs [label="criteria_satisfied"];
-    validate_success -> terminal [label="user_blocked"];
+    // validate-success: auto-proceed to commit when tests pass (unmet
+    // non-test criteria are noted in the commit, not blocked on). Only a
+    // hard test failure the agent can't resolve routes to terminal.
+    validate_success -> commit_push [label="criteria_satisfied"];
+    validate_success -> terminal    [label="blocked"];
 }

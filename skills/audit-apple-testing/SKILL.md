@@ -12,13 +12,12 @@ description: >-
   surfaces) cross-ref `audit-apple-ios`; macOS-distinctive UI test
   surface (menu bar, AppKit accessibility tree, document-based apps)
   cross-ref `audit-apple-macos`; for watchOS / visionOS test patterns,
-  use those skills. Reuses `audit-test-coverage` raw data if a recent
-  run exists for the same org/repo. Driven by a 5-phase state machine
-  (init → orient → independent-reviews → synthesis → devils-advocate →
-  report → verify → handoff); every artifact is structurally gated, so
-  silent "audit completed but wrote nothing" failures are impossible.
-  For platform-agnostic line/branch coverage measurement, use
-  `audit-test-coverage`.
+  use those skills. Generates coverage directly via `swift test
+  --enable-code-coverage` when a `Package.swift` is present. Driven by a
+  5-phase state machine (init → orient → independent-reviews → synthesis
+  → devils-advocate → report → verify → handoff); every artifact is
+  structurally gated, so silent "audit completed but wrote nothing"
+  failures are impossible.
 argument-hint: "[scope-path] [--help]"
 disable-model-invocation: false
 ---
@@ -59,17 +58,14 @@ When to use it
   Dynamic Island surfaces), cross-ref /audit-apple-ios. For macOS-
   distinctive UI test surface (menu bar, AppKit accessibility tree,
   document-based apps), cross-ref /audit-apple-macos. For watchOS /
-  visionOS test patterns, use those skills. For platform-agnostic
-  line/branch coverage measurement, use /audit-test-coverage instead.
-  (This audit can reuse that audit's raw data if it's been run
-  recently for the same org/repo.)
+  visionOS test patterns, use those skills. This audit is about test
+  DESIGN and quality, not raw coverage measurement.
 
 What it does
   Phase 1 — orient: inventories test targets, counts XCTest vs Swift
             Testing usage, XCUITest files, #Preview blocks, snapshot
-            libraries; reuses audit-test-coverage tooling-raw/ if
-            present, else runs swift test --enable-code-coverage.
-            No emergency-exit conditions.
+            libraries; runs swift test --enable-code-coverage when a
+            Package.swift is present. No emergency-exit conditions.
   Phase 2 — independent reviews: a fresh sub-agent writes
             claude.md; Codex (background codex exec) writes
             codex.md. Parallel, no cross-contamination.
@@ -88,9 +84,8 @@ Before you run it
   - `codex` installed and authenticated; without it the audit
     runs single-agent with a loud warning.
   - `swift` available if you want Phase 1 to run `swift test
-    --enable-code-coverage` directly. Optional if a recent
-    audit-test-coverage run for the same org/repo exists — its
-    tooling-raw/ will be reused.
+    --enable-code-coverage` directly. Optional — the audit proceeds
+    on test-surface inventory alone when no toolchain is present.
   - For projects without `upstream`/`origin` remote, the audit
     will write to ~/Reports/local/<basename>/.
 
@@ -110,7 +105,6 @@ Output
     tooling-raw/
       test-inventory.txt
       swift-test.log            (if swift test ran)
-      COVERAGE-SOURCE.md        (if reused from audit-test-coverage)
       STATUS.md
     claude.md                   (Phase 2 review sub-agent, A-prefix)
     codex.md                    (Phase 2 Codex review, C-prefix)
@@ -149,7 +143,8 @@ Nodes:
 - **`init`** — parse args, run `audit-runner.sh init`, initialize
   walker state.
 - **`orient`** — Phase 1. Inventory test targets and frameworks into
-  `tooling-raw/`; reuse `audit-test-coverage` data if present.
+  `tooling-raw/`; run `swift test --enable-code-coverage` if a
+  `Package.swift` is present.
 - **`emergency_exit`** — unreachable by this audit (no emergency
   conditions); retained for graph-shape uniformity.
 - **`independent_reviews`** — Phase 2. A spawned sub-agent writes `claude.md`;
@@ -168,8 +163,7 @@ Edge conditions:
 
 - `orient → independent_reviews`: `proceed` (always taken)
 - `orient → emergency_exit`: `emergency` (never taken by this audit)
-- `verify → ingest`: `ok`
-- `ingest → handoff`: (single outgoing edge)
+- `verify → handoff`: `ok`
 - `verify → escalate`: `incomplete`
 - `escalate → terminal`: `user_acknowledge`
 
@@ -237,10 +231,9 @@ Nothing is written into the project repo.
   enforces this.
 - **Don't** skip the verify step. If verify fails, escalate.
 - **Don't** bypass the walker by editing `.walk-state.json`.
-- **Don't** duplicate `audit-test-coverage`'s job — this audit is
-  about test DESIGN, not line coverage. If you find yourself
-  re-running coverage tooling, reuse the prior run's `tooling-raw/`
-  instead.
+- **Don't** report raw line/branch coverage percentages as findings —
+  this audit is about test DESIGN and quality, not coverage
+  measurement. The `swift test` run is context, not the deliverable.
 - **Don't** accept "test added" as remediation verification —
   every P0 task needs a mutation check (break production, confirm
   the new test fails) AND CI integration on every PR.

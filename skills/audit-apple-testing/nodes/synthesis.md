@@ -69,12 +69,11 @@ Document each compound chain in a `## Compound Findings` section: which IDs comb
 # Apple Testing Synthesis — <TS>
 
 ## Scope
-<resolved scope; note if audit-test-coverage data was reused>
+<resolved scope>
 
 ## Tooling Summary
 - test-inventory.txt: <line counts; XCTest files / Swift Testing files / XCUITest files / #Preview count>
 - swift test --enable-code-coverage: <"ran" / "skipped" / "failed">
-- audit-test-coverage reuse: <"yes (from <path>)" / "no">
 
 ## Summary
 - Total findings: N (Critical: X, High: X, Medium: X, Low: X)

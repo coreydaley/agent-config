@@ -185,7 +185,6 @@ Nodes:
 - **`report`** — Phase 5. Write `REPORT.md` with sprint tiers.
 - **`verify`** — Run `audit-verify.sh`. Decision node.
 - **`escalate`** — Verify failed. Ask user.
-- **`ingest`** — Run `/plane-audit-ingest` against REPORT.md.
 - **`handoff`** — Print hand-off message.
 - **`terminal`** — Sink.
 

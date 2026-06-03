@@ -12,7 +12,7 @@ description: >-
   adaptive UI (size classes, ViewThatFits, iPad multitasking, visionOS
   windowing, Dynamic Type AX5 layout), use `audit-apple-adaptivity`.
 argument-hint: "[scope-path] [--help]"
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # Web Responsive Design Audit

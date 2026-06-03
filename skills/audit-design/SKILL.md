@@ -14,7 +14,7 @@ description: >-
   For mobile-web viewport / responsive behavior, use
   `/audit-web-responsive`.
 argument-hint: "[scope-path] [--help]"
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # Design Audit

@@ -4,7 +4,7 @@ Parse arguments and flags. Handle `--help` inline.
 
 ## Inputs
 
-- The user's arguments to the skill: `[flags] <seed prompt or path to SEED.md>`
+- The user's arguments to the skill: `[flags] <seed prompt | path to SEED.md | path to an audit REPORT.md>`
 
 ## Steps
 
@@ -15,7 +15,10 @@ Parse arguments and flags. Handle `--help` inline.
    - `--tier=high|mid` — override every enabled phase's tier
    - Unknown flag → fail loudly with the offending flag.
 
-3. **Resolve the seed.** The remaining argument is the seed prompt — either inline text or a path to a SEED.md (typically produced by `/sprint-seed`). If a path, verify it exists.
+3. **Resolve the seed.** The remaining argument is the seed source — one of:
+   - **Inline text** — use it directly.
+   - **A path to a SEED.md** (typically produced by `/sprint-seed`) — verify it exists.
+   - **A path to an audit `REPORT.md`** (produced by an `audit-*` skill, under `~/Reports/<org>/<repo>/audits/<TS>-<name>/`) — verify it exists; treat it as the seed. Both SEED.md and audit REPORT.md are **ephemeral local seeds** — there's no Forgejo-hosted seed to fetch; the durable Forgejo object is the milestone this skill creates.
 
 4. **Set up paths.** Two cases — reuse the seed's session folder when applicable, otherwise derive a fresh root that respects the four-root model:
 

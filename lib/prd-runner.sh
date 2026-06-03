@@ -5,7 +5,7 @@
 # directory, derives <org>/<repo> from its git remote, and points codex at
 # it. A PRD is a *document* — it can live as a local markdown file, a vault
 # note, or a Forgejo wiki page, and may have no repo at all. This script is
-# the document-shaped analogue of audit-runner.sh (cf. plane-runner.sh):
+# the document-shaped analogue of audit-runner.sh:
 #
 #   1. Resolve the PRD source (file | wiki) and FETCH its content.
 #   2. Resolve <org>/<repo>:
@@ -49,8 +49,12 @@ forgejo_token() {
 
 prd_init() {
   local source_kind source_ref org_repo prd_title prd_slug
-  local companion_kind companion_target is_vault staged_content
+  local companion_kind companion_target is_vault staged_content report_ts
   is_vault="false"
+  # One timestamp per run, shared by the audit dir and the companion name so
+  # the companion beside the source ties back to its audit run and repeat
+  # audits accumulate instead of overwriting.
+  report_ts="$(date +%Y-%m-%dT%H-%M-%S)"
 
   if [[ "${1:-}" == "--wiki" ]]; then
     # ---- Forgejo wiki page ------------------------------------------------
@@ -87,7 +91,10 @@ prd_init() {
     org_repo="$owner/$repo"
     prd_title="$page"
     companion_kind="wiki"
-    companion_target="${page}-Review"
+    # Forgejo wiki escapes literal hyphens in titles as ".-" (ugly URLs), but
+    # round-trips spaces↔hyphens cleanly. So use spaces between tokens and a
+    # hyphen-free timestamp for the wiki companion page title.
+    companion_target="${page} Review ${report_ts//-/}"
 
   else
     # ---- Local markdown file (loose or vault note) ------------------------
@@ -127,17 +134,16 @@ prd_init() {
     dir="$(dirname "$source_ref")"
     base="$(basename "${source_ref%.*}")"
     if [[ "$is_vault" == "true" ]]; then
-      # Vault sub-file convention: "<base> Review.md" beside the note.
-      companion_target="$dir/$base Review.md"
+      # Vault sub-file convention: "<base> Review <TS>.md" beside the note.
+      companion_target="$dir/$base Review $report_ts.md"
     else
-      companion_target="$dir/${base}-review.md"
+      companion_target="$dir/${base}-review-${report_ts}.md"
     fi
   fi
 
   prd_slug="$(slugify "$prd_title")"
 
-  local report_ts reports_base audit_dir
-  report_ts="$(date +%Y-%m-%dT%H-%M-%S)"
+  local reports_base audit_dir
   reports_base="$HOME/Reports/$org_repo"
   audit_dir="$reports_base/audits/${report_ts}-prd"
   mkdir -p "$audit_dir/tooling-raw"

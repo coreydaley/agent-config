@@ -15,7 +15,7 @@ Pick the authoring pattern. The two supported patterns are **graph-driven** (mul
    - **graph-driven** — the skill has 4+ phases, user-input gates that
      affect routing, loops or conditional branches, per-run artifacts, or a
      need to resume from a crash. Examples: `/sprint-plan`, `/review-pr-*`,
-     `/sprint-self-review`, `/polish-pull-request`. Reference:
+     `/sprint-work`, `/polish-pull-request`. Reference:
      `docs/DOT-GRAPH-SKILL-PATTERN.md`.
    - **cli-wrapper** — the skill is a one-shot operation or a thin cheat
      sheet for a CLI tool. No internal state machine, no user gates.

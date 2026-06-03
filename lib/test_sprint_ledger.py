@@ -133,57 +133,12 @@ class GetReportsBaseTest(unittest.TestCase):
         self.assertEqual(result, explicit)
 
 
-class UpdateStatusTest(unittest.TestCase):
-    """Verify update_status preserves started_at on idempotent --start.
-
-    Re-running /sprints --start on an already-in-progress sprint (resume,
-    re-invocation) must not reset the timer or duration/velocity stats
-    are corrupted."""
-
-    def setUp(self):
-        self.tmpdir = tempfile.mkdtemp(prefix="sprint-update-status-test-")
-        self.ledger_path = Path(self.tmpdir) / "ledger.tsv"
-        self.ledger = sprint_ledger.SprintLedger(self.ledger_path)
-        self.ledger.entries["2026-05-08T14-30-00"] = sprint_ledger.SprintEntry(
-            session="2026-05-08T14-30-00",
-            title="Test sprint",
-            status="planned",
-            created_at="2026-05-08T14:30:00Z",
-            updated_at="2026-05-08T14:30:00Z",
-        )
-
-    def tearDown(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
-
-    def test_first_start_stamps_started_at(self):
-        entry = self.ledger.update_status("2026-05-08T14-30-00", "in_progress")
-        self.assertTrue(entry.started_at)
-        first_stamp = entry.started_at
-
-        # Re-start: started_at must NOT change
-        import time
-        time.sleep(1.1)  # ensure _now() would differ at second precision
-        entry = self.ledger.update_status("2026-05-08T14-30-00", "in_progress")
-        self.assertEqual(entry.started_at, first_stamp)
-
-    def test_complete_then_restart_does_stamp(self):
-        """If a sprint was completed and is being restarted (legit reuse),
-        started_at SHOULD reset — it's a fresh run."""
-        self.ledger.update_status("2026-05-08T14-30-00", "in_progress")
-        first_stamp = self.ledger.entries["2026-05-08T14-30-00"].started_at
-        self.ledger.update_status("2026-05-08T14-30-00", "completed")
-
-        import time
-        time.sleep(1.1)  # ensure _now() differs at second precision
-        entry = self.ledger.update_status("2026-05-08T14-30-00", "in_progress")
-        self.assertNotEqual(entry.started_at, first_stamp)
-
-
 class DiscoverReportsRootsTest(unittest.TestCase):
     """Verify multi-root discovery handles both bare-name and <org>/<repo> layouts.
 
-    /sprints uses this when no explicit --root is passed, so cross-cutting
-    sprints under seeds/ are resolvable without the caller knowing the root."""
+    forgejo_sprints.py uses this to enumerate which repos hold sprints, so
+    cross-cutting sprints under seeds/ are resolvable without the caller
+    knowing the root."""
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp(prefix="sprint-discover-test-")
@@ -197,10 +152,10 @@ class DiscoverReportsRootsTest(unittest.TestCase):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def _make_root(self, *path_parts: str) -> Path:
-        """Create a ledger-bearing root at ~/Reports/<path_parts>/."""
+        """Create a sprint-bearing root at ~/Reports/<path_parts>/ (marked by a
+        `sprints/` subdirectory, the way real roots are)."""
         root = self.reports.joinpath(*path_parts)
-        root.mkdir(parents=True)
-        (root / "ledger.tsv").write_text("session\ttitle\tstatus\n")
+        (root / "sprints").mkdir(parents=True)
         return root
 
     def test_no_reports_dir_returns_empty(self):
@@ -228,12 +183,13 @@ class DiscoverReportsRootsTest(unittest.TestCase):
         for r in (seeds, linear, no_repo, repo_a, repo_b):
             self.assertIn(r, roots)
 
-    def test_skips_non_ledger_dirs(self):
-        """A subdir without ledger.tsv shouldn't be returned (e.g., a stray
-        directory, or a sandbox under <org>/<repo>/ that has no ledger yet)."""
+    def test_skips_dirs_without_sprints(self):
+        """A subdir without a `sprints/` directory shouldn't be returned (e.g.,
+        a stray directory, or a sandbox under <org>/<repo>/ with no sprints
+        yet)."""
         self._make_root("seeds")
         (self.reports / "stray-dir").mkdir()
-        (self.reports / "another" / "no-ledger-here").mkdir(parents=True)
+        (self.reports / "another" / "no-sprints-here").mkdir(parents=True)
         roots = sprint_ledger.discover_reports_roots()
         self.assertEqual(len(roots), 1)
 

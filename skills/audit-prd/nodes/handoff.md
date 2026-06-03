@@ -37,8 +37,10 @@ COMPANION_BODY="$AUDIT_DIR/.companion.md"
 
 ### file — beside the PRD on disk
 
-`companion_target` is the absolute path resolved by `prd-runner.sh`
-(`<base>-review.md`, or `<base> Review.md` for vault notes).
+`companion_target` is the absolute path resolved by `prd-runner.sh`, with the
+audit run's timestamp baked in (`<base>-review-<TS>.md`, or
+`<base> Review <TS>.md` for vault notes), so repeat audits accumulate rather
+than overwrite.
 
 ```bash
 if [ "$COMPANION_KIND" = "file" ]; then
@@ -48,9 +50,10 @@ if [ "$COMPANION_KIND" = "file" ]; then
 fi
 ```
 
-### wiki — a `<Page>-Review` Forgejo wiki page
+### wiki — a `<Page> Review <TScompact>` Forgejo wiki page
 
-`companion_target` is the page title (`<SourcePage>-Review`). Create it via
+`companion_target` is the page title (`<SourcePage> Review <TScompact>`, spaces +
+a hyphen-free timestamp — Forgejo escapes literal `-` in titles as `.-`). Create it via
 the Forgejo API (the wiki has no local checkout). Derive owner/repo from the
 manifest's `source_ref` (`<owner>/<repo>:<Page>`).
 

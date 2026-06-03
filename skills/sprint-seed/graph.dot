@@ -29,9 +29,11 @@ digraph sprint_seed {
     handoff     [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
                  label="handoff\n(print path + seed + next command)"];
 
-    // -- User-input node (escalate-shaped diamond) ---------------------
+    // -- User-input nodes (escalate-shaped diamonds) ------------------
     ask_wrap_up [shape=diamond, style=filled, fillcolor="#ffccbc",
                  label="ask-wrap-up\n(continue / wrap / cancel)"];
+    ask_prd     [shape=diamond, style=filled, fillcolor="#ffccbc",
+                 label="ask-prd\n(seed off-course vs PRD:\nproceed / revise / rescope-PRD)"];
 
     // -- Terminal node (green double-circle) ---------------------------
     terminal    [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
@@ -42,7 +44,6 @@ digraph sprint_seed {
     init       -> orient;
     orient     -> kickoff;
     kickoff    -> discuss;
-    synthesize -> write_seed;
     write_seed -> handoff;
     handoff    -> terminal;
 
@@ -54,4 +55,17 @@ digraph sprint_seed {
     ask_wrap_up -> synthesize [label="user_wrap_up"];
     ask_wrap_up -> discuss    [label="user_continue"];
     ask_wrap_up -> terminal   [label="user_cancel"];
+
+    // synthesize: check the converged seed against the repo's PRD (if one was
+    // found in orient). On-course — or no PRD at all — writes the seed. Off-
+    // course routes to the ask-prd gate.
+    synthesize -> write_seed [label="aligned"];
+    synthesize -> ask_prd    [label="off_course"];
+
+    // ask-prd: three doors. proceed (intentional out-of-PRD work) and
+    // rescope-PRD (draft a PRD delta, then write) both proceed to the seed;
+    // revise loops back into discuss to pull the seed back in line.
+    ask_prd -> write_seed [label="user_proceed"];
+    ask_prd -> discuss    [label="user_revise"];
+    ask_prd -> write_seed [label="user_rescope"];
 }

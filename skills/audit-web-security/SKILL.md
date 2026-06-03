@@ -14,7 +14,7 @@ description: >-
   impossible. For native Apple platforms (iOS, macOS, etc.), use
   `audit-apple-security`.
 argument-hint: "[scope-path] [--help]"
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # Web Security Audit

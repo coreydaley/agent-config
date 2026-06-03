@@ -7,7 +7,7 @@ description: >-
   shape. Scaffolds the directory, writes the content, validates the graph,
   smoke-tests the walker, and hands off uncommitted for the user to review.
 argument-hint: "[<rough idea or seed prompt>] [--help]"
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # Skill Creator

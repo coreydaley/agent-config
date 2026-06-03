@@ -10,9 +10,8 @@ Perform a thorough Apple platform testing audit of the scope at the
 project root you've been pointed at. This audit goes BEYOND line
 coverage into test design and quality unique to Apple. Tooling has
 already been run; raw output is in the audit dir's tooling-raw/
-subdirectory — check COVERAGE-SOURCE.md to see if coverage data came
-from a recent audit-test-coverage run, and read test-inventory.txt to
-see which test frameworks the project uses.
+subdirectory — read test-inventory.txt to see which test frameworks the
+project uses, and swift-test.log for coverage output if it ran.
 
 Write all findings to claude.md (in the audit dir you were granted
 write access to) using this exact table format:
@@ -28,8 +27,8 @@ XCUITest, Snapshot library, or Other.
 Verification: code (inspectable) or runtime (requires running the test
 suite).
 
-DO NOT measure or duplicate line/branch coverage — that's
-audit-test-coverage's job. Focus on test DESIGN.
+DO NOT measure or report raw line/branch coverage percentages — this
+audit is about test DESIGN and quality, not coverage measurement.
 
 Cover these 10 categories (skip if not applicable):
 

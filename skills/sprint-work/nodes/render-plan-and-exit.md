@@ -25,28 +25,28 @@ Append after SPRINT.md:
 📄 SPRINT.md path: $SPRINT_MD_PATH
 ```
 
-### `linear-issue`
+### `forgejo-issue`
 
 Render the issue body inline (Context, Tasks, Files, Notes, Considerations, Success Criteria). Then the milestone description if available.
 
 Append:
 
 ```
-📄 Linear issue: <issue URL>
+📄 Forgejo issue: <issue URL>
 📄 Milestone: <milestone URL or "no milestone">
 📄 SPRINT.md (if found): <path or "not located">
 ```
 
-### `linear-walk`
+### `forgejo-walk`
 
 Render the milestone description first, then the issue list as a table:
 
 ```
-| # | ID | Title | Priority | State | Blocked by |
-|---|----|-------|----------|-------|------------|
+| # | Ref | Title | Priority | State | Blocked by |
+|---|-----|-------|----------|-------|------------|
 ```
 
-Append the same `📄` references as `linear-issue` plus the count of issues to be walked.
+`Ref` is `<owner>/<repo>#<n>`. Append the same `📄` references as `forgejo-issue` plus the count of issues to be walked.
 
 ## Outputs
 
@@ -66,4 +66,4 @@ scripts/walk.sh transition --state "$STATE" --from render_plan_and_exit --to ter
 
 - **Render the full content inline**, not just paths. The user invoked `--review` to *see* the plan in conversation.
 - **Don't ask anything.** `--review` is print-and-exit; the user runs `/sprint-work` without `--review` when they're ready to act.
-- **Don't run `/sprints --start`.** No ledger mutation in review mode.
+- **Don't run the tracker's `--start`.** No milestone mutation in review mode.

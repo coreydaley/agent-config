@@ -1,136 +1,94 @@
 # Node: detect-inflight
 
-Phase 5: detect work already in flight (existing PR, in-progress sprint state, commits ahead of base) and ask the user how to proceed. Avoids redoing work and routes to the right follow-on skill if the user wants.
+Phase 5: detect work already done or in flight (issue already closed, in-progress sprint state, uncommitted or unpushed local changes) and decide automatically. Skips finished work; never prompts. Only "every targeted issue is already closed" stops the run here.
 
 ## Inputs
 
-- `path_mode`, `repos`, `worktree_paths`, `issue_ids`, `sprint_query`, `branch_name`, `session_dir` from walker state
+- `path_mode`, `repos`, `worktree_paths`, `issue_ids`, `sprint_query`, `session_dir` from walker state
 
 ```bash
 STATE="<path>"
 PATH_MODE=$(scripts/walk.sh get --state "$STATE" --key path_mode)
 SESSION_DIR=$(scripts/walk.sh get --state "$STATE" --key session_dir)
 WORKTREE_PATHS=$(scripts/walk.sh get --state "$STATE" --key worktree_paths)
-BRANCH=$(scripts/walk.sh get --state "$STATE" --key branch_name)
 REPORTS_ROOT=$(scripts/walk.sh get --state "$STATE" --key reports_root)
 ```
 
-## Linear paths
+## Forgejo paths
 
-Use each issue's current state from `load-context`:
+**This node is automatic — it never prompts.** There are no PRs in this
+flow, so "in flight" is read from the issue's open/closed state (from
+`load-context`) plus local git signals, and the node *decides* rather
+than asks:
 
-| State | Default behavior |
+| Signal | Automatic behavior |
 |---|---|
-| Backlog / Triage / Todo | Fresh start; route via `user_continue`. No prompt. |
-| In Progress / Started | Show last commit on branch + any open PR. AskUserQuestion: continue / address review feedback / cancel. |
-| In Review | Open PR exists. AskUserQuestion: address review feedback / push more commits / cancel. |
-| Done / Canceled | Refuse; tell the user to pick a different issue. Route via `user_exit`. |
+| Issue `open`, working tree clean | Fresh start; route via `proceed`. |
+| Issue `open`, uncommitted or unpushed local changes on the default branch | Note it briefly, then `proceed` — `implement` layers its work on top and `commit-push` commits everything. |
+| Issue `closed` | Already done — its commit landed and Forgejo closed it. Skip it. |
 
-For `linear-walk`, run this check per issue. If any issue is Done/Canceled, surface and ask whether to skip-and-continue or bail. **Persist the filtered list** so `implement` honors the skip:
+For `forgejo-walk`, check each issue's state and **automatically** filter out any that are already `closed` (don't ask — just skip them). **Persist the filtered list** so `implement` honors the skip:
 
 ```bash
-# After per-issue user prompts, build the filtered active list and
-# persist it for implement.md's loop. Don't just record the choice —
-# implement reads issue_ids from walker state and won't know to skip.
-scripts/walk.sh set --state "$STATE" --key active_issue_ids --value "<JSON: filtered ID list>"
-scripts/walk.sh set --state "$STATE" --key skipped_issue_ids --value "<JSON: skipped ID list, with per-issue reason>"
+scripts/walk.sh set --state "$STATE" --key active_issue_ids --value "<JSON: filtered ref list of still-open issues>"
+scripts/walk.sh set --state "$STATE" --key skipped_issue_ids --value "<JSON: skipped ref list, with per-issue reason>"
 ```
 
-`implement.md`'s linear-walk loop reads `active_issue_ids` (not `issue_ids`) so Done/Canceled-and-skipped issues are excluded. `summarize` reads `skipped_issue_ids` to surface what was skipped and why.
+`implement.md`'s forgejo-walk loop reads `active_issue_ids` (not `issue_ids`) so closed-and-skipped issues are excluded. `summarize` reads `skipped_issue_ids` to surface what was skipped and why.
 
 ## SPRINT.md path
 
-No Linear state; use ledger + git signals. The skill is cwd-independent — query the right ledger explicitly via `--root`, and check existing PRs / commits per repo via `worktree_paths`:
+No issue state; use tracker + git signals. The skill is cwd-independent — the sprint tracker resolves milestones across all repos under `~/Reports/`; check local git state per repo via `worktree_paths`:
 
 ```bash
-# Ledger status (the right ledger, even for cross-cutting sprints):
-/sprints --current --root "$REPORTS_ROOT"
-/sprints --list    --root "$REPORTS_ROOT"
+# Sprint tracker status (milestones across all discovered repos):
+python3 ~/.claude/lib/forgejo_sprints.py --current
+python3 ~/.claude/lib/forgejo_sprints.py --list
 
-# Per repo: existing PRs on the sprint branch, plus local commits ahead of
-# that PR's base. Iterate the manifest's worktree_paths instead of relying
-# on cwd. Don't assume `upstream/main` — different repos use different
-# remotes (upstream vs. origin) and different default branches
-# (main / master / develop). Resolve per-repo from the PR's baseRefName.
+# Per repo: uncommitted changes + local commits not yet pushed to the
+# default branch's upstream. Iterate the manifest's worktree_paths instead
+# of relying on cwd. Each repo's default branch comes from repos[].default_branch.
 for ORG_REPO in $(echo "$WORKTREE_PATHS" | jq -r 'keys[]'); do
   WT=$(echo "$WORKTREE_PATHS" | jq -r ".[\"$ORG_REPO\"]")
 
-  PR_JSON=$(gh pr list --repo "$ORG_REPO" --head "$BRANCH" \
-    --json number,url,state,title,baseRefName)
+  # Uncommitted changes:
+  git -C "$WT" status --porcelain | head -20
 
-  # baseRefName comes from the PR if one exists. If no PR yet, fall back to
-  # the repo's default branch via `gh repo view --json defaultBranchRef`.
-  BASE_REF=$(echo "$PR_JSON" | jq -r '.[0].baseRefName // empty')
-  if [ -z "$BASE_REF" ]; then
-    BASE_REF=$(gh repo view "$ORG_REPO" --json defaultBranchRef \
-      -q '.defaultBranchRef.name')
-  fi
-
-  # Try upstream first (the source-of-truth remote in our workflow), then
-  # origin (personal fork). Sandbox-style regular clones may have neither
-  # `upstream` nor a separate `origin/<base>`, in which case we use the
-  # local branch ref and skip the ahead-count if even that's missing.
-  if git -C "$WT" rev-parse --verify "upstream/$BASE_REF" >/dev/null 2>&1; then
-    REMOTE_BASE="upstream/$BASE_REF"
-  elif git -C "$WT" rev-parse --verify "origin/$BASE_REF" >/dev/null 2>&1; then
-    REMOTE_BASE="origin/$BASE_REF"
-  elif git -C "$WT" rev-parse --verify "$BASE_REF" >/dev/null 2>&1; then
-    REMOTE_BASE="$BASE_REF"
+  # Unpushed commits: how far HEAD is ahead of the pushed default branch.
+  # @{upstream} is the tracking ref for the checked-out default branch.
+  if git -C "$WT" rev-parse --verify '@{upstream}' >/dev/null 2>&1; then
+    git -C "$WT" log --oneline '@{upstream}..HEAD' | head -10
   else
-    REMOTE_BASE=""
-  fi
-
-  if [ -n "$REMOTE_BASE" ]; then
-    git -C "$WT" log --oneline "$REMOTE_BASE..HEAD" | head -10
-  else
-    echo "(could not resolve base $BASE_REF for $ORG_REPO; skipping ahead-count)"
+    echo "(no upstream set for $ORG_REPO's default branch; skipping ahead-count)"
   fi
 done
 ```
 
-Decide:
-- Sprint status `in_progress`, OR a PR exists, OR commits ahead of base → AskUserQuestion (see options below).
-- Otherwise → fresh state, route via `user_continue` silently.
-
-## AskUserQuestion options
-
-When work is detected, ask:
-
-> 1. **Continue from here** — proceed with the full pipeline, layering changes on top
-> 2. **Address review feedback** — exit; suggest `/review-address-feedback <PR>` instead
-> 3. **Push more commits to existing PR** — proceed but skip Phase 10 PR creation (existing PR will be updated when you push)
-> 4. **Cancel** — stop without doing anything
-
-Persist the user's choice:
-
-```bash
-scripts/walk.sh set --state "$STATE" --key inflight_choice --value "<continue|address|push_more|cancel>"
-scripts/walk.sh set --state "$STATE" --key skip_pr_open --value "<true|false>"
-```
-
-`skip_pr_open=true` when choice is "push_more" — `open-prs` checks this flag.
+Decide automatically (no prompt):
+- **Something to do** (at least one targeted issue still `open`, or sprintmd path) → print a one-line note of any in-flight state found, then route via `proceed`.
+- **Nothing to do** (single forgejo-issue already closed, or every forgejo-walk issue already closed) → route via `nothing_to_do`.
 
 ## Outputs
 
-- `inflight_choice`, `skip_pr_open` in walker state
+- `active_issue_ids` / `skipped_issue_ids` (forgejo-walk) in walker state
 
 ## Outgoing edges
 
-- **`user_continue`** → `show-plan`. Continue or push-more (push-more is a state flag, not a separate route — `open-prs` handles it).
-- **`user_exit`** → `terminal`. Cancel or address-feedback (the latter exits with a suggestion for the next skill).
+- **`proceed`** → `show-plan`. There's work to do; carry on autonomously.
+- **`nothing_to_do`** → `terminal`. Every targeted issue is already closed — nothing left to commit.
 
 Record exactly one:
 
 ```bash
-# Continue (or push-more):
-scripts/walk.sh transition --state "$STATE" --from detect_inflight --to show_plan --condition user_continue
+# Work to do:
+scripts/walk.sh transition --state "$STATE" --from detect_inflight --to show_plan --condition proceed
 
-# Exit:
-scripts/walk.sh transition --state "$STATE" --from detect_inflight --to terminal --condition user_exit
+# Nothing left:
+scripts/walk.sh transition --state "$STATE" --from detect_inflight --to terminal --condition nothing_to_do
 ```
 
 ## Notes
 
-- **Default to "Continue from here" when ambiguous.** The user can still cancel from `ask-approval` after seeing the plan.
-- **For "Address review feedback"**, surface the suggestion clearly: `Suggested: /review-address-feedback <PR-url>` before routing to terminal.
-- **Don't proceed silently when in-flight state is detected.** Ask explicitly. Re-running over existing work is rarely intended.
+- **Never prompt here.** The run is autonomous; this node only detects and decides. The only exit is "nothing to do."
+- **A closed issue means the work shipped.** Skip it silently (forgejo-walk) or exit with a one-line "already done" note (single issue).
+- **In-flight local changes are fine.** Note them and proceed — `implement` layers on top and `commit-push` commits the lot.

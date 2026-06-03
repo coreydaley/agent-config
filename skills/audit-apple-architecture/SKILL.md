@@ -160,8 +160,7 @@ Edge conditions:
 - `orient → independent_reviews`: `proceed` (always — this audit has no
   emergency-exit conditions, the `emergency` edge exists for graph
   uniformity only)
-- `verify → ingest`: `ok`
-- `ingest → handoff`: (single outgoing edge)
+- `verify → handoff`: `ok`
 - `verify → escalate`: `incomplete`
 - `escalate → terminal`: `user_acknowledge`
 

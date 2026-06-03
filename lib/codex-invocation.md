@@ -77,8 +77,6 @@ Non-audit skills (direct `codex exec` calls):
 - `skills/sprint-plan/nodes/reviews.md`
 - `skills/review-pr-comprehensive/nodes/independent-reviews.md`
 - `skills/review-pr-comprehensive/nodes/devils-advocate.md`
-- `skills/sprint-self-review/nodes/independent-reviews.md`
-- `skills/sprint-self-review/nodes/devils-advocate.md`
 
 Audit skills (all invoke `codex exec` through `lib/audit-codex.sh`, which
 encapsulates the canonical flags — so the wrapper is the single drift
@@ -97,8 +95,7 @@ point, not each skill):
 - `skills/audit-apple-testing/`
 - `skills/audit-architecture/`
 - `skills/audit-design/`
-- `skills/audit-test-coverage/`
-- `skills/audit-web-accessibility/`
+- `skills/audit-web-accessibility-human/`
 - `skills/audit-web-responsive/`
 - `skills/audit-web-security/`
 
@@ -114,8 +111,7 @@ Verification:
 # Direct codex invocations (non-audit skills):
 grep -nE "codex exec" \
   skills/sprint-plan/nodes/reviews.md \
-  skills/review-pr-comprehensive/nodes/*.md \
-  skills/sprint-self-review/nodes/*.md
+  skills/review-pr-comprehensive/nodes/*.md
 # Should each include -s workspace-write, --add-dir, -C, --, < /dev/null.
 
 # Audit skills go through the wrapper:

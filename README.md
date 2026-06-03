@@ -60,12 +60,11 @@ Invoke with `/command-name` in Claude Code. Commands with `disable-model-invocat
 |---|---|
 | `/commit` | Analyze uncommitted changes and create grouped conventional commits |
 | `/tag` | Analyze commits since last tag and propose the next semantic version |
-| `/sprint-seed` | Pre-plan exploratory discussion; produces a `SEED.md` |
+| `/project-create-prd` | Guided, Socratic authoring (or revision) of a project's PRD; publishes it to the repo's Forgejo wiki |
+| `/sprint-seed` | Pre-plan exploratory discussion; produces a `SEED.md` (auto-reads the repo's PRD to ground candidates) |
 | `/sprint-plan` | Multi-agent collaborative sprint planning |
-| `/sprint-plan-to-linear` | Convert an approved `SPRINT.md` into Linear milestone + issues |
-| `/sprint-work` | Execute a planned sprint end-to-end and open draft PR(s) |
-| `/sprint-self-review` | Self-review cycle on a draft PR (review → address → test → decide) until terminal or escalation |
-| `/sprints` | Sprint ledger — status, velocity, add/start/complete |
+| `/sprint-plan-to-issues` | Decompose an existing sprint milestone into one Forgejo issue per task |
+| `/sprint-work` | Execute a planned sprint end-to-end, autonomously — one commit per issue on the default branch (no PRs) |
 | `/review-pr-simple` | Single-agent PR review → `REVIEW.md` |
 | `/review-pr-comprehensive` | Dual-agent PR review (Claude + Codex) → `REVIEW.md` |
 | `/review-address-feedback` | Walk through review feedback and apply fixes |
@@ -73,8 +72,7 @@ Invoke with `/command-name` in Claude Code. Commands with `disable-model-invocat
 | **Audits** (all 5-phase dual-agent dot-graph skills — structurally gated $AUDIT_DIR / codex / verify via `lib/audit-*.sh`) | |
 | `/audit-architecture` | Platform-agnostic architecture review — findings anchored to named principles + migration cost |
 | `/audit-design` | Platform-agnostic UI/UX review — HIG promoted to priority 2 on Swift projects |
-| `/audit-test-coverage` | Language-detecting coverage audit (Go, Python, Node, Rust, Swift) — gaps + pyramid balance + test quality |
-| `/audit-web-accessibility` | Web accessibility (WCAG 2.1/2.2) review |
+| `/audit-web-accessibility-human` | Web accessibility (WCAG 2.1/2.2) review |
 | `/audit-web-responsive` | Web responsive design review (viewport, breakpoints, touch targets) |
 | `/audit-web-security` | Backend/web/IaC/CI/agent-config security review (gitleaks + semgrep + dep scanners + trivy + actionlint, OWASP/CWE-anchored) |
 | `/audit-apple-accessibility` | Apple HIG accessibility (SwiftUI/UIKit/AppKit/WatchKit) review |
@@ -107,15 +105,13 @@ Skills are auto-discovered from `~/.claude/skills/`. Each skill has a `SKILL.md`
 |---|---|
 | `gh` | Clone/fork/worktree setup plus `gh` CLI operations — issues, PRs, releases, CI |
 | `gws` | Google Workspace operations — Gmail, Calendar, Drive, Docs, Sheets, Tasks |
-| `linear` | Linear CLI — issues, cycles, projects, milestones |
 | `obsidian` | Obsidian vault operations via the `obsidian` CLI |
 | `orbstack` | OrbStack management — Linux machines, Docker, Kubernetes |
-| `sprint-seed` | Pre-plan exploratory discussion; shapes fuzzy ideas into a `SEED.md` |
+| `project-create-prd` | Guided authoring/revision of a project's PRD; auto-detects create vs revise, publishes to the repo's Forgejo wiki |
+| `sprint-seed` | Pre-plan exploratory discussion; shapes fuzzy ideas into a `SEED.md` (grounds candidates in the repo's PRD) |
 | `sprint-plan` | Multi-agent collaborative planning with strict orchestrator/worker separation |
-| `sprint-plan-to-linear` | Convert an approved `SPRINT.md` into a Linear milestone + issues |
-| `sprint-work` | Execute a planned sprint end-to-end from a `SPRINT.md` or Linear milestone |
-| `sprint-self-review` | Iterative self-review loop on a draft PR until terminal, capped, or escalated |
-| `sprints` | Sprint ledger — status, velocity, add/start/complete |
+| `sprint-plan-to-issues` | Decompose an existing sprint milestone into one Forgejo issue per task (self-assigned, priority-labeled, dependency-linked) |
+| `sprint-work` | Execute a planned sprint end-to-end (autonomous) from a Forgejo milestone — one commit per issue, no PRs; auto-writes the retro when the milestone empties |
 | `review-pr-simple` | Single-agent PR review → `REVIEW.md` |
 | `review-pr-comprehensive` | Dual-agent PR review (Claude + Codex, synthesis, devil's advocate) → `REVIEW.md` |
 | `review-address-feedback` | Walk through PR review feedback and apply fixes; supports live PR comments or a local `REVIEW.md` |
@@ -155,7 +151,6 @@ Files marked `*` are only created when the corresponding optional phase ran.
 
 ```
 ~/Reports/<org>/<repo>/
-├── ledger.tsv                                        # sprint index (managed by /sprints)
 ├── sprints/
 │   └── YYYY-MM-DDTHH-MM-SS/                         # one folder per planning session
 │       ├── SEED.md                                   * (/sprint-seed handoff)
@@ -173,7 +168,7 @@ Files marked `*` are only created when the corresponding optional phase ran.
 │       ├── performance-review.md                     * (Phase 8f)
 │       ├── breaking-change-review.md                 * (Phase 8g)
 │       ├── SPRINT.md                                 # the approved plan
-│       ├── LINEAR.md                                 * (/sprint-plan-to-linear handoff)
+│       ├── FORGEJO.md                                * (/sprint-plan-to-issues handoff)
 │       └── RETRO.md                                  * (/sprint-work --retro)
 ├── pr-reviews/
 │   └── pr-N/
@@ -181,11 +176,6 @@ Files marked `*` are only created when the corresponding optional phase ran.
 │       │   └── REVIEW.md  diff.patch  ...
 │       └── YYYY-MM-DDTHH-MM-SS-addressed/            # one folder per /review-address-feedback run
 │           └── ADDRESSED.md
-├── self-reviews/
-│   └── pr-N/
-│       ├── findings.md                               # rolling ledger across all iterations
-│       └── iteration-N-YYYY-MM-DDTHH-MM-SS/          # one folder per /sprint-self-review iteration
-│           └── REVIEW.md  ADDRESSED.md  synthesis.md  ...
 └── audits/
     └── YYYY-MM-DDTHH-MM-SS-<lens>/                   # one folder per audit run
         └── claude.md  codex.md  synthesis.md  devils-advocate.md  REPORT.md

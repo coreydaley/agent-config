@@ -26,7 +26,7 @@ This is the BROAD technical-SEO audit. The AI-agent / LLM-crawler
 surface (GPTBot / ClaudeBot / Google-Extended directives, llms.txt,
 no-JS agent extraction, programmatic API/MCP access, content
 licensing for training) is audited separately by
-/audit-web-agent-accessibility — note it in Evidence/Notes when
+/audit-web-accessibility-agent — note it in Evidence/Notes when
 relevant but do not deep-dive it here.
 
 Write all findings to claude.md (in the audit dir you were granted
@@ -181,4 +181,4 @@ Output requirements:
 - No trailing prose after the table.
 - No emojis.
 
-Scope boundary: This is the **broad technical-SEO** audit. The AI-agent / LLM-crawler surface — GPTBot / ClaudeBot / Google-Extended directives, `llms.txt`, no-JS agent extraction, programmatic API/MCP access, content licensing for training — belongs to `/audit-web-agent-accessibility`. Note overlaps in `Evidence/Notes` but don't deep-dive them here.
+Scope boundary: This is the **broad technical-SEO** audit. The AI-agent / LLM-crawler surface — GPTBot / ClaudeBot / Google-Extended directives, `llms.txt`, no-JS agent extraction, programmatic API/MCP access, content licensing for training — belongs to `/audit-web-accessibility-agent`. Note overlaps in `Evidence/Notes` but don't deep-dive them here.

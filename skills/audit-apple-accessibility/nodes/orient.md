@@ -71,7 +71,7 @@ In conversational text (not a persisted file), note:
 - Read `Package.swift` `platforms` array or `Info.plist` to determine target platforms — affects valid `Platform` values for findings
 - Existing accessibility test coverage if any (`AccessibilitySnapshot`, XCUITest a11y queries, Xcode Accessibility Audit usage)
 
-**If no Swift/Obj-C source found**: notify and stop, suggest `/audit-web-accessibility` if it looks like a web project.
+**If no Swift/Obj-C source found**: notify and stop, suggest `/audit-web-accessibility-human` if it looks like a web project.
 
 This is for the user's situational awareness, not a persisted artifact.
 
@@ -90,4 +90,4 @@ scripts/walk.sh transition --state "$STATE" --from orient --to independent_revie
 
 ## Failure modes
 
-- No Swift/Obj-C source in scope → bail with a pointer to `/audit-web-accessibility`. There's nothing for this audit to review.
+- No Swift/Obj-C source in scope → bail with a pointer to `/audit-web-accessibility-human`. There's nothing for this audit to review.

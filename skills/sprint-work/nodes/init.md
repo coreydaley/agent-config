@@ -13,12 +13,12 @@ Parse arguments and flags, validate flag combinations, init walker state. Handle
 2. **Parse flags:**
    - `--review` → `flag_review=true`
    - `--retro` → `flag_retro=true`
-   - `--continue` → `flag_continue=true`
+   - `--continue` → accepted but a **no-op** (continue-through is now the default for `forgejo-walk`). Don't error on it.
    - Unknown flag → fail loudly with the offending flag.
 
 3. **Validate flag combinations:**
    - `--review` and `--retro` are mutually exclusive — `--review` wins. (Surface the override.)
-   - `--continue` only applies to `linear-walk`; ignored elsewhere with a note.
+   - Normal runs are **autonomous**: once the target resolves, the skill works through every issue to completion without approval gates or "keep going?" prompts. It only stops at a genuine wall (unresolvable target, missing bare clone, unresolvable test failure on a single issue) or when there's nothing to do.
 
 4. **Set up walker state.** At init time, `$SESSION_DIR` isn't known yet — it gets resolved by `resolve-target` / `load-context`. So init creates a transient state file under `$TMPDIR`. Once `session_dir` is known and stored, downstream callers can resume from `$SESSION_DIR/.work-state.json` if they have it (durable across reboots and `$TMPDIR` cleanup).
 
@@ -56,4 +56,4 @@ scripts/walk.sh transition --state "$STATE" --from init --to resolve_target
 ## Failure modes
 
 - Unknown flag → bail before walker init with a clear error.
-- `gh` / `linear` not authenticated → defer detection until `resolve-target` (which actually calls them).
+- `tea` not authenticated (no default login) → defer detection until `resolve-target` (which actually calls it).

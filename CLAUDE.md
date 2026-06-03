@@ -70,32 +70,31 @@ Shared Python libraries live in `~/.claude/lib/` (symlinked from `agent-config/l
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path.home() / ".claude" / "lib"))
-from sprint_ledger import SprintEntry, SprintLedger, get_ledger_path  # etc.
+from sprint_ledger import discover_reports_roots, get_reports_base  # etc.
 ```
 
 Currently:
-- `sprint_ledger.py` — shared data model and display helpers for the sprint ledger, used by the `sprints` skill and the `commit` skill.
+- `forgejo_sprints.py` — Forgejo-milestone-backed sprint tracking. **Both a library and a CLI** — the `sprint-*` skills call it directly (`python3 ~/.claude/lib/forgejo_sprints.py <flag>`); there is **no separate `sprints` skill** (removed — it was a thin wrapper, so the CLI was folded into this lib). **A sprint IS a Forgejo milestone** in its primary repo: open = active (`planned`/`in_progress`), closed = finished (`completed`/`skipped`); metadata (session, fine status, models, fit, participants, and the PRD section the sprint `Advances`) lives in a `## Sprint metadata` block in the milestone description. Owns the meta-block render/parse (pure, offline-tested), the `tea`/API operations, and the CLI (`--list`/`--current`/`--add`/`--get-doc`/`--append-retro`/`--set-fit`/`--complete`/…). Repo-less / cross-cutting sprints have no milestone home and aren't tracked. Replaced the on-disk `ledger.tsv`.
+- `sprint_ledger.py` — retired as the sprint *tracker* (Forgejo milestones are now the source of truth). The TSV `SprintEntry`/`SprintLedger` model and `ledger.tsv` are **removed**; only the still-shared plumbing remains: `discover_reports_roots()` (repo discovery from `~/Reports/`, keyed on the `sprints/` dir, used by `forgejo_sprints.py`), `get_reports_base()` (the canonical `~/Reports/<org>/<repo>/` resolver), and the terminal color helpers used by the `commit` skill. (Filename kept for import stability; it no longer implements a ledger — a rename is a possible future cleanup.)
 - `commit.py` — shared helpers for the `commit` skill.
 - `graph_walker.py` — generic graph walker used by all dot-graph skills (see `docs/DOT-GRAPH-SKILL-PATTERN.md`). Reads a skill's `graph.dot`, validates transitions against the graph, and persists per-run state to a JSON file. Skills wrap it via their own `scripts/walk.sh`.
-- `codex-invocation.md` — canonical pattern for `codex exec` invocations used in parallel-delegation nodes (sprint-plan, review-pr-comprehensive, sprint-self-review, and all audit-* skills via `audit-codex.sh`).
+- `codex-invocation.md` — canonical pattern for `codex exec` invocations used in parallel-delegation nodes (sprint-plan, review-pr-comprehensive, and all audit-* skills via `audit-codex.sh`).
 - `audit-runner.sh` — owns audit `$AUDIT_DIR` creation under `~/Reports/<org>/<repo>/audits/<TS>-<audit-name>/` and writes `MANIFEST.json`. Every audit skill's `init` node calls this; without it, no downstream node has a writable directory.
 - `audit-codex.sh` — canonical `codex exec` wrapper used by every audit skill's `independent-reviews` and `devils-advocate` nodes. Owns the invocation flags AND post-run artifact verification; refuses to exit 0 unless the output file is on disk with at least one markdown table row.
 - `audit-verify.sh` — the hard artifact gate every audit's `verify` node runs. Exits non-zero if any required artifact (claude.md, synthesis.md, REPORT.md) is missing or empty; the handoff message must include its output verbatim.
 - `prd-runner.sh` — document-shaped analog of `audit-runner.sh` for the `audit-prd` skill. Resolves the PRD source (local markdown file, vault note, or Forgejo wiki page), fetches its content into `$AUDIT_DIR/prd-source.md`, resolves `<org>/<repo>` (wiki/in-repo file) or `prd/<slug>` (loose/vault file), and writes a MANIFEST the existing `audit-codex.sh`/`audit-verify.sh` consume unchanged.
-- `plane_schema.py` — Plane-shaped markdown data model + YAML-frontmatter (de)serialization. Used by the `plane-*` skills to model Workspace, Project, WorkItem, Cycle, Module, Epic, Milestone. State enum + transitions enforce the lifecycle. Includes `find_existing_work_item()` for the (audit_type, audit_id) matching key used by promotion.
-- `plane-runner.sh` — analog of `audit-runner.sh` for the `plane-*` skills. Resolves `<org>/<repo>` from the git remote, ensures the Plane-shaped subdirs (work-items/, cycles/, modules/, epics/, milestones/, pages/) exist under `~/Reports/<org>/<repo>/`, and locates audit dirs by audit-name. Idempotent.
-- `external-content-handling.md` — copy-paste boilerplate that skills fetching untrusted external content (Linear, GitHub, web pages, etc.) include verbatim in their `SKILL.md`.
+- `external-content-handling.md` — copy-paste boilerplate that skills fetching untrusted external content (Forgejo, GitHub, web pages, etc.) include verbatim in their `SKILL.md`.
 - `test_sprint_ledger.py` — unit tests for `sprint_ledger.py`.
 
 ## Skill patterns
 
 Skills with multi-phase workflows (review pipelines, sprint planning, address-feedback loops) use the **dot-graph skill pattern**: the flow is a `graph.dot` with per-node markdown sidecars under `nodes/`, walked deterministically by `lib/graph_walker.py`. The graph is the source of truth — drift between prose and routing is structurally impossible. Reference: [`docs/DOT-GRAPH-SKILL-PATTERN.md`](docs/DOT-GRAPH-SKILL-PATTERN.md).
 
-Skills currently on this pattern: `commit`, `polish-pull-request`, `review-address-feedback`, `review-pr-comprehensive`, `review-pr-simple`, `sprint-plan`, `sprint-plan-to-linear`, `sprint-seed`, `sprint-self-review`, `sprint-work`, all 31 `audit-*` skills (22 apple + 9 general/web). CLI-wrapper skills (`gh`, `gws`, `linear`, `obsidian`, `orbstack`) and the procedural `plane-*` skills (`plane-init`, `plane-audit-ingest`, `plane-audit-promote`, `plane-cycle-new`, `plane-work-item-assign`, `plane-work-item-update`, `plane-cycle-render`, `plane-cycle-readiness`, `plane-project-status`, `plane-cycle-close`) are not on this pattern — they're one-shot operations with no internal state machine.
+Skills currently on this pattern: `commit`, `polish-pull-request`, `review-address-feedback`, `review-pr-comprehensive`, `review-pr-simple`, `project-create-prd`, `sprint-plan`, `sprint-plan-to-issues`, `sprint-seed`, `sprint-work`, all 30 `audit-*` skills (22 apple + 8 general/web). CLI-wrapper skills (`forgejo`, `gh`, `gws`, `obsidian`, `orbstack`) are not on this pattern — they're one-shot operations with no internal state machine.
 
 ## Sprint workflow
 
-End-to-end lifecycle for planning, executing, reviewing, and shipping work — including the SPRINT.md vs. Linear execution paths, the self-review cycle, and the artifact layout under `~/Reports/<org>/<repo>/`. See [`docs/sprints/README.md`](docs/sprints/README.md).
+End-to-end lifecycle for planning, executing, and shipping work — including the SPRINT.md vs. Forgejo execution paths (commit-per-issue straight to the default branch, no PRs) and the artifact layout under `~/Reports/<org>/<repo>/`. See [`docs/sprints/README.md`](docs/sprints/README.md).
 
 All sprint, review, and audit artifacts live under `~/Reports/<org>/<repo>/` (derived from `upstream` remote, falling back to `origin`). Nothing is written into the project repo.
 
@@ -122,7 +121,7 @@ Layout convention per contributing repo:
 ```
 
 Naming convention to avoid collisions across repos:
-- `agent-config` owns generic verbs/topics: `audit-*`, `sprint-*`, `review-*`, `commit`, `gh`, `linear`, `obsidian`, `orbstack`.
+- `agent-config` owns generic verbs/topics: `audit-*`, `sprint-*`, `review-*`, `commit`, `forgejo`, `gh`, `obsidian`, `orbstack`.
 - Project repos use a project prefix: `apt-*` for Agent Project Tracker, future apps follow the same pattern.
 - If a collision ever occurs, last-installed wins via symlink replacement — easy to detect by listing `~/.claude/skills/`.
 

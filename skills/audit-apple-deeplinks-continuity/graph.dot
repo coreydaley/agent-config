@@ -51,8 +51,6 @@ digraph audit_apple_deeplinks_continuity {
     terminal            [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
                          label="terminal"];
 
-    ingest              [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
-                         label="ingest\n(plane-audit-ingest:\nREPORT.md → audit work-items)"];
 
     // -- Edges ---------------------------------------------------------
     init                -> orient;
@@ -63,8 +61,7 @@ digraph audit_apple_deeplinks_continuity {
     synthesis           -> devils_advocate;
     devils_advocate     -> report;
     report              -> verify;
-    verify              -> ingest              [label="ok"];
-    ingest              -> handoff;
+    verify              -> handoff             [label="ok"];
     verify              -> escalate            [label="incomplete"];
     escalate            -> terminal            [label="user_acknowledge"];
     handoff             -> terminal;

@@ -23,5 +23,5 @@ None. Terminal is a sink.
 ## Notes
 
 - **Don't reprint summaries.** `register` (and `dry-exit`) already printed.
-- **SPRINT.md and intent.md stay on disk** even on cancel. The user can use them manually if they want, register later via `/sprints --add`, or delete the session folder.
+- **SPRINT.md and intent.md stay on disk** even on cancel. The user can use them manually if they want, register later via `python3 ~/.claude/lib/forgejo_sprints.py --add`, or delete the session folder.
 - **Don't merge, don't push, don't comment.** This skill produces planning artifacts only.

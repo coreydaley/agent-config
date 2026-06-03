@@ -16,9 +16,9 @@ description: >-
   impossible. For the AI-agent / LLM-crawler surface (GPTBot /
   ClaudeBot directives, llms.txt, no-JS extraction, programmatic
   API/MCP access, content licensing), use
-  `audit-web-agent-accessibility`. For native Apple platforms, no
+  `audit-web-accessibility-agent`. For native Apple platforms, no
   SEO audit applies. For web accessibility (WCAG), use
-  `audit-web-accessibility`.
+  `audit-web-accessibility-human`.
 argument-hint: "[scope-path] [--help]"
 disable-model-invocation: false
 ---
@@ -45,7 +45,7 @@ findings under P0 / P1 / Deferred.
 This skill is the **broad** technical-SEO audit (discovery and ranking
 for human-facing search engines: Googlebot, Bingbot). The
 **AI-agent / LLM-crawler** surface is a separate, thinner audit:
-`/audit-web-agent-accessibility` (GPTBot / ClaudeBot / Google-Extended
+`/audit-web-accessibility-agent` (GPTBot / ClaudeBot / Google-Extended
 directives, `llms.txt`, no-JS agent extraction, programmatic API/MCP
 access, content licensing for training).
 
@@ -70,8 +70,8 @@ When to use it
   On web apps, marketing sites, blogs, docs, and any HTML-serving
   frontend (SSR / SSG / CSR). For the AI-agent / LLM-crawler surface
   (llms.txt, GPTBot / ClaudeBot directives, no-JS extraction,
-  API/MCP access) use /audit-web-agent-accessibility instead. For
-  WCAG accessibility use /audit-web-accessibility.
+  API/MCP access) use /audit-web-accessibility-agent instead. For
+  WCAG accessibility use /audit-web-accessibility-human.
 
 What it does
   Phase 1 — orient: runs Lighthouse (SEO category), fetches
@@ -261,7 +261,7 @@ Nothing is written into the project repo.
 - **Don't** rate a Ranking nudge above an Indexation blocker.
   Indexation > Ranking > RichResult > Discovery when calibrating.
 - **Don't** deep-dive the AI-crawler / llms.txt / API surface here —
-  that's `/audit-web-agent-accessibility`.
+  that's `/audit-web-accessibility-agent`.
 - **Don't** claim a `runtime` finding is verified from source. Soft
   404s, rendered structured data, indexation status, and Core Web
   Vitals field data need a built/live page or Search Console.

@@ -6,7 +6,6 @@ Phase 1 of the framework — run audit-specific tooling into `$AUDIT_DIR/tooling
 
 - `$AUDIT_DIR`, `$PROJECT_CWD` from walker state
 - The scope's source tree (read-only)
-- Optionally, a prior `audit-test-coverage` run's `tooling-raw/` (reused if present)
 
 ```bash
 AUDIT_DIR=$(scripts/walk.sh get --state "$STATE" --key audit_dir)
@@ -48,31 +47,16 @@ echo "Detected target platforms: ${PLATFORMS:-unknown}" >> "$AUDIT_DIR/tooling-r
 
 ### 1. Run Phase 1 tooling
 
-Apple testing tooling is thin — most signal comes from inventorying the test surface and reading test files. Reuse coverage data from a prior `audit-test-coverage` run if available, otherwise run `swift test --enable-code-coverage` directly. **Never block on a missing tool.**
+Apple testing tooling is thin — most signal comes from inventorying the test surface and reading test files. Generate coverage directly with `swift test --enable-code-coverage` when the project has a `Package.swift`. **Never block on a missing tool.**
 
 ```bash
-# Reuse audit-test-coverage data if a recent run exists for this org/repo.
-# Use find rather than a bare glob to survive zsh's default `nomatch` setting.
-if [ -n "$ORG_REPO" ]; then
-  LATEST_COV=$(find "$HOME/Reports/$ORG_REPO/audits" -maxdepth 1 -type d \
-    -name '*-test-coverage' 2>/dev/null | sort -r | head -1)
+# Run Swift coverage directly if there's a Package.swift.
+if [ -f "$PROJECT_CWD/Package.swift" ] && command -v swift >/dev/null; then
+  ${TO:+$TO 600} swift test --enable-code-coverage --package-path "$PROJECT_CWD" \
+    > "$AUDIT_DIR/tooling-raw/swift-test.log" 2>&1 || true
 else
-  LATEST_COV=""
-fi
-if [ -n "$LATEST_COV" ] && [ -d "$LATEST_COV/tooling-raw" ]; then
-  echo "Reusing coverage data from $LATEST_COV" \
-    > "$AUDIT_DIR/tooling-raw/COVERAGE-SOURCE.md"
-  # Use `/.` so cp copies contents safely even if the source dir is empty.
-  cp -R "$LATEST_COV/tooling-raw/." "$AUDIT_DIR/tooling-raw/" 2>/dev/null || true
-else
-  # Run Swift coverage directly if there's a Package.swift.
-  if [ -f "$PROJECT_CWD/Package.swift" ] && command -v swift >/dev/null; then
-    ${TO:+$TO 600} swift test --enable-code-coverage --package-path "$PROJECT_CWD" \
-      > "$AUDIT_DIR/tooling-raw/swift-test.log" 2>&1 || true
-  else
-    echo "⚠️ no Package.swift or swift toolchain — skipping coverage run" \
-      >> "$AUDIT_DIR/tooling-raw/STATUS.md"
-  fi
+  echo "⚠️ no Package.swift or swift toolchain — skipping coverage run" \
+    >> "$AUDIT_DIR/tooling-raw/STATUS.md"
 fi
 
 # Inventory test targets and frameworks in use.
@@ -120,7 +104,6 @@ In conversational text (not a persisted file), note:
 - Whether `#Preview` blocks exist for SwiftUI Views
 - The project's apparent SwiftUI view-testing strategy (ViewInspector? snapshot? preview-based? business-logic-in-VM only?)
 - Whether CI configuration runs the UI test target (look at `.github/workflows/`, `fastlane/`, `Bitrise.yml`, etc.)
-- Whether a prior `audit-test-coverage` run was reused
 - **If no Swift/Apple source found**: notify and stop
 
 ### 4. Persist any run-scoped state Phase 2 needs
@@ -133,7 +116,6 @@ scripts/walk.sh set --state "$STATE" --key emergency_exit --value "0"
 
 - `$AUDIT_DIR/tooling-raw/test-inventory.txt` populated
 - `$AUDIT_DIR/tooling-raw/STATUS.md` documents any skipped tools (may be empty)
-- `$AUDIT_DIR/tooling-raw/COVERAGE-SOURCE.md` exists if data was reused from `audit-test-coverage`
 - `$AUDIT_DIR/tooling-raw/swift-test.log` exists if `swift test` ran
 - Walker state has `emergency_exit` flag set to `0`
 

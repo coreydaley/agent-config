@@ -1,6 +1,6 @@
 # Node: detect-repo
 
-Phase 3: build the repo manifest and resolve the sprint's branch name. The result drives `verify-worktree`, `implement`, and `open-prs`.
+Phase 3: build the repo manifest and resolve each repo's default branch. The result drives `verify-worktree`, `implement`, and `commit-push`. This flow commits straight to the default branch — there's no per-sprint or per-issue feature branch.
 
 ## Inputs
 
@@ -22,51 +22,42 @@ The **Repositories** section in SPRINT.md is the authoritative source. Format:
 - acme/api
 ```
 
-Each entry is `<org>/<repo>` matching the GitHub path. The first entry (or one tagged `(primary)`) is the primary repo for cross-link ordering in `open-prs`.
+Each entry is `<org>/<repo>` matching the Forgejo owner/repo path. The first entry (or one tagged `(primary)`) is the primary repo for ordering in `commit-push`.
 
 ### Resolution order
 
 1. **`Repositories` section in SPRINT.md** — preferred source. Single entry → single-repo. Multiple → multi-repo.
-2. **`Repositories` section in LINEAR.md** — `/sprint-plan-to-linear/finalize.md` carries the manifest into LINEAR.md verbatim so the Linear path can resolve repos without depending on SPRINT.md being reachable. Read `linear_md_path` from walker state (set by `load-context`) and parse its `## Repositories` section.
-3. **Linear issue body** — for `linear-issue` / `linear-walk`, fall back to the issue's Files section and any GitHub URLs in the description if neither SPRINT.md nor LINEAR.md has a Repositories section.
+2. **`Repositories` section in FORGEJO.md** — `/sprint-plan-to-issues/finalize.md` carries the manifest into FORGEJO.md verbatim so the Forgejo path can resolve repos without depending on SPRINT.md being reachable. Read `forgejo_md_path` from walker state (set by `load-context`) and parse its `## Repositories` section.
+3. **Forgejo issue body** — for `forgejo-issue` / `forgejo-walk`, fall back to the issue's Files section and any Forgejo repo URLs in the description if neither SPRINT.md nor FORGEJO.md has a Repositories section.
 4. **Files Summary in SPRINT.md** — last-resort inference for older SPRINT.md files that predate the Repositories section.
 
 If multiple sources are present, prefer (1). If (1) is missing, log a note for `recommend-execution`'s DoR check (it'll surface as a missing-manifest warning on the next plan run) but continue with (2)/(3) for this run.
 
-## Branch name
+## Default branch (per repo)
 
-For each branch unit (one Linear issue, or one SPRINT.md sprint) the **same branch name applies to every repo it touches**. This is what makes the change set discoverable across repos by branch name.
-
-- **`linear-issue` / `linear-walk` (per issue):** use Linear's `branchName` field (e.g., `coreydaley/proj-1148-add-full-tag-support-for-python`). For `linear-walk`, this is per-issue and resolved inside `implement`'s loop, not here. Persist the milestone-level branch list as `issue_branches`.
-- **`sprintmd`:** resolve in this order:
-  1. **Sidecar**: if `$SESSION_DIR/.branch` exists from a prior run, read it. This makes the branch durable across `/sprint-work` invocations on the same sprint.
-  2. **Current branch**: if the user is in a worktree on a feature branch (not `main` / default), use that.
-  3. **Prompt once**: ask "What branch name for this sprint?".
-
-After resolution, **always persist** `branch_name` to `$SESSION_DIR/.branch` — regardless of whether it came from the sidecar (no-op write), current-branch detection, or the prompt. This guarantees subsequent runs find the same branch even if the user switched cwd or the worktree's branch since.
+Work commits to **each repo's default branch** — no feature branch. Defaults can differ per repo (`main` vs `master`), so resolve and store one per repo. Resolve via the Forgejo API (authoritative) with a local fallback:
 
 ```bash
-echo "$BRANCH_NAME" > "$SESSION_DIR/.branch"
+TOKEN=$(awk '/name: homelab/{f=1} f&&/token:/{print $2; exit}' "$HOME/Library/Application Support/tea/config.yml")
+BASE=https://mac-mini.example:3000/api/v1
+
+# Per repo:
+DEFAULT_BRANCH=$(curl -sk -H "Authorization: token $TOKEN" \
+  "$BASE/repos/<org>/<repo>" | jq -r '.default_branch')
+# Local fallback if the API is unreachable:
+#   git -C <bare> symbolic-ref --short refs/remotes/origin/HEAD | sed 's#^origin/##'
 ```
 
-If the sidecar already exists with a *different* value than the resolved branch (e.g., user switched the worktree's branch since the prior run), surface a warning before overwriting:
+Store the resolved default in each `repos` entry as `default_branch`. `implement` / `commit-push` use it for the per-repo commit + push target.
 
-```
-Sprint's recorded branch is <prior>; current resolution picked <new>.
-Update .branch to <new>? (yes / cancel)
-```
-
-On cancel, bail to terminal — the user resolves the discrepancy manually.
-
-The sidecar is plain text, one line, the branch name. Subsequent steps read `branch_name` from walker state, which is loaded from the sidecar on entry.
+For display and the `--retro` handoff, also persist `branch_name` = the **primary** repo's default branch (a convenient single value; multi-repo consumers read per-repo `default_branch` from `repos`).
 
 ## Persist results
 
 ```bash
 scripts/walk.sh set --state "$STATE" --key repo_mode    --value "<single|multi>"
-scripts/walk.sh set --state "$STATE" --key repos        --value "<JSON list of {org, repo, primary} entries>"
-scripts/walk.sh set --state "$STATE" --key branch_name  --value "<branch>"           # sprintmd / single-issue
-scripts/walk.sh set --state "$STATE" --key issue_branches --value "<JSON: issue_id → branchName>"  # linear-walk only
+scripts/walk.sh set --state "$STATE" --key repos        --value "<JSON list of {org, repo, primary, default_branch} entries>"
+scripts/walk.sh set --state "$STATE" --key branch_name  --value "<primary repo's default branch>"
 scripts/walk.sh set --state "$STATE" --key merge_order  --value "<JSON list or empty>"
 ```
 
@@ -74,14 +65,14 @@ scripts/walk.sh set --state "$STATE" --key merge_order  --value "<JSON list or e
 
 ```json
 [
-  {"org": "acme", "repo": "web-app", "primary": true},
-  {"org": "acme",    "repo": "api",           "primary": false}
+  {"org": "acme", "repo": "web-app", "primary": true,  "default_branch": "main"},
+  {"org": "acme", "repo": "api",     "primary": false, "default_branch": "main"}
 ]
 ```
 
 ## Outputs
 
-- `repo_mode`, `repos`, `branch_name` (or `issue_branches`), `merge_order` in walker state
+- `repo_mode`, `repos` (with per-repo `default_branch`), `branch_name`, `merge_order` in walker state
 
 ## Outgoing edges
 
@@ -96,5 +87,6 @@ scripts/walk.sh transition --state "$STATE" --from detect_repo --to verify_workt
 ## Notes
 
 - **The Repositories manifest is what makes cwd-independence work.** Without it, the skill has to infer repo intent from cwd or file paths. With it, the skill knows where to operate before any worktree work happens.
-- **For multi-repo with no explicit merge order**, default to alphabetical by `org/repo`. `open-prs` will surface this in cross-links.
+- **For multi-repo with no explicit merge order**, default to alphabetical by `org/repo`. `commit-push` commits in that order.
 - **Don't pick a primary** silently when SPRINT.md doesn't tag one. Default to alphabetical-first and note it in walker state for `summarize` to surface.
+- **No feature branch, no `.branch` sidecar.** This flow commits to the default branch; there's nothing branch-specific to persist across runs.

@@ -5,8 +5,8 @@ Phase 11: per-repo / per-issue summary, suggested next step, stop.
 ## Inputs
 
 - Result fields from walker state, shape depending on `path_mode`:
-  - **sprintmd / linear-issue:** `implement_results`, `tests_passed`, `criteria_results`, `pr_results` (singular per-sprint values)
-  - **linear-walk:** `linear_walk_results` (object map keyed by issue_id, each entry containing `{tests, criteria, prs}` from validate-success and open-prs invocations) plus `implement_results` (per-task) and `skipped_issue_ids`
+  - **sprintmd / forgejo-issue:** `implement_results`, `tests_passed`, `criteria_results`, `commit_results` (singular per-sprint values)
+  - **forgejo-walk:** `forgejo_walk_results` (object map keyed by issue ref `<owner/repo#n>`, each entry containing `{tests, criteria, commits}` from validate-success and commit-push invocations) plus `implement_results` and `skipped_issue_ids`
 - Plus: `path_mode`, `repos`, `issue_ids`, `active_issue_ids`
 
 ```bash
@@ -18,8 +18,8 @@ STATE="<path>"
 Print a concise summary:
 
 ```
-Target:      <Linear ID + title | Sprint <session-TS> + title>
-Path mode:   <sprintmd | linear-issue | linear-walk>
+Target:      <Forgejo issue ref + title | Sprint <session-TS> + title>
+Path mode:   <sprintmd | forgejo-issue | forgejo-walk>
 Repos:       <single | multi: repo1, repo2>
 
 Files changed (per repo):
@@ -33,60 +33,89 @@ Success Criteria:
   <count> deferred
   <count> not-met
 
-PRs opened:
-  - <repo1>: <PR URL>  [DRAFT]
-  - <repo2>: <PR URL>  [DRAFT]
-  (or "skipped — pushed to existing PR" if skip_pr_open)
-
-Multi-repo cross-links: confirmed (or "not applicable")
+Commits pushed (one per issue):
+  - <owner>/<repo>#42  →  <sha>  on main  (issue closed)
+  - <owner>/<repo>#43  →  <sha>  on main  (issue closed)
+  (sprintmd: one commit summarizing the sprint, no issue to close)
 ```
 
 If anything went sideways, include a **Warnings** section:
 
 ```
 Warnings:
-  - PR for <repo> failed to open: <error>. Re-run /sprint-work or open
-    manually with `gh pr create --draft ...`.
+  - Push for <repo> rejected: <error>. Reconcile (pull/rebase) and re-run
+    /sprint-work — the issue stays open until the commit lands on the default branch.
   - Test suite failed in <repo>: see $TEST_LOG_DIR/<repo>.log
+```
+
+## Milestone completion check (feeds the auto-retro)
+
+Compute how many issues are **still open in the milestone** and persist
+it so `check-milestone` can route on it (and so this summary can tell the
+user what's left). Skip for the `sprintmd` path or any run with no
+resolved milestone — persist `0`/empty and let `check-milestone` treat it
+as "no milestone."
+
+```bash
+MILESTONE_REPO=$(scripts/walk.sh get --state "$STATE" --key milestone_repo)
+MILESTONE_NAME=$(scripts/walk.sh get --state "$STATE" --key milestone_name)
+if [ -n "$MILESTONE_REPO" ] && [ -n "$MILESTONE_NAME" ]; then
+  OPEN_LEFT=$(tea issues list --repo "$MILESTONE_REPO" \
+    --milestones "$MILESTONE_NAME" --state open --output json | jq 'length')
+else
+  OPEN_LEFT=""   # no milestone (sprintmd / single issue w/o milestone)
+fi
+scripts/walk.sh set --state "$STATE" --key milestone_open_count --value "${OPEN_LEFT:-}"
 ```
 
 ## Suggested next step
 
-```
-Ready for review:
-  /review-pr-comprehensive <PR-url>      # for the full dual-agent review
-  /review-pr-simple <PR-url>             # for a quick single-agent pass
+The retro is **automatic** — if this run just closed the last open issue
+in the milestone, `check-milestone` writes the retrospective and closes
+the milestone right after this summary. So frame the next step on what's
+left:
 
-After PRs merge:
-  /sprint-work --retro <target>          # to write the retrospective and
-                                         # close the sprint in the ledger
+```
+Milestone <name>: <OPEN_LEFT> issue(s) still open
+  → /sprint-work <target>     # continue the milestone
+(— or, if OPEN_LEFT == 0 —)
+All milestone issues closed → writing the retrospective and closing the
+sprint now.
 ```
 
-If the path was `linear-walk` and any issue failed (with `--continue`), surface the failed issues separately so the user knows what to revisit.
+For the `sprintmd` path (no milestone), keep the manual hint:
+
+```
+  /sprint-work --retro <target>          # write the retrospective and
+                                         # mark the sprint complete
+```
+
+If the path was `forgejo-walk` and any issue failed (with `--continue`), surface the failed issues separately so the user knows what to revisit. If a push was rejected, call that out — the issue won't have closed (so the milestone won't read as complete, and the auto-retro correctly won't fire).
 
 ## Don'ts
 
-- **Don't run `git push`** at this phase. (`gh pr create --draft` auto-pushes the branch when it opens the PR — that's the only push from this skill.) Per-task commits already landed in `implement`; nothing to commit here either.
-- **Don't set Linear issue state** — Linear's GitHub integration handles the transition when the PR opens.
-- **Don't comment on the Linear issue** — same.
-- **Don't merge.** Always the user's call.
-- **Don't mark the sprint completed in the ledger.** Only `--retro` does that.
+- **Don't run `git push`** at this phase. `commit-push` already pushed each issue's commit; nothing further to push here.
+- **Don't re-touch the issues here.** `implement` / `commit-push` already commented, closed, and labeled them; summarize only reports.
+- **Don't open a PR.** This flow commits straight to the default branch.
+- **Don't mark the sprint completed here.** `write-retro` does that — reached either via the auto-retro (`check-milestone`, when this run emptied the milestone) or an explicit `--retro`. Summarize only reports and computes the open count.
 
 ## Outputs
 
 - Printed summary
+- `milestone_open_count` in walker state (drives `check-milestone`)
 
 ## Outgoing edges
 
-- → `terminal` (always — single outgoing edge)
+- → `check-milestone` (always — single outgoing edge). It decides whether
+  this run completed the milestone and, if so, auto-fires the retro.
 
 Record the transition:
 
 ```bash
-scripts/walk.sh transition --state "$STATE" --from summarize --to terminal
+scripts/walk.sh transition --state "$STATE" --from summarize --to check_milestone
 ```
 
 ## Notes
 
 - **Be specific in the summary.** "Tests: PASS" without the test count is worse than "Tests: PASS (218 unit, 14 e2e)" if the numbers are easy to capture.
-- **Surface every PR URL.** Even if the user is going to open a follow-on review skill, they may want to share the URL with reviewers immediately.
+- **Surface every commit SHA and which issue it closed.** The SHA + issue ref is the audit trail for what shipped.

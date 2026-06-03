@@ -23,7 +23,7 @@ description: >-
   `audit-apple-watchos`. For visionOS gaze + pinch / hand-tracking
   accessibility, cross-ref `audit-apple-visionos`. For tvOS focus
   engine accessibility, no tvOS-specific carve-out yet exists. For web
-  frontends, use `audit-web-accessibility`.
+  frontends, use `audit-web-accessibility-human`.
 argument-hint: "[scope-path] [--help]"
 disable-model-invocation: false
 ---
@@ -72,7 +72,7 @@ When to use it
   audit-apple-watchos, audit-apple-visionos) cover the
   platform-distinctive interaction-mode carve-outs — run those
   alongside this one for full coverage. For web frontends, use
-  /audit-web-accessibility instead.
+  /audit-web-accessibility-human instead.
 
 What it does
   Phase 1 — orient: no tooling; records STATUS.md noting the
@@ -94,7 +94,7 @@ Before you run it
   - `codex` installed and authenticated; without it the audit
     runs single-agent with a loud warning.
   - The scope must contain Swift / Obj-C source — if not, the
-    audit will stop and suggest /audit-web-accessibility for web
+    audit will stop and suggest /audit-web-accessibility-human for web
     projects.
   - For projects without `upstream`/`origin` remote, the audit
     will write to ~/Reports/local/<basename>/.
@@ -173,8 +173,7 @@ Edge conditions:
   conditions for this audit)
 - `orient → emergency_exit`: `emergency` (declared for graph
   uniformity; never traversed)
-- `verify → ingest`: `ok`
-- `ingest → handoff`: (single outgoing edge)
+- `verify → handoff`: `ok`
 - `verify → escalate`: `incomplete`
 - `escalate → terminal`: `user_acknowledge`
 
@@ -243,7 +242,7 @@ Nothing is written into the project repo.
 - **Don't** skip the verify step. If verify fails, escalate.
 - **Don't** bypass the walker by editing `.walk-state.json`.
 - **Don't** audit web frontends here — those belong in
-  `/audit-web-accessibility`.
+  `/audit-web-accessibility-human`.
 - **Don't** audit security or privacy concerns here — those belong
   in `/audit-apple-security` and `/audit-apple-privacy` respectively.
 - **Don't** audit macOS-distinctive accessibility surface depth

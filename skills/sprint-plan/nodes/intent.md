@@ -74,7 +74,6 @@ FLAG_DRY=$(scripts/walk.sh get --state "$STATE" --key flag_dry)
    - **Seed text** — does it name repos directly? (`"web-app and mono"`, `"the auth middleware in the-API repo"`).
    - **Orient evidence** — which repo paths surfaced under "Relevant Codebase Areas"? Which repos are touched by the recent commits / past sprint history pulled in orient?
    - **Cwd context** — if `/sprint-plan` ran inside a git repo and the seed doesn't name another, default to that repo as `(primary)`.
-   - **Linear mode** — if the seed pointed at a Linear project / milestone, the issue Files columns may name repos.
 
    Always fill the section. **A single-repo sprint must list one entry tagged `(primary)`** — leaving it blank is not acceptable. For multi-repo, list every repo the sprint touches and tag the one where the bulk of work happens (or the one that should be PR-merged first) as `(primary)`.
 

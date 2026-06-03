@@ -7,7 +7,7 @@ description: >-
   ledger; everything else gets a single Claude trailer), then walks the
   graph to write conventional commit messages and commit each group via
   heredoc. Never amends, never force-pushes, never skips hooks.
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # Commit

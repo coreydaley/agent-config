@@ -12,7 +12,7 @@ description: >-
   Apple-specific architectural patterns (SwiftUI state, @MainActor
   isolation, Sendable, navigation), use `audit-apple-architecture`.
 argument-hint: "[scope-path] [--help]"
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # Architecture Audit

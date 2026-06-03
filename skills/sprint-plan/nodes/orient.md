@@ -15,12 +15,12 @@ SESSION_DIR=$(scripts/walk.sh get --state "$STATE" --key session_dir)
 
 1. **Read `CLAUDE.md`** for project conventions.
 
-2. **Check sprint ledger status:**
+2. **Check sprint status** (the sprint tracker lib — milestones across all repos discovered under `~/Reports/`):
    ```bash
-   /sprints --stats
-   /sprints --list
+   python3 ~/.claude/lib/forgejo_sprints.py --stats
+   python3 ~/.claude/lib/forgejo_sprints.py --list
    ```
-   Surface anything in flight that the user might want to finish first. These calls use cwd's ledger by default (the ledger for the repo `/sprint-plan` is being run inside). For cross-cutting sprints under `~/Reports/seeds/`, the cwd ledger may not surface them — the user can pass `--root ~/Reports/seeds` if they want that view, but for orient's purpose (planning context for the *current* repo's seed) the cwd default is correct.
+   Surface anything in flight that the user might want to finish first.
 
 3. **Recent sprint context.** Read the most recent 1-2 sprints' SPRINT.md and RETRO.md if findable. Look for:
    - Deferred items (might be relevant to the new seed)

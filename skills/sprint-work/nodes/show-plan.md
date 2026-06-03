@@ -13,16 +13,16 @@ PATH_MODE=$(scripts/walk.sh get --state "$STATE" --key path_mode)
 
 ## Render based on `path_mode`
 
-### Linear paths
+### Forgejo paths
 
-1. **Issue summary:** ID, title, priority, state.
+1. **Issue summary:** ref (`<owner>/<repo>#<n>`), title, priority, state.
 2. **Issue body sections:** Context, Tasks, Files, Notes, Considerations, Success Criteria.
 3. **Milestone-level ambient context:** outcome, AC checklist, Open Questions, cross-cutting Considerations.
 4. **SPRINT.md-derived context** (when found): Recommended Execution, relevant Surface Areas.
 5. **Repo plan:** single-repo or multi-repo + merge order if applicable.
 6. **Worktree paths verified.**
 
-For `linear-walk`, render all issues' summaries (table form), then expand the first issue's full body. Subsequent issues will have their own per-issue render inside `implement`.
+For `forgejo-walk`, render all issues' summaries (table form), then expand the first issue's full body. Subsequent issues will have their own per-issue render inside `implement`.
 
 ### SPRINT.md path
 
@@ -46,16 +46,16 @@ You can `/model <tier>` and re-invoke if you'd like.
 
 ## Outgoing edges
 
-- → `ask-approval` (always — single outgoing edge)
+- → `implement` (always — single outgoing edge)
 
 Record the transition:
 
 ```bash
-scripts/walk.sh transition --state "$STATE" --from show_plan --to ask_approval
+scripts/walk.sh transition --state "$STATE" --from show_plan --to implement
 ```
 
 ## Notes
 
-- **Render the full picture.** The user is going to be asked to approve in the next node; they need the full context here.
-- **Don't ask anything yet.** The user-input gate is `ask-approval`.
-- **For `linear-walk`, don't dump every issue's body.** Issues table + first issue's body. The user can ask for more depth in `discuss-plan`.
+- **Render the full picture, then proceed.** This is a non-blocking render for transparency — there's **no approval gate**. After printing the plan, flow straight into `implement` and execute the whole sprint. (Use `--review` to preview the plan and stop without acting.)
+- **Don't ask the user to approve or pick issues.** The run is autonomous; do every issue the target resolved to.
+- **For `forgejo-walk`, don't dump every issue's body.** Print the issues table + the first issue's body, then start working. Per-issue bodies are re-rendered in `implement` as each issue comes up.

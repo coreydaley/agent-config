@@ -77,7 +77,7 @@ objective (mutation check) and partly judgment.>
 <non-zero layers only>
 
 Intermediate audit artifacts:
-- $AUDIT_DIR/tooling-raw/ (test-inventory.txt, optional swift-test.log, optional COVERAGE-SOURCE.md)
+- $AUDIT_DIR/tooling-raw/ (test-inventory.txt, optional swift-test.log, STATUS.md)
 - $AUDIT_DIR/claude.md
 - $AUDIT_DIR/codex.md           <or "MISSING — single-agent run" if codex_status=failed>
 - $AUDIT_DIR/synthesis.md

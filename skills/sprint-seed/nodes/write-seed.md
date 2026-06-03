@@ -4,7 +4,8 @@ Write `$SESSION_DIR/SEED.md`. Sole writer of the artifact.
 
 ## Inputs
 
-- `mode`, `session_dir`, `session_ts`, `project_url`, `seed_text` from walker state
+- `mode`, `session_dir`, `session_ts`, `seed_text` from walker state
+- `prd_status` / `prd_ref` / `prd_page` — PRD alignment outcome, if any
 - The synthesized seed text from `synthesize` (in-memory or `seed_text` if persisted)
 - The "context discussed" summary (what was explored, alternatives rejected, key constraints)
 
@@ -13,7 +14,8 @@ STATE="$SESSION_DIR/.walk-state.json"
 MODE=$(scripts/walk.sh get --state "$STATE" --key mode)
 SESSION_DIR=$(scripts/walk.sh get --state "$STATE" --key session_dir)
 SESSION_TS=$(scripts/walk.sh get --state "$STATE" --key session_ts)
-PROJECT_URL=$(scripts/walk.sh get --state "$STATE" --key project_url)
+PRD_STATUS=$(scripts/walk.sh get --state "$STATE" --key prd_status)   # aligned|off_course|out_of_scope|rescope_proposed|empty
+PRD_REF=$(scripts/walk.sh get --state "$STATE" --key prd_ref)
 ```
 
 ## Steps
@@ -30,6 +32,16 @@ Write `$SESSION_DIR/SEED.md` from this template:
 [Brief summary — what was explored, alternatives rejected with reasons,
 key constraints surfaced. Bullets are fine here.]
 
+## PRD alignment
+
+[Only when a PRD was found. One of:
+ - "Advances <prd_ref> (PRD on the <owner>/<repo> wiki)."   (aligned)
+ - "Intentionally outside the current PRD scope — <why>."   (out_of_scope)
+ - "Prompted a proposed PRD change — see PRD-DELTA.md."      (rescope_proposed)
+ Omit the section entirely if no PRD was found.]
+
+<!-- prd-advances: <prd_ref, or empty for out_of_scope / rescope> -->
+
 ## Source signals
 
 [Mode-specific. See blocks below.]
@@ -40,15 +52,7 @@ key constraints surfaced. Bullets are fine here.]
 *Run `/sprint-plan <path-to-this-file>` to plan.*
 ```
 
-### Source signals — Linear mode
-
-```markdown
-## Source signals
-
-- **Project**: <project URL>
-- **Milestones**: <complete count> complete, <in-flight> in flight, <untouched> untouched
-- **Gap this seed fills**: <one-line synthesis>
-```
+The `<!-- prd-advances: ... -->` comment is **the load-bearing linkage**: it's invisible in rendered Markdown but `/sprint-plan` greps it and records `Advances: <prd_ref>` in the sprint milestone's metadata. Emit it only when a PRD was found; put the exact `prd_ref` from `synthesize` inside (empty for the out-of-scope / rescope paths, which advance no PRD section).
 
 ### Source signals — Repo mode
 
@@ -70,9 +74,13 @@ Omit the `## Source signals` section entirely. Orientation was light; there are 
 
 Derive `<topic>` from the discussion's converged scope. Short noun phrase, completion-framed where natural ("Cache warmup for python images", not "Cache warmup work"). Avoid the word "sprint" in the title.
 
+## The SEED is an ephemeral local artifact
+
+The SEED is **not** published anywhere — it's a local stepping stone, the same role an audit's `REPORT.md` plays. It lives only at `$SESSION_DIR/SEED.md` and gets fed into `/sprint-plan`, which produces the durable Forgejo object (the milestone). Nothing in Forgejo holds the SEED; the system of record is the milestone the plan creates from it. (Repo-less seeds work identically — there's no repo distinction, because no publish happens.)
+
 ## Outputs
 
-- `$SESSION_DIR/SEED.md`
+- `$SESSION_DIR/SEED.md` (the ephemeral seed, handed to `/sprint-plan`)
 
 ## Outgoing edges
 
