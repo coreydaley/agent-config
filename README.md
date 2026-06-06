@@ -60,11 +60,9 @@ Invoke with `/command-name` in Claude Code. Commands with `disable-model-invocat
 |---|---|
 | `/commit` | Analyze uncommitted changes and create grouped conventional commits |
 | `/tag` | Analyze commits since last tag and propose the next semantic version |
-| `/project-manage-prd` | Guided, Socratic authoring (or revision) of a project's PRD; publishes it to the repo's Forgejo wiki |
-| `/sprint-seed` | Pre-plan exploratory discussion; produces a `SEED.md` (auto-reads the repo's PRD to ground candidates) |
-| `/sprint-plan` | Multi-agent collaborative sprint planning |
-| `/sprint-plan-to-issues` | Decompose an existing sprint milestone into one Forgejo issue per task |
-| `/sprint-work` | Execute a planned sprint end-to-end, autonomously — one commit per issue on the default branch (no PRs) |
+| `/feature-create` | Capture a feature as a Forgejo issue (`label:feature`); README-grounded, explores + structures the spec, large features graded by a fresh reviewer before filing |
+| `/feature-plan` | One-shot multi-agent plan that decomposes a feature issue into dependency-linked, self-assigned sub-issues (the feature is "blocked by" each task) |
+| `/feature-work` | Build a feature's sub-issues autonomously on a `feature/<slug>` branch — one commit per sub-issue with `Closes #N`, pushed (no merge); ends with a defer punch list |
 | `/review-pr-simple` | Single-agent PR review → `REVIEW.md` |
 | `/review-pr-comprehensive` | Dual-agent PR review (Claude + Codex) → `REVIEW.md` |
 | `/review-address-feedback` | Walk through review feedback and apply fixes |
@@ -107,21 +105,19 @@ Skills are auto-discovered from `~/.claude/skills/`. Each skill has a `SKILL.md`
 | `gws` | Google Workspace operations — Gmail, Calendar, Drive, Docs, Sheets, Tasks |
 | `obsidian` | Obsidian vault operations via the `obsidian` CLI |
 | `orbstack` | OrbStack management — Linux machines, Docker, Kubernetes |
-| `project-manage-prd` | Guided authoring/revision of a project's PRD; auto-detects create vs revise, publishes to the repo's Forgejo wiki |
-| `sprint-seed` | Pre-plan exploratory discussion; shapes fuzzy ideas into a `SEED.md` (grounds candidates in the repo's PRD) |
-| `sprint-plan` | Multi-agent collaborative planning with strict orchestrator/worker separation |
-| `sprint-plan-to-issues` | Decompose an existing sprint milestone into one Forgejo issue per task (self-assigned, priority-labeled, dependency-linked) |
-| `sprint-work` | Execute a planned sprint end-to-end (autonomous) from a Forgejo milestone — one commit per issue, no PRs; auto-writes the retro when the milestone empties |
+| `feature-create` | Capture a feature as a Forgejo issue (`label:feature`), README-grounded; explores + structures the spec, large features graded by a fresh reviewer before filing |
+| `feature-plan` | One-shot multi-agent planning of a feature issue into dependency-linked, self-assigned sub-issues (strict orchestrator/worker separation; the feature is "blocked by" each task) |
+| `feature-work` | Build a feature's sub-issues autonomously on a `feature/<slug>` branch — one commit per sub-issue with `Closes #N`, pushed (no merge); git-derived resume; ends with a defer punch list |
 | `review-pr-simple` | Single-agent PR review → `REVIEW.md` |
 | `review-pr-comprehensive` | Dual-agent PR review (Claude + Codex, synthesis, devil's advocate) → `REVIEW.md` |
 | `review-address-feedback` | Walk through PR review feedback and apply fixes; supports live PR comments or a local `REVIEW.md` |
 | `polish-pull-request` | Final-pass PR cleanup — title, body, cross-links, stale thread resolution |
-| `commit` | Analyze changes and create grouped conventional commits with sprint-aware co-author trailers |
+| `commit` | Analyze changes and create grouped conventional commits with conventional `Co-authored-by` trailers |
 | `frontend-design` | Production-grade UI component creation |
 | `generate-post-image` | Hugo blog post image generation via DALL-E 3 |
 | `skill-creator` | Walks the user through authoring a new skill: discusses scope, picks pattern (graph-driven or cli-wrapper), scaffolds, validates, hands off uncommitted |
 
-Most multi-phase skills (`commit`, `polish-pull-request`, `review-*`, `sprint-*`) are built on the [dot-graph skill pattern](docs/DOT-GRAPH-SKILL-PATTERN.md): the workflow lives in a `graph.dot` with per-node prose under `nodes/`, walked deterministically by `lib/graph_walker.py`. Drift between routing and prose is structurally impossible.
+Most multi-phase skills (`commit`, `polish-pull-request`, `review-*`, `feature-*`) are built on the [dot-graph skill pattern](docs/DOT-GRAPH-SKILL-PATTERN.md): the workflow lives in a `graph.dot` with per-node prose under `nodes/`, walked deterministically by `lib/graph_walker.py`. Drift between routing and prose is structurally impossible.
 
 ## Subagents
 
@@ -141,35 +137,24 @@ Each audit run gets its own timestamped folder under `~/Reports/<org>/<repo>/aud
     └── REPORT.md                       ← final findings report
 ```
 
-The report is a reference document. To act on findings, run `/sprint-plan` and pass the `REPORT.md` path as the seed.
+The report is a reference document. To act on findings, capture them as a feature with `/feature-create` (or fold them into an existing feature issue), then `/feature-plan` and `/feature-work`.
 
-## Sprint workflow output
+## Feature workflow output
 
-All sprint, review, and audit artifacts live under `~/Reports/<org>/<repo>/`, derived from the source repo (`upstream` remote, falling back to `origin`). Nothing is written into the project repo itself. See [`docs/sprints/README.md`](docs/sprints/README.md) for the full lifecycle and artifact map.
-
-Files marked `*` are only created when the corresponding optional phase ran.
+All feature, review, and audit artifacts live under `~/Reports/<org>/<repo>/`, derived from the source repo (`upstream` remote, falling back to `origin`). Nothing is written into the project repo itself. The **durable** record of a feature is its Forgejo issue + sub-issues + the commits that close them; the local files are ephemeral working copies.
 
 ```
 ~/Reports/<org>/<repo>/
-├── sprints/
-│   └── YYYY-MM-DDTHH-MM-SS/                         # one folder per planning session
-│       ├── SEED.md                                   * (/sprint-seed handoff)
-│       ├── intent.md
-│       ├── claude-draft.md                           # orch-side draft (always)
-│       ├── codex-draft.md                            * (Phase 5b — opposite-side draft)
-│       ├── claude-draft-codex-critique.md            * (Phase 6a)
-│       ├── codex-draft-claude-critique.md            * (Phase 6b)
-│       ├── merge-notes.md                            * (Phase 7 — Merge mode only)
-│       ├── devils-advocate.md                        * (Phase 8a)
-│       ├── security-review.md                        * (Phase 8b)
-│       ├── architecture-review.md                    * (Phase 8c)
-│       ├── test-strategy-review.md                   * (Phase 8d)
-│       ├── observability-review.md                   * (Phase 8e)
-│       ├── performance-review.md                     * (Phase 8f)
-│       ├── breaking-change-review.md                 * (Phase 8g)
-│       ├── SPRINT.md                                 # the approved plan
-│       ├── FORGEJO.md                                * (/sprint-plan-to-issues handoff)
-│       └── RETRO.md                                  * (/sprint-work --retro)
+├── features/
+│   └── YYYY-MM-DDTHH-MM-SS/                         # one folder per feature session
+│       ├── FEATURE.md                               # /feature-create working draft (issue body)
+│       ├── .feature.md                              # /feature-plan: cached feature issue body
+│       ├── intent.md                                # /feature-plan
+│       ├── draft-a.md, draft-b.md                   # /feature-plan: independent drafts
+│       ├── draft-a-critique.md, draft-b-critique.md # /feature-plan: symmetric critiques
+│       ├── merge-notes.md                           # /feature-plan: merge synthesis
+│       ├── devils-advocate.md, security-review.md   # /feature-plan: review lenses
+│       └── PLAN.md                                  # /feature-plan working plan (sub-issues are durable)
 ├── pr-reviews/
 │   └── pr-N/
 │       ├── YYYY-MM-DDTHH-MM-SS/                      # one folder per review run (/review-pr-*)
@@ -180,6 +165,8 @@ Files marked `*` are only created when the corresponding optional phase ran.
     └── YYYY-MM-DDTHH-MM-SS-<lens>/                   # one folder per audit run
         └── claude.md  codex.md  synthesis.md  devils-advocate.md  REPORT.md
 ```
+
+`/feature-work` produces no per-run report folder — its artifacts are the commits on each repo's `feature/<slug>` branch and the updated (still-open) sub-issues; its walker state lives under `$TMPDIR/.claude-walker/feature-work/`.
 
 ## Disclaimer
 
