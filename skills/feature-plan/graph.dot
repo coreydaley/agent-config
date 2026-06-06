@@ -1,0 +1,92 @@
+// Feature Plan state machine.
+//
+// Source of truth for the /feature-plan skill. Merges multi-agent
+// collaborative planning (formerly /sprint-plan) with milestone→issues
+// decomposition (formerly /sprint-plan-to-issues) into ONE skill.
+//
+// Input is a single Forgejo FEATURE ISSUE (its body is the spec). The
+// orchestrator plans the feature with strict orchestrator/worker
+// separation — drafts, critiques, and reviews are delegated to FRESH
+// Claude subagents (Agent tool) so no context judges its own output.
+// All workers inherit the current session model; there is no model
+// tier, no codex / opposite side, no phase-selection menu. After ONE
+// approval gate, the skill creates the task breakdown directly as
+// self-assigned Forgejo sub-issues, linking the parent feature to each
+// task via native issue dependencies (feature "blocked by" each task).
+// No milestone is created; the verbose plan is a local ephemeral
+// PLAN.md, the sub-issues ARE the durable plan.
+//
+// The walker (Claude, per SKILL.md) reads each node's prose from
+// nodes/<id>.md, performs the work, evaluates the outgoing edges'
+// conditions, and transitions via scripts/walk.sh.
+//
+// Render to SVG with scripts/render.sh. Validate with scripts/validate.py.
+
+digraph feature_plan {
+    rankdir=TB;
+    bgcolor="white";
+    node  [fontname="Helvetica", fontsize=11];
+    edge  [fontname="Helvetica", fontsize=9];
+
+    // -- Process nodes (rounded boxes, light blue) ----------------------
+    init                 [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="init\n(resolve feature issue; warn if\nno feature label; idempotency guard)"];
+    orient               [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="orient\n(repo grounding, prior-art,\nlabels, deps feature on)"];
+    intent               [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="intent\n(write intent.md from the\nfeature spec; surface areas)"];
+    draft                [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="draft\n(two fresh subagents draft\nindependently, wait for both)"];
+    critique             [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="critique\n(fresh subagents symmetrically\ncritique both drafts)"];
+    merge                [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="merge\n(orchestrator synthesizes the\ntask breakdown into PLAN.md)"];
+    reviews              [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="reviews\n(fresh subagents run review\nlenses on the plan)"];
+    incorporate_findings [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="incorporate-findings\n(patch review findings\ninto PLAN.md)"];
+    build_tasks          [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="build-tasks\n(one sub-issue per task +\nderive relationships; compute)"];
+    show_plan            [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="show-plan\n(render proposed sub-issues\ninline)"];
+    discuss_plan         [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="discuss-plan\n(iterate on the breakdown,\nback to ask-approval)"];
+    create_issues        [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="create-issues\n(create self-assigned sub-issues;\nwire deps; feature blocked-by each)"];
+    handoff              [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                          label="handoff\n(print results + next step:\nfeature-work)"];
+
+    // -- User-input node (decision diamond) ----------------------------
+    ask_approval         [shape=diamond, style=filled, fillcolor="#ffccbc",
+                          label="ask-approval\n(create / discuss / cancel)"];
+
+    // -- Terminal node (green double-circle) ---------------------------
+    terminal             [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
+                          label="terminal"];
+
+    // -- Edges ---------------------------------------------------------
+    // Single-outgoing edges (no condition needed).
+    init                 -> orient;
+    orient               -> intent;
+    intent               -> draft;
+    critique             -> merge;
+    merge                -> reviews;
+    reviews              -> incorporate_findings;
+    incorporate_findings -> build_tasks;
+    build_tasks          -> show_plan;
+    show_plan            -> ask_approval;
+    create_issues        -> handoff;
+    handoff              -> terminal;
+
+    // draft: both drafts ran (merge mode) or only one (promote mode).
+    draft -> critique [label="merge_mode"];
+    draft -> merge    [label="promote_mode"];
+
+    // ask-approval: create the sub-issues, iterate, or bail.
+    ask_approval -> create_issues [label="user_approve"];
+    ask_approval -> discuss_plan  [label="user_discuss"];
+    ask_approval -> terminal      [label="user_cancel"];
+
+    // discuss-plan: iterate on the breakdown, then back to ask-approval.
+    discuss_plan -> ask_approval [label="discussion_done"];
+}

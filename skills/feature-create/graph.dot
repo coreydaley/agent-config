@@ -1,0 +1,74 @@
+// Feature Create state machine.
+//
+// Source of truth for the /feature-create skill. A guided, Socratic discussion
+// that captures a feature as a tracked Forgejo ISSUE (with a `feature` label)
+// in the cwd repo — the issue body IS the spec. Merges the exploratory
+// "shape a fuzzy idea" discussion (formerly /sprint-seed) with structured
+// engineering-surface capture (formerly /project-create-feature): explore +
+// structure in one pass, grounded in the repo README, then a size-gated
+// independent readiness check before filing.
+//
+// The walker (Claude, per SKILL.md) reads each node's prose from nodes/<id>.md,
+// performs the work, evaluates the outgoing edges' conditions, and transitions
+// via scripts/walk.sh.
+//
+// Render to SVG with scripts/render.sh. Validate with scripts/validate.py.
+
+digraph feature_create {
+    rankdir=TB;
+    bgcolor="white";
+    node  [fontname="Helvetica", fontsize=11];
+    edge  [fontname="Helvetica", fontsize=9];
+
+    // -- Process nodes (rounded boxes, light blue) ----------------------
+    init            [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="init\n(resolve cwd repo, paths,\noptional rough-idea arg,\ninit walker state)"];
+    orient          [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="orient\n(read repo README for grounding;\nfetch repo labels)"];
+    kickoff         [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="kickoff\n(open; restate any idea;\ndetect/confirm small vs large)"];
+    discuss         [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="discuss\n(explore + structure: surface\ncomplexity, push back, cover\nthe engineering surface)"];
+    draft           [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="draft\n(assemble the issue body,\nrender it inline)"];
+    readiness_check [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="readiness-check\n(large only: one fresh subagent\ngrades the spec; render verdict)"];
+    create_issue    [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="create-issue\n(ensure labels; create the\nself-assigned feature issue)"];
+    handoff         [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="handoff\n(print issue URL + next step:\nfeature-plan)"];
+
+    // -- User-input nodes (decision diamonds) --------------------------
+    ask_wrap_up  [shape=diamond, style=filled, fillcolor="#ffccbc",
+                  label="ask-wrap-up\n(draft it / keep going / cancel)"];
+    ask_create   [shape=diamond, style=filled, fillcolor="#ffccbc",
+                  label="ask-create\n(create issue / revise more / cancel)"];
+
+    // -- Terminal node (green double-circle) ---------------------------
+    terminal     [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
+                  label="terminal"];
+
+    // -- Edges ---------------------------------------------------------
+    // Single-outgoing edges (no condition needed).
+    init            -> orient;
+    orient          -> kickoff;
+    kickoff         -> discuss;
+    draft           -> readiness_check;
+    readiness_check -> ask_create;
+    create_issue    -> handoff;
+    handoff         -> terminal;
+
+    // discuss: agent senses (or user signals) the spec is covered; or cancel.
+    discuss -> ask_wrap_up [label="wrap_up_signaled"];
+    discuss -> terminal    [label="user_cancel"];
+
+    // ask-wrap-up: keep eliciting, assemble the draft, or bail.
+    ask_wrap_up -> draft    [label="user_wrap_up"];
+    ask_wrap_up -> discuss  [label="user_continue"];
+    ask_wrap_up -> terminal [label="user_cancel"];
+
+    // ask-create: create the issue, loop back to refine, or bail.
+    ask_create -> create_issue [label="user_create"];
+    ask_create -> discuss      [label="user_revise"];
+    ask_create -> terminal     [label="user_cancel"];
+}

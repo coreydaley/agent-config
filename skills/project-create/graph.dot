@@ -1,0 +1,55 @@
+// Project Create state machine.
+//
+// Guided discussion that shapes a new project, then scaffolds it:
+// Forgejo repo (projects/<slug>), bare clone, main worktree, README,
+// .gitignore, and wiki Overview page. Two outcomes only: cancel (nothing
+// created) or approve (full scaffold). The creation gate is the only mutation.
+//
+// Render to SVG with scripts/render.sh. Validate with scripts/validate.py.
+
+digraph project_create {
+    rankdir=TB;
+    bgcolor="white";
+    node  [fontname="Helvetica", fontsize=11];
+    edge  [fontname="Helvetica", fontsize=9];
+
+    // -- Process nodes -------------------------------------------------------
+    init       [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                label="init\n(init walker state)"];
+    discuss    [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                label="discuss\n(shape the project: slug, title,\ndescription, scope, hard parts)"];
+    draft      [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                label="draft\n(assemble Overview doc +\nrepo description; render inline)"];
+    create     [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                label="create\n(Forgejo repo + bare clone +\nworktree + README + .gitignore +\nwiki Overview)"];
+    handoff    [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                label="handoff\n(print repo URL + next steps)"];
+
+    // -- Decision nodes ------------------------------------------------------
+    ask_wrap_up [shape=diamond, style=filled, fillcolor="#ffccbc",
+                 label="ask-wrap-up\n(draft it / keep going / cancel)"];
+    ask_create  [shape=diamond, style=filled, fillcolor="#ffccbc",
+                 label="ask-create\n(scaffold it / revise / cancel)"];
+
+    // -- Terminal ------------------------------------------------------------
+    terminal   [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
+                label="terminal"];
+
+    // -- Edges ---------------------------------------------------------------
+    init        -> discuss;
+    create      -> handoff;
+    handoff     -> terminal;
+
+    discuss -> ask_wrap_up [label="wrap_up_signaled"];
+    discuss -> terminal    [label="user_cancel"];
+
+    ask_wrap_up -> draft    [label="user_wrap_up"];
+    ask_wrap_up -> discuss  [label="user_continue"];
+    ask_wrap_up -> terminal [label="user_cancel"];
+
+    draft -> ask_create;
+
+    ask_create -> create   [label="user_create"];
+    ask_create -> discuss  [label="user_revise"];
+    ask_create -> terminal [label="user_cancel"];
+}

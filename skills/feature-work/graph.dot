@@ -1,0 +1,94 @@
+// Feature Work state machine.
+//
+// Source of truth for the /feature-work skill. Autonomous execution of a
+// feature's SUB-ISSUES — the issues a feature ISSUE is "blocked by"
+// (created by /feature-plan). The skill cuts/finds a feature/<slug> branch
+// per repo (worktree-isolated, off the default branch), walks the
+// sub-issues in dependency order, and commits one commit per sub-issue
+// (Closes #N) to the feature branch, pushing as it goes. It NEVER merges:
+// the issues close when the USER merges the branch later. A single
+// sub-issue failure is recorded and skipped, never halts the run.
+// Resume is git-derived: a sub-issue whose Closes #N commit is already on
+// the feature branch is done and is skipped — no flag, no stored cursor.
+//
+// The walker (Claude, per SKILL.md) reads each node's prose from
+// nodes/<id>.md, performs the work, evaluates the outgoing edges'
+// conditions, and transitions via scripts/walk.sh.
+//
+// Render to SVG with scripts/render.sh. Validate with scripts/validate.py.
+
+digraph feature_work {
+    rankdir=TB;
+    bgcolor="white";
+    node  [fontname="Helvetica", fontsize=11];
+    edge  [fontname="Helvetica", fontsize=9];
+
+    // -- Process nodes (rounded boxes, light blue) ----------------------
+    init             [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="init\n(parse arg,\nhandle --help inline)"];
+    resolve_target   [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="resolve-target\n(resolve feature issue;\nexpand its sub-issues)"];
+    load_context     [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="load-context\n(feature + sub-issue bodies,\ntasks, success criteria)"];
+    detect_repo      [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="detect-repo\n(single-repo or multi-repo;\nfeature/<slug> branch + base)"];
+    detect_inflight  [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="detect-inflight\n(git-derived resume:\nskip already-shipped sub-issues)"];
+    show_plan        [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="show-plan\n(render plan inline,\nnon-blocking)"];
+    implement        [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="implement\n(per sub-issue: tasks,\ntargeted tests, defer judgment calls)"];
+    validate_success [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="validate-success\n(full tests + Success Criteria,\nauto-proceed unless tests fail)"];
+    commit_push      [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="commit-push\n(one commit per sub-issue,\nCloses #N, push to feature branch)"];
+    summarize        [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="summarize\n(rundown + DEFER punch list,\nnext-step: merge is yours)"];
+
+    // -- Decision nodes (diamonds) -------------------------------------
+    verify_worktree  [shape=diamond, style=filled, fillcolor="#ffe0b2",
+                      label="verify-worktree\n(per-repo: find/create\nfeature/<slug> worktree, auto)"];
+
+    // -- Terminal node (green double-circle) ---------------------------
+    terminal         [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
+                      label="terminal"];
+
+    // -- Edges ---------------------------------------------------------
+    // Single-outgoing edges (no condition needed).
+    init             -> resolve_target;
+    resolve_target   -> load_context;
+    load_context     -> detect_repo;
+    detect_repo      -> verify_worktree;
+    show_plan        -> implement;
+    commit_push      -> summarize;
+    summarize        -> terminal;
+
+    // verify-worktree: auto-create the feature/<slug> worktree. Only a
+    // genuine blocker (bare clone absent / worktree add failed) routes to
+    // terminal.
+    verify_worktree -> detect_inflight [label="worktree_ok"];
+    verify_worktree -> terminal        [label="worktree_missing"];
+
+    // detect-inflight: automatic git-derived resume. Proceed in the normal
+    // case; only route to terminal when there's literally nothing to do
+    // (every sub-issue already shipped a Closes #N commit on the branch).
+    detect_inflight -> show_plan [label="proceed"];
+    detect_inflight -> terminal  [label="nothing_to_do"];
+
+    // No approval gate — show_plan flows straight into implement. The run
+    // is autonomous.
+
+    // implement: route on path mode. A feature-walk runs validate-success
+    // and commit-push internally per sub-issue (one commit per sub-issue)
+    // and never halts on a single-issue failure — it collects failures
+    // (and deferrals) and surfaces them in summarize. A single sub-issue
+    // target flows through the graph-level validate-success -> commit-push.
+    implement -> validate_success [label="single_subissue"];
+    implement -> summarize        [label="feature_walk_complete"];
+
+    // validate-success: auto-proceed to commit when tests pass (unmet
+    // non-test criteria are noted in the commit, not blocked on). Only a
+    // hard test failure the agent can't resolve routes to terminal.
+    validate_success -> commit_push [label="criteria_satisfied"];
+    validate_success -> terminal    [label="blocked"];
+}
