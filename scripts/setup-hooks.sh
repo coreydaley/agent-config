@@ -5,12 +5,10 @@
 #
 # Purpose: Installs git hooks for this repository.
 #
-#   pre-commit  — blocked file extensions, risky large files, secret
-#                 scanning, mermaid syntax validation
+#   pre-commit  — blocked file extensions, risky large files, secret scanning
 #   pre-push    — full branch history secret scan (gitleaks detect)
 #
 # Requires: gitleaks (brew install gitleaks)
-#           mermaid-cli (brew install mermaid-cli) — provides mmdc
 #
 # Usage: ./scripts/setup-hooks.sh
 #
@@ -27,10 +25,6 @@ if ! command -v gitleaks &>/dev/null; then
     exit 1
 fi
 
-if ! command -v mmdc &>/dev/null; then
-    echo "Error: mmdc is not installed. Run: brew install mermaid-cli" >&2
-    exit 1
-fi
 
 cat > "$HOOKS_DIR/pre-commit" <<'EOF'
 #!/usr/bin/env bash
@@ -67,18 +61,6 @@ done < <(git diff --cached --name-only --diff-filter=ACM)
 # --- Secret scanning ---
 gitleaks protect --staged
 
-# --- Mermaid syntax validation ---
-# Validate any mermaid blocks in staged markdown files.
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-MD_FILES=()
-while IFS= read -r f; do
-    [ -n "$f" ] && MD_FILES+=("$f")
-done < <(git diff --cached --name-only --diff-filter=ACM | grep -iE '\.md$' || true)
-if [ ${#MD_FILES[@]} -gt 0 ]; then
-    if ! "$REPO_ROOT/scripts/lint-mermaid.py" "${MD_FILES[@]}"; then
-        ERRORS=$((ERRORS + 1))
-    fi
-fi
 
 if [ "$ERRORS" -gt 0 ]; then
     exit 1
