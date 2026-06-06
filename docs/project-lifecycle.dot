@@ -1,0 +1,47 @@
+// Project lifecycle — how the feature-* skills relate, and what
+// artifacts they consume and produce.
+//
+// Source of truth for docs/project-lifecycle.svg. Regenerate with:
+//   dot -Tsvg docs/project-lifecycle.dot -o docs/project-lifecycle.svg
+//
+// The lifecycle flows THROUGH Forgejo artifacts, not directly skill-to-skill.
+// feature-create stops at the issue; feature-plan picks it up when ready.
+//
+// Edge semantics (see legend):
+//   green solid — skill PRODUCES an artifact (output)
+//   blue solid  — artifact is INPUT to a skill
+digraph project_lifecycle {
+  rankdir=TB;
+  fontname="Helvetica";
+  labelloc="t";
+  fontsize=18;
+  label=<Project lifecycle — feature-* skills<br/><font point-size="11"><font color="#047857">━ produces artifact</font>&#160;&#160;&#160;<font color="#1d4ed8">━ artifact is input</font></font>>;
+  nodesep=0.4;
+  ranksep=0.6;
+  node [fontname="Helvetica", fontsize=11];
+  edge [fontname="Helvetica", fontsize=9];
+
+  // ---- skills --------------------------------------------------------------
+  node [shape=box, style="rounded,filled", fillcolor="#dbeafe", color="#1e3a8a"];
+  fc  [label="/feature-create"];
+  fp  [label="/feature-plan"];
+  fw  [label="/feature-work"];
+
+  // ---- artifacts -----------------------------------------------------------
+  node [shape=cylinder, style="filled", fillcolor="#d1fae5", color="#047857", fontcolor="#064e3b"];
+  feat [label="Feature issue [Forgejo]\n(`feature` label; body = spec)"];
+  subs [label="Sub-issues [Forgejo]\n(dependency-linked; feature blocked-by each)"];
+
+  node [shape=cylinder, style="filled", fillcolor="#fef3c7", color="#92400e", fontcolor="#78350f"];
+  branch [label="feature/<slug> branch [git]\n(one commit / sub-issue; Closes #N on merge)"];
+
+  // ===== linear flow down the middle ========================================
+  edge [color="#047857", penwidth=1.5, arrowhead=normal];
+  fc -> feat [label="file issue"];
+  fp -> subs [label="create + dependency-link"];
+  fw -> branch [label="commit + push (Closes #N)"];
+
+  edge [color="#1d4ed8", penwidth=1.5, arrowhead=normal];
+  feat -> fp [label="input: spec"];
+  subs -> fw [label="input: work items"];
+}

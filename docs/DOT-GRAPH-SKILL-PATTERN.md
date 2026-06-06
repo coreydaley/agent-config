@@ -77,7 +77,7 @@ tells the next session exactly where work was abandoned. No bespoke
 checkpoint logic per skill.
 
 The cost is honest: more files to author and a bit of upfront design
-thinking. The payoff is that complex skills (review pipelines, sprint
+thinking. The payoff is that complex skills (review pipelines, feature
 planning, cleanup workflows) stay maintainable past the point where
 procedural prose would have started rotting.
 
@@ -104,7 +104,7 @@ scripts/walk.sh get --state "$STATE" --key <name>
 ### The state file
 
 `.walk-state.json` lives wherever the skill's per-run output lives
-(typically `~/Reports/.../sprints/<TS>/.walk-state.json` or
+(typically `~/Reports/.../features/<TS>/.walk-state.json` or
 `$TMPDIR/.claude-walker/<skill>/<TS>.walk-state.json` for skills
 without per-run reports).
 
@@ -228,7 +228,7 @@ Eight skills are now on this pattern. A few topology shapes recur.
 
 The macro flow is a chain of process nodes (single outgoing edge
 each), with decision and user-input nodes as forks where routing
-depends on state or user input. Example from `/sprint-seed`:
+depends on state or user input. Example from `/feature-create`:
 
 ```
 init → orient → kickoff → discuss → ask-wrap-up → synthesize → write-seed → handoff → terminal
@@ -252,7 +252,7 @@ have different concerns: the gate validates intent, the act executes.
 ### Discuss loop
 
 Mirrors a chat-thread structure. Used in `/review-pr-simple`,
-`/review-address-feedback`, `/sprint-plan`, `/sprint-work`, etc.
+`/review-address-feedback`, `/feature-plan`, `/feature-work`, etc.
 
 ```
 ask-approval → discuss-plan      # user picks "discuss"
@@ -304,7 +304,7 @@ cleanup) is rejected.
 
 A single node launches multiple workers in parallel and waits for
 all. Used in `/review-pr-comprehensive` (Claude + Codex) and
-`/sprint-plan` (up to 7 parallel review lenses).
+`/feature-plan` (up to 7 parallel review lenses).
 
 ```
                             ┌─ Codex (background)
@@ -320,7 +320,7 @@ their output before the flow continues.
 ### Mode dispatch (flag-driven subgraphs)
 
 A decision node forks into N subgraphs based on flags or input shape.
-Example from `/sprint-work`:
+Example from `/feature-work`:
 
 ```
                 ┌─ render-plan-and-exit → terminal       (--review)
@@ -338,7 +338,7 @@ upstream context-loading nodes and the terminal sink.
 When a node walks N items (per-finding, per-PR, per-issue, per-group),
 the loop is internal to one node — no graph node per iteration. Used
 in `/commit` (per-group), `/review-address-feedback` (per-finding),
-`/sprint-work` forgejo-walk (per-issue), `/sprint-plan-to-issues`
+`/feature-work` forgejo-walk (per-issue), `/feature-plan`
 (per-issue creation).
 
 The node's prose describes the loop: "for each X in Y, do Z; on
@@ -454,7 +454,7 @@ grouped by source node>
 ## <skill-specific sections as needed>
 
 <e.g., "Worktree lifecycle" for /review-pr-comprehensive,
-"Re-run detection" for /sprint-plan-to-issues, "Strict separation of
+"Re-run detection" for /feature-plan, "Strict separation of
 duties" for /review-pr-comprehensive>
 
 ## Artifacts and paths
@@ -605,7 +605,7 @@ It's overkill when:
 - The skill is a single-prompt formatter (`commit` is borderline; we
   graph-converted it for consistency, but the walker is genuinely
   unused).
-- The work is an open-ended chat (`sprint-seed`'s discuss phase is
+- The work is an open-ended chat (`feature-create`'s discuss phase is
   inside a node, not the whole skill).
 
 A useful test: if you'd be tempted to write the SKILL.md as a
@@ -620,14 +620,13 @@ just leave it procedural.
 | Skill | Nodes | Edges | Distinctive shape |
 |---|---:|---:|---|
 | `/commit` | 5 | 5 | Linear, smallest skill on the pattern |
-| `/sprint-seed` | 9 | 11 | Discuss loop with mode-dispatch in node prose |
+| `/feature-create` | 11 | 15 | Explore+structure discuss loop, size-gated readiness gate |
 | `/review-pr-simple` | 12 | 17 | Discuss loop, four-style post fork |
 | `/review-address-feedback` | 13 | 19 | Strategy-driven per-finding loop |
-| `/sprint-plan-to-issues` | 11 | 12 | Reuse pre-flight (same-title milestone), discuss loop |
 | `/polish-pull-request` | 16 | 25 | Two-stage approval, preflight before destructive op |
-| `/sprint-plan` | 16 | 21 | N-way parallel delegation (drafts, critiques, reviews) |
+| `/feature-plan` | 15 | 17 | One-shot multi-agent plan → creates dependency-linked sub-issues |
 | `/review-pr-comprehensive` | 17 | 23 | Persistent worktree lifecycle + cleanup sink |
-| `/sprint-work` | 16 | 22 | Three-way subgraph fork (review / retro / normal), autonomous normal path |
+| `/feature-work` | 12 | 15 | Autonomous per-sub-issue loop, git-derived resume |
 
 The shared walker is `lib/graph_walker.py`. Each skill's
 `scripts/walk.sh` thin-wraps it with the skill's `graph.dot` path
@@ -641,6 +640,5 @@ hardcoded.
 |---|---|
 | Walker internals (state file, transitions, refusal) | `lib/graph_walker.py` |
 | Codex invocation pattern (used in parallel-delegation nodes) | `lib/codex-invocation.md` |
-| Sprint workflow (the sequence skills compose into) | `docs/sprints/README.md` |
 | Any specific skill's flow | `skills/<skill>/SKILL.md` and `graph.svg` |
 | Any specific node's prose | `skills/<skill>/nodes/<id>.md` |
