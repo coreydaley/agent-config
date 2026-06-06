@@ -4,9 +4,7 @@ Commit Planner - build a structured commit plan from the git working tree.
 
 Analyzes uncommitted changes and groups them for atomic commits. Pre-staged
 files form one group; everything else is flagged as "unclassified" for the
-agent to group by logical purpose. Sprint artifacts are no longer specially
-detected — current sprints live outside the repo (~/Reports/...) so they
-never appear in `git status` anyway.
+agent to group by logical purpose.
 
 Usage:
     python3 commit.py              # Emit JSON plan to stdout
@@ -14,7 +12,7 @@ Usage:
     python3 commit.py --help
 
 The script itself never commits, stages, or mutates anything. It reads
-git state and the sprint ledger, then outputs a plan. The calling agent
+git state and outputs a plan. The calling agent
 (global /commit skill) reads the plan, fills in conventional commit
 types/scopes/summaries for unclassified groups, and performs the git
 operations.
@@ -26,19 +24,34 @@ Exit codes:
 """
 
 import json
+import os
 import re
 import subprocess
 import sys
-from pathlib import Path
 from typing import Optional
 
-sys.path.insert(0, str(Path.home() / ".claude" / "lib"))
 
-from sprint_ledger import (  # noqa: E402
-    _C,
-    _colorize,
-    _use_color,
-)
+# --- Terminal color helpers -----------------------------------------
+
+class _C:
+    GREEN = "\033[32m"
+    CYAN = "\033[36m"
+    BLUE = "\033[34m"
+    YELLOW = "\033[33m"
+    RED = "\033[31m"
+    DIM = "\033[2m"
+    BOLD = "\033[1m"
+    RESET = "\033[0m"
+
+
+def _use_color() -> bool:
+    if os.environ.get("NO_COLOR"):
+        return False
+    return sys.stdout.isatty()
+
+
+def _colorize(text: str, color: str) -> str:
+    return f"{color}{text}{_C.RESET}" if _use_color() else text
 
 
 # --- Agent identities -----------------------------------------------

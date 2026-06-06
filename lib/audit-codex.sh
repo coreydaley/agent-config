@@ -8,8 +8,8 @@
 #   <role>                   review | devils-advocate
 #   <prompt-file>            path to a file containing the full codex prompt
 #   --skip-git-repo-check    pass codex's --skip-git-repo-check flag. Needed
-#                            when -C points outside a git repo (e.g. audit-prd
-#                            runs codex against the PRD staged under
+#                            when -C points outside a git repo (e.g. a doc-shaped audit
+#                            stages its source under
 #                            ~/Reports/...). Code-tree audits omit it.
 #
 # Outputs (in $AUDIT_DIR):

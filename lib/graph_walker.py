@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Walker for skills built on the DOT-graph state-machine pattern.
 
-The walker is the structural enforcer for skills like /sprint-work.
+The walker is the structural enforcer for skills like /feature-work.
 It reads a graph.dot file, maintains a state file recording the current node
 plus a transition history, and validates every transition against the graph
 before recording it. Skills call this from each node's prose to advance

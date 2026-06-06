@@ -6,7 +6,7 @@ Run the deterministic planner, parse its JSON output, surface warnings, and deci
 
 1. **Run the planner:**
    ```bash
-   python3 ~/.claude/lib/commit.py
+   python3 ~/.claude/skills/commit/scripts/commit.py
    ```
 
    Capture stdout (the JSON plan) and exit code.

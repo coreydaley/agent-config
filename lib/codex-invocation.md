@@ -74,7 +74,6 @@ should follow the canonical pattern above. Sync this file's pattern with
 their invocations whenever it changes:
 
 Non-audit skills (direct `codex exec` calls):
-- `skills/sprint-plan/nodes/reviews.md`
 - `skills/review-pr-comprehensive/nodes/independent-reviews.md`
 - `skills/review-pr-comprehensive/nodes/devils-advocate.md`
 
@@ -110,7 +109,6 @@ Verification:
 ```bash
 # Direct codex invocations (non-audit skills):
 grep -nE "codex exec" \
-  skills/sprint-plan/nodes/reviews.md \
   skills/review-pr-comprehensive/nodes/*.md
 # Should each include -s workspace-write, --add-dir, -C, --, < /dev/null.
 

@@ -1,12 +1,11 @@
 ---
 name: commit
 description: >-
-  State-machine-driven commit creation. Runs ~/.claude/lib/commit.py to
-  build a deterministic plan of logical commit groups (sprint-artifact
-  groups get multi-agent co-authored-by trailers from the sprints
-  ledger; everything else gets a single Claude trailer), then walks the
-  graph to write conventional commit messages and commit each group via
-  heredoc. Never amends, never force-pushes, never skips hooks.
+  State-machine-driven commit creation. Runs ~/.claude/skills/commit/scripts/commit.py to
+  build a deterministic plan of logical commit groups (each gets a single
+  Co-authored-by trailer), then walks the graph to write conventional commit
+  messages and commit each group via heredoc. Never amends, never
+  force-pushes, never skips hooks.
 disable-model-invocation: false
 ---
 
@@ -43,7 +42,7 @@ you (Claude), the contract is the DOT file.
 Five nodes:
 
 - **`init`** — set up walker state in a temp dir (this skill doesn't write to `~/Reports/`)
-- **`build-plan`** — run `~/.claude/lib/commit.py`, parse JSON, surface warnings, decide if there's anything to commit
+- **`build-plan`** — run `~/.claude/skills/commit/scripts/commit.py`, parse JSON, surface warnings, decide if there's anything to commit
 - **`commit-groups`** — walk groups in `commit_order`, stage explicitly, write conventional commit messages, commit via heredoc (per-group loop internal)
 - **`show-result`** — `git log --oneline -50`
 - **`terminal`** — sink

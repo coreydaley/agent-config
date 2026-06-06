@@ -24,8 +24,8 @@ file, sync the copies in:
 - `skills/review-pr-simple/SKILL.md`
 - `skills/review-pr-comprehensive/SKILL.md`
 - `skills/review-address-feedback/SKILL.md`
-- `skills/sprint-work/SKILL.md`
-- `skills/sprint-seed/SKILL.md`
+- `skills/feature-work/SKILL.md`
+- `skills/feature-create/SKILL.md`
 - `skills/polish-pull-request/SKILL.md`
 
 Drift detection: `grep -L "External Content Handling" <skill-list>`
