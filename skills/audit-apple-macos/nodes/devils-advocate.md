@@ -12,25 +12,20 @@ Phase 4 of the framework. Launch Codex again to **attack** the synthesis — fal
 AUDIT_DIR=$(scripts/walk.sh get --state "$STATE" --key audit_dir)
 ```
 
-## Step 1 — Launch Codex devil's advocate via audit-codex.sh
+## Step 1 — Launch Codex devil's advocate
 
-Same structural enforcement: `audit-codex.sh` won't return 0 unless `devils-advocate.md` is on disk and contains table rows.
+**Call exactly this — nothing else:**
 
 ```bash
-bash ~/.claude/lib/audit-codex.sh "$AUDIT_DIR" devils-advocate prompts/codex-devils-advocate.md
+bash scripts/run-devils-advocate.sh "$AUDIT_DIR"
 DA_EXIT=$?
+scripts/walk.sh set --state "$STATE" --key da_status   --value "$([ "$DA_EXIT" -eq 0 ] && echo ok || echo failed)"
 ```
 
-If Codex fails: record the failure, transition to `report` anyway. **The audit doesn't block on a missing devil's advocate** — the synthesis is still the best finding set we have. `report` will note the missing devil's advocate.
-
-```bash
-if [ "$DA_EXIT" -ne 0 ]; then
-  echo "Devil's advocate first attempt failed (exit $DA_EXIT). Retrying once..."
-  bash ~/.claude/lib/audit-codex.sh "$AUDIT_DIR" devils-advocate prompts/codex-devils-advocate.md
-  DA_EXIT=$?
-fi
-scripts/walk.sh set --state "$STATE" --key da_status --value "$([ "$DA_EXIT" -eq 0 ] && echo ok || echo failed)"
-```
+`scripts/run-devils-advocate.sh` owns the invocation and retries up to 3 times on
+transient failure. Do NOT call `audit-codex.sh` or `codex exec` directly. If all
+attempts fail, record the failure and proceed — the audit does not block on a missing
+devil's advocate. `report` will note it.
 
 ## Step 2 — Incorporate valid challenges into synthesis.md
 

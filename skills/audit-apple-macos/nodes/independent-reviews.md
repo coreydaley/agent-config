@@ -15,13 +15,17 @@ PROJECT_CWD=$(scripts/walk.sh get --state "$STATE" --key project_cwd)
 SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
 ```
 
-## Step 1 — Launch Codex via audit-codex.sh
+## Step 1 — Launch Codex review
+
+**Call exactly this — nothing else:**
 
 ```bash
-bash ~/.claude/lib/audit-codex.sh "$AUDIT_DIR" review prompts/codex-review.md \
-  > "$AUDIT_DIR/codex-launch.log" 2>&1 &
+bash scripts/run-review.sh "$AUDIT_DIR" > "$AUDIT_DIR/codex-launch.log" 2>&1 &
 CODEX_PID=$!
 ```
+
+`scripts/run-review.sh` owns the invocation and retries up to 3 times on transient
+failure. Do NOT call `audit-codex.sh` or `codex exec` directly.
 
 ## Step 2 — Spawn the Claude-side review sub-agent (concurrent)
 
@@ -56,14 +60,11 @@ The orchestrator does **not** read `claude.md` or `codex.md` until Phase 3.
 ```bash
 wait "$CODEX_PID"
 CODEX_EXIT=$?
-
-if [ "$CODEX_EXIT" -ne 0 ]; then
-  echo "Codex first attempt failed (exit $CODEX_EXIT). Retrying once..."
-  bash ~/.claude/lib/audit-codex.sh "$AUDIT_DIR" review prompts/codex-review.md
-  CODEX_EXIT=$?
-fi
-scripts/walk.sh set --state "$STATE" --key codex_status --value "$([ "$CODEX_EXIT" -eq 0 ] && echo ok || echo failed)"
+scripts/walk.sh set --state "$STATE" --key codex_status   --value "$([ "$CODEX_EXIT" -eq 0 ] && echo ok || echo failed)"
 ```
+
+`scripts/run-review.sh` already retried up to 3 times. If `CODEX_EXIT != 0` after
+all attempts, record the failure and proceed — Phase 3 will surface a single-agent warning.
 
 ## Step 4 — Verify the sub-agent's review
 

@@ -18,17 +18,17 @@ SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
 
 In practice, the orchestrator already knows the skill directory (it's running from there). Use `prompts/codex-review.md` and `prompts/codex-devils-advocate.md` as relative paths.
 
-## Step 1 — Launch Codex via audit-codex.sh
+## Step 1 — Launch Codex review
 
-`lib/audit-codex.sh` owns the canonical codex invocation (`-s workspace-write`, `--add-dir "$AUDIT_DIR"`, `-C "$PROJECT_CWD"`, `--`, `< /dev/null`) AND the post-run artifact verification. If `codex` returns 0 but writes nothing, the script returns non-zero — the failure cannot be silent.
-
-Launch in background so Claude's review can run concurrently:
+**Call exactly this — nothing else:**
 
 ```bash
-bash ~/.claude/lib/audit-codex.sh "$AUDIT_DIR" review prompts/codex-review.md \
-  > "$AUDIT_DIR/codex-launch.log" 2>&1 &
+bash scripts/run-review.sh "$AUDIT_DIR" > "$AUDIT_DIR/codex-launch.log" 2>&1 &
 CODEX_PID=$!
 ```
+
+`scripts/run-review.sh` owns the invocation and retries up to 3 times on transient
+failure. Do NOT call `audit-codex.sh` or `codex exec` directly.
 
 ## Step 2 — Spawn the Claude-side review sub-agent (concurrent)
 
@@ -65,17 +65,13 @@ wait "$CODEX_PID"
 CODEX_EXIT=$?
 ```
 
-`audit-codex.sh` already gates on the artifact existing and containing table rows. If `CODEX_EXIT != 0`, retry **once**:
+`scripts/run-review.sh` already retried up to 3 times. If `CODEX_EXIT != 0` after
+all attempts, record the failure and proceed — Phase 3 will surface a single-agent
+warning.
 
 ```bash
-if [ "$CODEX_EXIT" -ne 0 ]; then
-  echo "Codex first attempt failed (exit $CODEX_EXIT). Retrying once..."
-  bash ~/.claude/lib/audit-codex.sh "$AUDIT_DIR" review prompts/codex-review.md
-  CODEX_EXIT=$?
-fi
+scripts/walk.sh set --state "$STATE" --key codex_review_status   --value "$([ "$CODEX_EXIT" -eq 0 ] && echo ok || echo failed)"
 ```
-
-If the retry also fails, record the failure in walker state and proceed. **Phase 3 will surface a single-agent warning.**
 
 ```bash
 scripts/walk.sh set --state "$STATE" --key codex_status --value "$([ "$CODEX_EXIT" -eq 0 ] && echo ok || echo failed)"
