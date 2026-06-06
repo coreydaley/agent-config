@@ -42,7 +42,7 @@ MAX_ATTEMPTS=3
 for attempt in 1 2 3; do
   echo "run-codex-phase: attempt $attempt/$MAX_ATTEMPTS (role=$ROLE)" >&2
 
-  if bash ~/.claude/lib/audit-codex.sh "$AUDIT_DIR" "$ROLE" "$PROMPT_FILE"; then
+  if bash ~/.claude/lib/audit-codex.sh "$AUDIT_DIR" "$ROLE" "$PROMPT_FILE" < /dev/null; then
     echo "run-codex-phase: succeeded on attempt $attempt" >&2
     exit 0
   fi

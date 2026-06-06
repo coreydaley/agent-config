@@ -22,7 +22,7 @@ In practice, the orchestrator already knows the skill directory (it's running fr
 **Call exactly this — nothing else:**
 
 ```bash
-bash scripts/run-review.sh "$AUDIT_DIR" > "$AUDIT_DIR/codex-launch.log" 2>&1 &
+bash scripts/run-review.sh "$AUDIT_DIR" < /dev/null > "$AUDIT_DIR/codex-launch.log" 2>&1 &
 CODEX_PID=$!
 ```
 
