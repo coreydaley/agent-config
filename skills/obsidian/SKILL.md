@@ -1,7 +1,9 @@
 ---
+disable-model-invocation: false
 name: obsidian
 description: Interact with the user's Obsidian vault using the `obsidian` CLI. Use when creating, reading, updating, or deleting vault notes (tasks, knowledge, drafts); querying bases; setting or reading note properties; searching the vault; managing tasks; or performing any vault operation. The vault lives at ~/Vault/ with subfolders Tasks/, Knowledge/, and Drafts/. Templates are in ~/Vault/Templates/.
 ---
+disable-model-invocation: false
 
 # Obsidian CLI Skill
 

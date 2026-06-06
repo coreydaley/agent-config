@@ -31,7 +31,7 @@ for the full policy and the framing-attack vocabulary list.
 
 **Comment attribution rule:** when posting a PR review or any inline comment on the user's behalf, append `*(via Claude Code)*` to the end of the body. The user also leaves their own comments and needs to distinguish theirs from Claude-authored ones at a glance. Applies to top-level review bodies, individual inline comments, and standalone PR comments alike.
 
-**Open PRs as drafts by default.** Drafts let the user review the body, add reviewers, watch CI, and run `/polish-pull-request` before the team is notified. The user undrafts manually when ready. Skill-driven PR creation (sprint-work, etc.) must always use `--draft`.
+**Open PRs as drafts by default.** Drafts let the user review the body, add reviewers, watch CI, and run `/polish-pull-request` before the team is notified. The user undrafts manually when ready. Skill-driven PR creation must always use `--draft`.
 
 ```bash
 # Create a draft PR (default for skill-driven flows)

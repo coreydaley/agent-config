@@ -75,7 +75,7 @@ scripts/walk.sh transition --state "$STATE" --from scaffold_graph --to write_gra
 
 - **`commit/` reference template missing.** If the source files don't
   exist in `$skills_dir/commit/scripts/`, fall back to copying from
-  `sprint-seed/scripts/` (any graph-driven skill works as a template).
+  `feature-create/scripts/` (any graph-driven skill works as a template).
   If neither exists, surface to the user — agent-config is in a broken
   state and the skill-creator can't proceed.
 - **`mkdir` or `cp` fails** — likely a permissions problem. Surface the

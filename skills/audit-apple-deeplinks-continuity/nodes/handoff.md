@@ -63,10 +63,10 @@ Parse the audit summary table to populate the hand-off counts.
 > - App Intent donation lifecycle inside Widget / Live Activity /
 >   App Shortcuts targets is owned by `/audit-apple-extensions`.
 >
-> **Next:** Run `/sprint-plan` against the report:
+> **Next:** Capture the findings as a feature with `/feature-create`:
 >
 > ```
-> /sprint-plan <absolute path to $AUDIT_DIR/REPORT.md>
+> /feature-create   # describe the fixes; report at $AUDIT_DIR/REPORT.md
 > ```
 ```
 

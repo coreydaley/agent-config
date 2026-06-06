@@ -1,7 +1,9 @@
 ---
+disable-model-invocation: false
 name: orbstack
 description: "Manage OrbStack — a macOS Docker Desktop replacement and Linux VM manager. Use when working with OrbStack Linux machines (create, start, stop, delete, shell access, file transfer), Docker containers and images via the docker CLI (OrbStack provides a full Docker-compatible alias), Docker Compose, Kubernetes (OrbStack's built-in k8s), or OrbStack configuration. Triggers on orbstack, orb, orbctl, OrbStack machine/VM management, or any Docker/Kubernetes task on a system where OrbStack is the container runtime."
 ---
+disable-model-invocation: false
 
 # OrbStack
 

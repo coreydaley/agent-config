@@ -21,7 +21,7 @@ Open the design conversation. Surface concrete examples, trigger phrases, scope,
      printed report?"
    - "If this skill failed, what would the user notice?"
    - "Is there an existing skill that's closest to this in shape?
-     (`/sprint-seed`, `/commit`, `/gh`, `/orbstack`, etc.)"
+     (`/feature-create`, `/commit`, `/gh`, `/orbstack`, etc.)"
 
 3. **Probe scope.** Write down the user's answers to:
    - Is it a single one-shot operation, or multi-phase with user gates and

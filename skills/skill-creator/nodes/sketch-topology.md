@@ -90,7 +90,7 @@ scripts/walk.sh transition --state "$STATE" --from sketch_topology --to ask_topo
   the next opportunity, or accept it but flag that the graph overhead may
   not earn out.
 - **Topology has unbounded nodes (>25).** Suggest splitting into two
-  composable skills (e.g., `/sprint-seed` + `/sprint-plan` rather than one
+  composable skills (e.g., `/feature-create` + `/feature-plan` rather than one
   monolith). Bring this up at the proposal step, before approval.
 
 ## Notes

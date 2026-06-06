@@ -1,4 +1,5 @@
 ---
+disable-model-invocation: false
 name: xcuitest-on-mini
 description: >-
   Run XCUITest (or any xcodebuild test invocation) on the user's Mac
@@ -12,6 +13,7 @@ description: >-
   UI verification before committing.
 argument-hint: "[<test-filter>] [--all] [--scheme NAME] [--project PATH] [--pull-xcresult]"
 ---
+disable-model-invocation: false
 
 # xcuitest-on-mini — remote XCUITest on the Mac mini
 

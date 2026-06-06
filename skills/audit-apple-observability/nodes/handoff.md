@@ -60,10 +60,10 @@ Parse the audit summary table to populate the hand-off counts.
 >   values. Treat as confidential at the same level as a credentials
 >   file — do not paste into Slack, do not attach to public issues.
 >
-> **Next:** Run `/sprint-plan` against the report:
+> **Next:** Capture the findings as a feature with `/feature-create`:
 >
 > ```
-> /sprint-plan <absolute path to $AUDIT_DIR/REPORT.md>
+> /feature-create   # describe the fixes; report at $AUDIT_DIR/REPORT.md
 > ```
 ```
 
