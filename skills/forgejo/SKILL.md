@@ -233,7 +233,7 @@ tea releases assets create --repo <owner>/<repo> --release-tag v1.2.3 ./dist/foo
 ```bash
 # Labels
 tea labels list --repo <owner>/<repo>
-tea labels create --repo <owner>/<repo> --name "bug" --color "#d73a4a"
+tea labels create --repo <owner>/<repo> --name "type/bug" --color "#d73a4a"
 
 # Milestones
 tea milestones list --repo <owner>/<repo>

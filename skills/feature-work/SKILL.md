@@ -20,6 +20,7 @@ description: >-
   /feature-work.
 argument-hint: "<feature-issue-ref> [--help]"
 disable-model-invocation: true
+model: sonnet
 ---
 
 # Feature Work

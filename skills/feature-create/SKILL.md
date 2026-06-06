@@ -2,7 +2,7 @@
 name: feature-create
 description: >-
   State-machine-driven capture of a feature as a tracked Forgejo ISSUE (with a
-  `feature` label) in the cwd repo — the issue body IS the spec. Merges the
+  `type/feature` label) in the cwd repo — the issue body IS the spec. Merges the
   exploratory "shape a fuzzy idea" discussion with structured engineering-surface
   capture: explore + structure in one pass, grounded in the repo README (no PRD,
   no wiki). Walks one dimension at a time, scaled by size — small: intent +
@@ -10,12 +10,13 @@ description: >-
   constraints (security/privacy flagged), dependencies & assumptions, feasibility,
   scope-creep, open questions. For a large feature, one fresh independent subagent
   grades the drafted spec (Ready / Needs revision / Not ready) before you file.
-  Ensures the `feature` label exists, self-assigns, optional priority/p* label.
+  Ensures the `type/feature` label exists, self-assigns, optional priority/p* label.
   Files the issue only; prints (does not run) the next step: /feature-plan. Never
   creates a milestone or wiki page, writes a repo file, or runs git. Takes an
   optional one-line rough idea to seed the discussion. Invoke via /feature-create.
 argument-hint: "[<rough idea>] [--help]"
 disable-model-invocation: true
+model: opus
 ---
 
 # Feature Create
@@ -33,8 +34,8 @@ independent readiness check before filing.
 
 **Why an issue.** A feature is discrete, trackable work, so it lives where Forgejo
 gives native lifecycle: labels, open/closed, board, dependencies. A feature is an
-**issue with a `feature` label, and the issue body is the spec** — no separate
-doc, no wiki page, no repo markdown file. Your open `feature` issues are your
+**issue with a `type/feature` label, and the issue body is the spec** — no separate
+doc, no wiki page, no repo markdown file. Your open `type/feature` issues are your
 backlog.
 
 **It captures the spec, not the plan.** What the feature must do and how you'll
@@ -60,7 +61,7 @@ What it does
              feasibility, scope/non-goals, open questions — then one fresh
              independent reviewer grades the spec before you file.
   Assembles the issue body, shows it to you, and on approval files a
-  self-assigned issue labelled `feature` (+ optional priority/p*).
+  self-assigned issue labelled `type/feature` (+ optional priority/p*).
 
 When to use it
   Any time you think of a feature — capture it now, plan it later.
@@ -122,7 +123,7 @@ Eleven nodes:
 - **`readiness-check`** — large only: one fresh independent subagent grades the
   spec (Ready / Needs revision / Not ready); render the verdict. Small: skip.
 - **`ask-create`** *(decision)* — file the issue / revise more / cancel.
-- **`create-issue`** — ensure the `feature` (+ priority) label, then create the
+- **`create-issue`** — ensure the `type/feature` (+ priority) label, then create the
   self-assigned, labelled issue (the only mutation). No milestone.
 - **`handoff`** — print the issue URL + the next step `/feature-plan` (don't run it).
 - **`terminal`** — sink.

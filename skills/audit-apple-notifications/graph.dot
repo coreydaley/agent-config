@@ -39,6 +39,9 @@ digraph audit_apple_notifications {
     handoff             [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
                          label="handoff\n(print hand-off message\nwith verify output)"];
 
+    file_findings       [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                         label="file-findings\\n(file P0/P1 findings as\\nbug issues in Forgejo)"];
+
     // -- Decision nodes (diamonds) -------------------------------------
     verify              [shape=diamond, style=filled, fillcolor="#ffe0b2",
                          label="verify\n(audit-verify.sh —\nartifacts gate)"];
@@ -61,7 +64,8 @@ digraph audit_apple_notifications {
     synthesis           -> devils_advocate;
     devils_advocate     -> report;
     report              -> verify;
-    verify              -> handoff             [label="ok"];
+    verify              -> file_findings       [label="ok"];
+    file_findings       -> handoff;
     verify              -> escalate            [label="incomplete"];
     escalate            -> terminal            [label="user_acknowledge"];
     handoff             -> terminal;

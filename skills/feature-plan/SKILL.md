@@ -18,6 +18,7 @@ description: >-
   feature already has dependency-linked sub-issues. Invoke via /feature-plan.
 argument-hint: "<feature-issue-ref> [--help]"
 disable-model-invocation: true
+model: opus
 ---
 
 # Feature Plan: Plan a Feature into Sub-Issues
@@ -87,7 +88,7 @@ When to use it
 Before you run it
   - `tea` (the Forgejo CLI) is configured with the `homelab` login
     (see the `forgejo` skill).
-  - The feature issue exists and carries the `feature` label (warned if not).
+  - The feature issue exists and carries the `type/feature` label (warned if not).
 
 Usage
   /feature-plan <feature-issue-url>
@@ -154,7 +155,7 @@ edge condition labels) the walker needs to route correctly. The companion
 Fifteen nodes:
 
 - **`init`** — resolve the feature issue (URL / `<owner>/<repo>#N` / `#N`
-  in cwd repo); fetch its body (the spec); **warn if it lacks the `feature`
+  in cwd repo); fetch its body (the spec); **warn if it lacks the `type/feature`
   label**; run the **idempotency guard** (STOP if it already has
   dependency-linked sub-issues); set up the working folder; init walker state.
 - **`orient`** — repo grounding (README / CLAUDE.md, recent commits),

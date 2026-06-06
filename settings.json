@@ -10,6 +10,7 @@
     ],
     "deny": []
   },
+  "model": "sonnet",
   "hooks": {
     "Stop": [
       {
@@ -22,6 +23,9 @@
       }
     ]
   },
+  "worktree": {
+    "baseRef": "fresh"
+  },
   "statusLine": {
     "type": "command",
     "command": "~/.claude/statusline-command.sh"
@@ -31,9 +35,9 @@
     "gopls-lsp@claude-plugins-official": true
   },
   "skipDangerousModePermissionPrompt": true,
+  "skipWorkflowUsageWarning": true,
   "theme": "light",
   "teammateMode": "tmux",
   "inputNeededNotifEnabled": true,
-  "agentPushNotifEnabled": true,
-  "skipWorkflowUsageWarning": true
+  "agentPushNotifEnabled": true
 }

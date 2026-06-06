@@ -46,7 +46,7 @@ For each sub-issue, derive:
 | Considerations | Bullets from PLAN.md's Security / Perf / Breaking / Observability notes that apply *only* to this task's scope. |
 | Success Criteria | The slice of the feature's Definition of Done relevant to this task, plus task-specific verification. Each bullet concrete and verifiable. |
 | Priority | P0 or P1, from the Implementation Plan subsection the task came from. Surfaced in the body **and** mapped to a `priority/p0` / `priority/p1` label. |
-| Labels | The matching `priority/p*` label, plus any *domain / kind* labels (`bug`, `enhancement`, a subsystem label, …) that already exist in the repo. Domain labels are never auto-recoloured; `create-issues` creates any missing one with a default colour. |
+| Labels | The matching `priority/p*` label, plus any *domain / kind* labels (`type/bug`, `type/enhancement`, a subsystem label, …) that already exist in the repo. Domain labels are never auto-recoloured; `create-issues` creates any missing one with a default colour. |
 | Depends on | Other sub-issues this task **hard-blocks on** — it cannot start until they're done. From PLAN.md's Dependencies & Ordering section and file-overlap ordering. Referenced by task index now; resolved to `#<number>` and wired as a **native Forgejo dependency** after creation. |
 | Related | Other sub-issues this task is **associated with but not blocked by**. Referenced by task index now; rendered as `#<number>` cross-references in the body after creation. |
 

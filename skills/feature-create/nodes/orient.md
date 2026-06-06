@@ -33,7 +33,7 @@ it's heading.
 
 ### 2. Fetch the repo's labels
 
-`create-issue` needs to know whether the `feature` label and any domain /
+`create-issue` needs to know whether the `type/feature` label and any domain /
 `priority/p*` labels already exist (and never re-create one with a different
 colour):
 

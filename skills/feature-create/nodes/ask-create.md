@@ -20,7 +20,7 @@ surprises:
 
 ```
 Ready to file this as an issue in <org/repo>?
-  1. Create      — open a self-assigned issue, labelled `feature`[ + priority/<p>].
+  1. Create      — open a self-assigned issue, labelled `type/feature`[ + priority/<p>].
   2. Revise more — back to the discussion to adjust the body.
   3. Cancel      — keep the local draft; file nothing.
 ```

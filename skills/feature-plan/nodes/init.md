@@ -1,7 +1,7 @@
 # Node: init
 
 Resolve the **feature issue**, fetch its body (the spec), warn if it isn't
-labelled `feature`, run the **idempotency guard**, set up the working
+labelled `type/feature`, run the **idempotency guard**, set up the working
 folder, and initialize walker state. Handle `--help` inline.
 
 The input is a single Forgejo **feature issue** — its body IS the spec this
@@ -51,12 +51,12 @@ skill plans against. This is NOT a SEED.md, a milestone, or a PRD.
    Extract title, body, labels, and state from `ISSUE_JSON`. Cache the body
    locally as the spec after the folder exists (step 6).
 
-5. **Warn (don't bail) if it lacks the `feature` label.** A plan should be
+5. **Warn (don't bail) if it lacks the `type/feature` label.** A plan should be
    anchored to a tracked feature, but the user may have a reason. If
-   `ISSUE_JSON.labels[].name` contains no case-insensitive `feature`:
+   `ISSUE_JSON.labels[].name` contains no case-insensitive `type/feature`:
 
    ```
-   ⚠ Issue $OWNER_REPO#$ISSUE_NUMBER isn't labelled `feature`. Planning it
+   ⚠ Issue $OWNER_REPO#$ISSUE_NUMBER isn't labelled `type/feature`. Planning it
      anyway — but /feature-create files features with that label. Double-check
      you pointed at the right issue.
    ```
