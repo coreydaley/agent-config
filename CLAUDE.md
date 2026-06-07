@@ -94,6 +94,32 @@ End-to-end lifecycle for capturing, planning, and building work as a **feature**
 
 All feature, review, and audit artifacts live under `~/Reports/<org>/<repo>/` (derived from `upstream` remote, falling back to `origin`). Nothing is written into the project repo.
 
+## Issue triage labels & sweep convention (all projects)
+
+Across every project (Forgejo or GitHub), issues carry three **orthogonal** label axes. Keep them distinct — never collapse one into another:
+
+- **`priority/*`** (`p0` / `p1` / `defer`) — the audit's/filer's severity. Set at filing; don't change it during work — it's the original triage.
+- **`size/*`** (`S` / `M` / `L` / `XL`) — the **effort estimate, applied at work-time, never at creation.** Size is only knowable once you've dug into the issue, so estimating it at filing is guessing. Pure information.
+- **`deferred/<reason>`** — the "**parked — don't auto-pick**" decision *and why*. This is the actionable sweep gate. Reasons:
+  - `deferred/needs-manual` — needs a human at the keyboard (live VoiceOver, on-device/UI testing, code-signing, App Review, anything the agent can't drive or verify).
+  - `deferred/scale-gated` — premature; revisit only when a stated threshold is crossed (record the threshold in the issue).
+  - `deferred/too-big` — tabled on effort; needs a dedicated push (usually pairs with `size/L`+).
+  - `deferred/blocked-upstream` — waiting on a third party / dependency.
+
+A fourth, terminal axis sits alongside these:
+
+- **`wontfix`** (flat) — applied **at close time** to an issue we've decided NOT to do *ever* (out of scope, by design, obsolete, duplicate). It marks a *closed* issue as rejected rather than fixed, so "what did we decide against?" is filterable. Distinct from `deferred/*`, which stays **open** for later — `deferred/*` is "not now," `wontfix` is "not ever." The close comment carries the specific why.
+
+**Why this exists:** when a sweep surfaces an issue, we dig in; if we decide *not now*, we must mark it (`size/*` and/or `deferred/<reason>`) so it doesn't look like a fresh untouched issue. Otherwise the same big/blocked issue gets re-picked and re-litigated every sweep.
+
+**Sweep queries:**
+- Active queue (what gets auto-picked): **open AND NOT `deferred/*`**.
+- Set up for manual work / VoiceOver / device: query **`deferred/needs-manual`**.
+- Crossed a scale threshold: query **`deferred/scale-gated`**.
+- Dedicated big-ticket session: query **`deferred/too-big`** / `size/XL`.
+
+The label set is per-repo (create the `size/*` and `deferred/*` labels on a project the first time the convention is used there). Project CLAUDE.md files may record that project's current parked list, but the convention itself lives here.
+
 ## Subagents
 
 Subagent definitions in `~/.claude/agents/` can be delegated work via the Agent tool.
