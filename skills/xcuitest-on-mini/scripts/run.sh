@@ -25,6 +25,7 @@ SCHEME=""
 PROJECT_PATH=""
 TEST_FILTER=""
 RUN_ALL=false
+CI_MODE=false
 PULL_XCRESULT=false
 
 usage() {
@@ -46,6 +47,12 @@ ARGUMENTS
 
 FLAGS
   --all             Run every test in the scheme (no -only-testing).
+  --ci              CI-parity mode: run the repo's scripts/ci-test.sh (the
+                    same matrix CI runs — swift test --parallel per SPM
+                    package, then app + UI). Use this as the pre-commit gate
+                    when you need a mini run to actually predict CI; the
+                    default xcodebuild-over-.xctestplan run is serial and
+                    does not reproduce CI's per-package parallelism.
   --scheme NAME     Xcode scheme name. Default: derived from the
                     .xcodeproj basename.
   --project PATH    Path to the .xcodeproj. Default: first .xcodeproj
@@ -83,6 +90,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --help|-h) usage; exit 0 ;;
     --all) RUN_ALL=true; shift ;;
+    --ci) CI_MODE=true; shift ;;
     --scheme) SCHEME="$2"; shift 2 ;;
     --project) PROJECT_PATH="$2"; shift 2 ;;
     --pull-xcresult) PULL_XCRESULT=true; shift ;;
@@ -122,6 +130,19 @@ if [[ -z "$SCHEME" ]]; then
   SCHEME="$(basename "$PROJECT_PATH" .xcodeproj)"
 fi
 
+# Prefer a sibling .xcworkspace over the bare .xcodeproj. Local SPM
+# package test targets only RESOLVE through the workspace — against the
+# bare project they silently don't run, so a "--all" against -project
+# quietly skips every package suite. With the workspace, a mini run is
+# the real everything: SPM package tests + app unit tests + UI tests.
+CONTAINER_FLAG="-project"
+CONTAINER_PATH="$PROJECT_PATH"
+WORKSPACE_PATH="${PROJECT_PATH%.xcodeproj}.xcworkspace"
+if [[ -d "$WORKSPACE_PATH" ]]; then
+  CONTAINER_FLAG="-workspace"
+  CONTAINER_PATH="$WORKSPACE_PATH"
+fi
+
 if [[ "$RUN_ALL" == false && -z "$TEST_FILTER" ]]; then
   # Default: assume the UI test bundle is named "<scheme>UITests".
   # Override via positional arg if your project doesn't follow this.
@@ -129,11 +150,21 @@ if [[ "$RUN_ALL" == false && -z "$TEST_FILTER" ]]; then
 fi
 
 # -----------------------------------------------------------------------
-# Find local repo root (the rsync source). Walk up until we find .git
-# OR fall back to cwd if no git tree.
+# Find local repo root (the rsync source). Walk up FROM THE DETECTED
+# PROJECT (not from cwd!) until we find .git, falling back to the
+# project's parent dir.
+#
+# Why from the project: in a bare-clone + worktrees layout
+# (projects/<repo>/{main,feat-x,...}), running from the worktree PARENT
+# made the cwd walk-up find no .git, so LOCAL_ROOT became the parent —
+# rsyncing EVERY worktree and (worse) silently testing whichever
+# worktree's .xcodeproj the BFS found first alphabetically (a stale
+# feature branch, not the one you're working in). Deriving the root
+# from the project pins the rsync + remote run to the worktree that
+# actually owns the detected project.
 # -----------------------------------------------------------------------
 
-LOCAL_ROOT="$(pwd)"
+LOCAL_ROOT="$(dirname "$PROJECT_PATH")"
 SEARCH_DIR="$LOCAL_ROOT"
 while [[ "$SEARCH_DIR" != "/" ]]; do
   if [[ -d "$SEARCH_DIR/.git" ]] || [[ -f "$SEARCH_DIR/.git" ]]; then
@@ -145,9 +176,12 @@ done
 
 REMOTE_ROOT="$LOCAL_ROOT"  # identity mapping; both Macs use /Users/corey
 
-# Relative project path inside the repo root, for the remote xcodebuild
-# invocation:
-REL_PROJECT="${PROJECT_PATH#$LOCAL_ROOT/}"
+echo "==> Worktree root: ${LOCAL_ROOT}"
+echo "==> Container:     ${CONTAINER_PATH#$LOCAL_ROOT/} (${CONTAINER_FLAG})"
+
+# Relative container (workspace or project) path inside the repo root,
+# for the remote xcodebuild invocation:
+REL_CONTAINER="${CONTAINER_PATH#$LOCAL_ROOT/}"
 
 # -----------------------------------------------------------------------
 # Find rsync. Apple ships an ancient 2.6.9 that doesn't support
@@ -196,24 +230,34 @@ ssh "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p '${REMOTE_ROOT}'"
   "${LOCAL_ROOT}/" "${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_ROOT}/"
 
 # -----------------------------------------------------------------------
-# Build the remote xcodebuild command.
+# Build the remote command.
 # -----------------------------------------------------------------------
 
-REMOTE_CMD=(
-  cd "${REMOTE_ROOT}" \&\& xcodebuild test
-  -project "'${REL_PROJECT}'"
-  -scheme "'${SCHEME}'"
-  -destination "'platform=macOS'"
-  -resultBundlePath "'build/remote-tests.xcresult'"
-)
+if [[ "$CI_MODE" == true ]]; then
+  # CI-parity mode: run the project's scripts/ci-test.sh, the single source of
+  # truth the CI workflow also calls. It runs the SPM packages via
+  # `swift test --parallel` (tests parallel WITHIN each package — which a serial
+  # xcodebuild over the .xctestplan does NOT reproduce), then the app + UI
+  # xcodebuild slices. This is what makes a mini run actually predict CI.
+  # The script does its own xcbeautify formatting, so no outer pipe.
+  REMOTE_CMD_STR="cd '${REMOTE_ROOT}' && bash scripts/ci-test.sh all"
+else
+  REMOTE_CMD=(
+    cd "${REMOTE_ROOT}" \&\& xcodebuild test
+    "${CONTAINER_FLAG}" "'${REL_CONTAINER}'"
+    -scheme "'${SCHEME}'"
+    -destination "'platform=macOS'"
+    -resultBundlePath "'build/remote-tests.xcresult'"
+  )
 
-if [[ "$RUN_ALL" == false && -n "$TEST_FILTER" ]]; then
-  REMOTE_CMD+=( "-only-testing:${TEST_FILTER}" )
+  if [[ "$RUN_ALL" == false && -n "$TEST_FILTER" ]]; then
+    REMOTE_CMD+=( "-only-testing:${TEST_FILTER}" )
+  fi
+
+  # Pipe through xcbeautify if it's on the remote.
+  REMOTE_CMD_STR="${REMOTE_CMD[@]}"
+  REMOTE_CMD_STR="${REMOTE_CMD_STR} | { command -v xcbeautify >/dev/null && xcbeautify || cat; }"
 fi
-
-# Pipe through xcbeautify if it's on the remote.
-REMOTE_CMD_STR="${REMOTE_CMD[@]}"
-REMOTE_CMD_STR="${REMOTE_CMD_STR} | { command -v xcbeautify >/dev/null && xcbeautify || cat; }"
 
 # -----------------------------------------------------------------------
 # Execute.
