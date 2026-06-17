@@ -138,8 +138,6 @@ A third pattern exists in theory (simple procedural SKILL.md, no graph, no CLI).
   anatomy) — read in `discuss-skill` and `write-graph`/`write-cli-wrapper`.
 - `lib/external-content-handling.md` — the external-content boilerplate
   block; copied verbatim into new skills that fetch external content.
-- `lib/codex-invocation.md` — the canonical `codex exec` pattern, for
-  graph-driven skills that delegate work to Codex in parallel.
 
 ## Don'ts
 

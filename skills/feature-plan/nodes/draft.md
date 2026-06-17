@@ -19,8 +19,7 @@ INTENT_PATH=$(scripts/walk.sh get --state "$STATE" --key intent_path)
 
 Spawn each via the `Agent` tool with `subagent_type=general-purpose`.
 **Never pass a `model` / tier argument** — the subagent inherits the current
-session model. There is no codex / opposite side; both drafts are
-independent fresh Claude contexts.
+session model. Both drafts are independent fresh Claude contexts.
 
 ## Draft A and Draft B (both independent, both required)
 

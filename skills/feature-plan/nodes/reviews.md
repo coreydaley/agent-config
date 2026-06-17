@@ -2,7 +2,7 @@
 
 Run review lenses on `PLAN.md` in parallel. Each lens is a **fresh Claude
 subagent** (Agent tool) on the current session model — there is no
-expert-side routing, no codex, no tier. The orchestrator sizes the set to
+expert-side routing and no tier. The orchestrator sizes the set to
 the feature: a small feature may warrant only Devil's Advocate; a
 security-touching one adds Security; and so on.
 

@@ -9,7 +9,7 @@
 // separation — drafts, critiques, and reviews are delegated to FRESH
 // Claude subagents (Agent tool) so no context judges its own output.
 // All workers inherit the current session model; there is no model
-// tier, no codex / opposite side, no phase-selection menu. After ONE
+// tier and no phase-selection menu. After ONE
 // approval gate, the skill creates the task breakdown directly as
 // self-assigned Forgejo sub-issues, linking the parent feature to each
 // task via native issue dependencies (feature "blocked by" each task).

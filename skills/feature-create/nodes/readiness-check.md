@@ -92,6 +92,6 @@ scripts/walk.sh transition --state "$STATE" --from readiness_check --to ask_crea
 ## Notes
 
 - **One reviewer, fresh context.** The value is independence — a grader that
-  didn't write the thing. Not a panel; not codex; not a tier choice.
+  didn't write the thing. Not a panel; not a tier choice.
 - **Advice, not a barrier.** Even "Not ready" routes to `ask-create` — the user
   can still file (their call). The gate informs; it doesn't block.

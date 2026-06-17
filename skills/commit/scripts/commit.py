@@ -58,7 +58,6 @@ def _colorize(text: str, color: str) -> str:
 
 AGENT_TRAILERS = {
     "claude": "Co-authored-by: Claude <noreply@anthropic.com>",
-    "codex": "Co-authored-by: Codex <noreply@openai.com>",
 }
 
 

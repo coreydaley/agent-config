@@ -7,8 +7,8 @@ description: >-
   the spec and plans the work with strict orchestrator/worker separation —
   drafts, critiques, and reviews are delegated to FRESH Claude subagents
   (Agent tool) so no context judges its own output. Every worker inherits
-  the current session model; there is no model tier, no codex / opposite
-  side, no phase-selection menu. After ONE approval gate showing the
+  the current session model; there is no model tier and no
+  phase-selection menu. After ONE approval gate showing the
   proposed task breakdown, it creates one self-assigned sub-issue per task
   (Context / Implementation / Success Criteria, priority + domain labels),
   wires task-to-task ordering via native Forgejo dependencies, and links
@@ -17,7 +17,7 @@ description: >-
   verbose rationale is a local ephemeral PLAN.md. One-shot: it STOPS if the
   feature already has dependency-linked sub-issues. Invoke via /feature-plan.
 argument-hint: "<feature-issue-ref> [--help]"
-disable-model-invocation: true
+disable-model-invocation: false
 model: opus
 ---
 
@@ -58,8 +58,8 @@ durable plan.
   **Independence comes from a fresh context, not a different engine** — every
   worker inherits the current session model. **Never pass a model or tier.**
 
-There is no codex / opposite side and no model-tier logic. Two drafts are
-two *independent* fresh subagents; they differ by context, not by family.
+There is no model-tier logic. Two drafts are two *independent* fresh
+subagents; they differ by context, not by family.
 
 ## Help mode
 
@@ -114,7 +114,7 @@ What this skill won't do
   - Create a milestone, write a checklist into the feature body, or call
     the sprint tracker — sub-issues + dependencies are the plan.
   - Run an interactive interview (the spec is the feature body).
-  - Pick a model/tier or invoke codex — all workers are fresh subagents
+  - Pick a model or tier — all workers are fresh subagents
     on the current model.
   - Create issues without your approval (gated behind ask-approval).
   - Double-create. If the feature already has dependency-linked sub-issues,
@@ -240,7 +240,7 @@ The graph captures each as one node. Internal logic launches the workers,
 waits for all, and verifies each output artifact exists and is non-empty
 after the workers return. Every worker is a fresh Claude subagent via the
 `Agent` tool (`subagent_type=general-purpose`) on the current session model
-— no tier argument, no codex.
+— no tier argument.
 
 ## Transport
 
@@ -284,7 +284,7 @@ the user's safety net.
 
 - **Don't draft, critique, or review yourself.** Those are worker jobs; the
   orchestrator synthesizes only.
-- **Don't pick a model or tier, and don't invoke codex.** Every worker is a
+- **Don't pick a model or tier.** Every worker is a
   fresh Claude subagent on the current session model. Independence is fresh
   context, not a different engine.
 - **Don't run an interactive interview.** The feature body is the spec;
