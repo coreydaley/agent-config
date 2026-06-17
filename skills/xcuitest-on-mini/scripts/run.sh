@@ -308,9 +308,44 @@ set +e
 #
 # Requires NOPASSWD sudoers entry for the user:
 #   ${REMOTE_USER} ALL=(ALL) NOPASSWD: /bin/launchctl, /usr/bin/sudo
-ssh -t "${REMOTE_USER}@${REMOTE_HOST}" \
-  "sudo -n launchctl asuser \$(id -u ${REMOTE_USER}) sudo -n -u ${REMOTE_USER} /bin/bash -lc 'set -o pipefail; ${REMOTE_CMD_STR}'"
-EXIT_CODE=$?
+if [[ "$CI_MODE" == true ]]; then
+  # --ci runs scripts/ci-test.sh, which acquires the shared GUI lock itself.
+  # Don't wrap it here too — that would deadlock against the script's own shlock.
+  ssh -t "${REMOTE_USER}@${REMOTE_HOST}" \
+    "sudo -n launchctl asuser \$(id -u ${REMOTE_USER}) sudo -n -u ${REMOTE_USER} /bin/bash -lc 'set -o pipefail; ${REMOTE_CMD_STR}'"
+  EXIT_CODE=$?
+else
+  # Default (raw xcodebuild) path: hold a machine-wide GUI lock for the run so
+  # ad-hoc runs serialize against CI and other projects' Xcode-UI runs on the
+  # mini (XCUITest grabs the singleton AutomationMode GUI session). shlock pidfile
+  # on a SHARED path — must match the projects' scripts/ci-test.sh. Generated as a
+  # script (not inlined) because the remote body runs single-quoted, so it can't
+  # evaluate the remote $$/$LOCK otherwise. Released by the runner's EXIT trap.
+  RUNNER_LOCAL="$(mktemp)"
+  cat > "$RUNNER_LOCAL" <<EOF
+set -o pipefail
+LOCK="\${MINI_XCODE_GUI_LOCK:-/tmp/mini-xcode-gui.lock}"
+if command -v shlock >/dev/null 2>&1; then
+  W=0
+  until shlock -f "\$LOCK" -p \$\$; do
+    if [ "\$W" -ge 2400 ]; then echo "ERROR: timed out waiting for the mini GUI lock \$LOCK (held by PID \$(cat "\$LOCK" 2>/dev/null))" >&2; exit 1; fi
+    [ "\$W" -eq 0 ] && echo "==> Xcode-UI busy on the mini (PID \$(cat "\$LOCK" 2>/dev/null)) — waiting for the GUI lock…"
+    sleep 10; W=\$((W + 10))
+  done
+  trap 'rm -f "\$LOCK"' EXIT
+  echo "==> acquired mini GUI lock (\$LOCK)"
+else
+  echo "==> WARNING: shlock missing on the mini — running WITHOUT the GUI lock; a concurrent run could collide" >&2
+fi
+${REMOTE_CMD_STR}
+EOF
+  RUNNER_REMOTE="/tmp/xcuitest-on-mini-runner.$$.sh"
+  scp -q "$RUNNER_LOCAL" "${REMOTE_USER}@${REMOTE_HOST}:${RUNNER_REMOTE}"
+  rm -f "$RUNNER_LOCAL"
+  ssh -t "${REMOTE_USER}@${REMOTE_HOST}" \
+    "sudo -n launchctl asuser \$(id -u ${REMOTE_USER}) sudo -n -u ${REMOTE_USER} /bin/bash -l '${RUNNER_REMOTE}'; rc=\$?; rm -f '${RUNNER_REMOTE}'; exit \$rc"
+  EXIT_CODE=$?
+fi
 set -e
 
 # -----------------------------------------------------------------------
