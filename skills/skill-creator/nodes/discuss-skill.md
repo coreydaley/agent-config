@@ -27,7 +27,7 @@ Open the design conversation. Surface concrete examples, trigger phrases, scope,
    - Is it a single one-shot operation, or multi-phase with user gates and
      branching?
    - Does it produce per-run artifacts? (Reports, sprint folders, etc.)
-   - Does it call out to external systems (codex, gh, linear) as workers?
+   - Does it call out to external systems (gh, linear) or spawn sub-agents as workers?
    - Does it need to resume from a crash mid-flow?
 
 4. **Probe freedom level.** Match the level of specificity to the task's
