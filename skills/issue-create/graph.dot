@@ -1,0 +1,82 @@
+// Issue Create state machine.
+//
+// Source of truth for the /issue-create skill. A guided capture of a standalone
+// bug / enhancement / chore / etc. as a tracked Forgejo ISSUE in the cwd repo —
+// the issue body IS the report. Distinct from /feature-create (which captures a
+// decomposable feature spec): this is the single-issue track. The two tracks are
+// kept separate — an issue is never promoted into a feature here.
+//
+// Flow: resolve repo + read README for grounding, let the user pick a type from
+// a described menu, elicit a type-appropriate body, assemble + render it, then
+// (at the end, once severity is actually knowable) walk a short priority aid to
+// settle priority/p0 | p1 | defer, confirm, and file self-assigned. The skill
+// sets a `type/*` label and a `priority/*` label only — never `size/*` (a
+// work-time estimate) and never `deferred/*` (a sweep decision).
+//
+// The walker (Claude, per SKILL.md) reads each node's prose from nodes/<id>.md,
+// performs the work, evaluates the outgoing edges' conditions, and transitions
+// via scripts/walk.sh.
+//
+// Render to SVG with scripts/render.sh. Validate with scripts/validate.py.
+
+digraph issue_create {
+    rankdir=TB;
+    bgcolor="white";
+    node  [fontname="Helvetica", fontsize=11];
+    edge  [fontname="Helvetica", fontsize=9];
+
+    // -- Process nodes (rounded boxes, light blue) ----------------------
+    init            [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="init\n(resolve cwd repo, paths,\noptional rough-idea arg,\ninit walker state)"];
+    orient          [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="orient\n(read repo README for grounding;\nfetch repo labels)"];
+    gather          [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="gather\n(elicit a type-appropriate body:\nbug repro / enhancement proposal /\netc.; push back, cover the surface)"];
+    draft           [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="draft\n(assemble the issue body,\nrender it inline)"];
+    decide_priority [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="decide-priority\n(short guided aid →\npriority/p0 | p1 | defer)"];
+    create_issue    [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="create-issue\n(ensure type/* + priority/* labels;\ncreate the self-assigned issue)"];
+    handoff         [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="handoff\n(print issue URL;\nno next-step pipeline)"];
+
+    // -- User-input nodes (decision diamonds) --------------------------
+    classify     [shape=diamond, style=filled, fillcolor="#ffccbc",
+                  label="classify\n(pick a type from the\ndescribed menu / cancel)"];
+    ask_wrap_up  [shape=diamond, style=filled, fillcolor="#ffccbc",
+                  label="ask-wrap-up\n(draft it / keep going / cancel)"];
+    ask_create   [shape=diamond, style=filled, fillcolor="#ffccbc",
+                  label="ask-create\n(create issue / revise more / cancel)"];
+
+    // -- Terminal node (green double-circle) ---------------------------
+    terminal     [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
+                  label="terminal"];
+
+    // -- Edges ---------------------------------------------------------
+    // Single-outgoing edges (no condition needed).
+    init            -> orient;
+    orient          -> classify;
+    draft           -> decide_priority;
+    decide_priority -> ask_create;
+    create_issue    -> handoff;
+    handoff         -> terminal;
+
+    // classify: user picks a type, or bails.
+    classify -> gather   [label="type_selected"];
+    classify -> terminal [label="user_cancel"];
+
+    // gather: agent senses (or user signals) the body is covered; or cancel.
+    gather -> ask_wrap_up [label="wrap_up_signaled"];
+    gather -> terminal    [label="user_cancel"];
+
+    // ask-wrap-up: keep eliciting, assemble the draft, or bail.
+    ask_wrap_up -> draft    [label="user_wrap_up"];
+    ask_wrap_up -> gather   [label="user_continue"];
+    ask_wrap_up -> terminal [label="user_cancel"];
+
+    // ask-create: create the issue, loop back to refine, or bail.
+    ask_create -> create_issue [label="user_create"];
+    ask_create -> gather       [label="user_revise"];
+    ask_create -> terminal     [label="user_cancel"];
+}
