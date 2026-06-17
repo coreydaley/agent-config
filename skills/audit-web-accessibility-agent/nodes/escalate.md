@@ -5,7 +5,7 @@
 ## Inputs
 
 - `$AUDIT_DIR/.verify.log` (the failed verify output)
-- Walker state: `audit_dir`, `verify_output`, `codex_status`, `da_status`
+- Walker state: `audit_dir`, `verify_output`, `da_status`
 
 ```bash
 AUDIT_DIR=$(scripts/walk.sh get --state "$STATE" --key audit_dir)
@@ -30,7 +30,7 @@ The audit is incomplete. Required artifacts are missing or malformed.
 
 Use `AskUserQuestion` with three options:
 
-1. **Retry the missing phase** — orchestrator goes back to the failed phase and re-runs (write claude.md, re-launch codex, etc.). Implementation: this node does NOT have outgoing back-edges to mid-pipeline nodes; the user choosing "retry" should re-invoke the skill or manually re-run the failed step. Document this in the conversation; do not silently re-walk.
+1. **Retry the missing phase** — orchestrator goes back to the failed phase and re-runs (write claude.md, re-run the devil's advocate, etc.). Implementation: this node does NOT have outgoing back-edges to mid-pipeline nodes; the user choosing "retry" should re-invoke the skill or manually re-run the failed step. Document this in the conversation; do not silently re-walk.
 2. **Accept degraded result** — proceed to terminal anyway. The hand-off will be marked **DEGRADED**.
 3. **Abort** — proceed to terminal anyway. No hand-off; AUDIT_DIR is left for inspection.
 

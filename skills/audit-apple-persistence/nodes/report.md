@@ -6,7 +6,7 @@ Phase 5 of the framework. Convert the synthesized findings into a sprint-able `R
 
 - `$AUDIT_DIR/synthesis.md` (with devil's-advocate challenges incorporated)
 - `$AUDIT_DIR/tooling-raw/STATUS.md` (for the overview's tooling summary)
-- Walker state: `audit_dir`, `da_status`, `codex_status`
+- Walker state: `audit_dir`, `da_status`
 
 ```bash
 AUDIT_DIR=$(scripts/walk.sh get --state "$STATE" --key audit_dir)
@@ -85,7 +85,6 @@ migration findings need a real-data snapshot to dry-run against.>
 Intermediate audit artifacts:
 - $AUDIT_DIR/tooling-raw/ (persistence-stack, coredata-models, fetch-patterns, threading-patterns, userdefaults-usage)
 - $AUDIT_DIR/claude.md
-- $AUDIT_DIR/codex.md           <or "MISSING — single-agent run" if codex_status=failed>
 - $AUDIT_DIR/synthesis.md
 - $AUDIT_DIR/devils-advocate.md <or "MISSING — DA failed" if da_status=failed>
 
@@ -144,7 +143,7 @@ handling policy.
 ## Dependencies
 
 - Tooling output: `$AUDIT_DIR/tooling-raw/`
-- Intermediate files: `$AUDIT_DIR/{claude,codex,synthesis,devils-advocate}.md`
+- Intermediate files: `$AUDIT_DIR/{claude,synthesis,devils-advocate}.md`
 ```
 
 ## Outputs

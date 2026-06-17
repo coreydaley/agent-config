@@ -30,7 +30,7 @@ test -n "$AUDIT_DIR" && test -d "$AUDIT_DIR" \
   || bail "audit-runner.sh init failed — refusing to continue without an AUDIT_DIR"
 ```
 
-The `MANIFEST.json` written by `audit-runner.sh` is the receipt that this node ran. Downstream nodes (`audit-codex.sh`, `audit-verify.sh`) read it. If the file is absent, those scripts refuse to run.
+The `MANIFEST.json` written by `audit-runner.sh` is the receipt that this node ran. Downstream nodes (`audit-verify.sh`) read it. If the file is absent, those scripts refuse to run.
 
 ### 3. Initialize the walker state file
 

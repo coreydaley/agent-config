@@ -27,11 +27,11 @@ digraph audit_apple_ios {
     orient              [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
                          label="orient\n(Phase 1: tooling-raw/,\nsurvey, emergency check)"];
     independent_reviews [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
-                         label="independent-reviews\n(Phase 2: review sub-agent writes claude.md,\ncodex exec writes codex.md, parallel)"];
+                         label="independent-reviews\n(Phase 2: review sub-agent\nwrites claude.md)"];
     synthesis           [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
                          label="synthesis\n(Phase 3: dedupe, calibrate,\ncompound findings, synthesis.md)"];
     devils_advocate     [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
-                         label="devils-advocate\n(Phase 4: codex attacks,\nincorporate challenges)"];
+                         label="devils-advocate\n(Phase 4: sub-agent attacks,\nincorporate challenges)"];
     report              [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
                          label="report\n(Phase 5: write REPORT.md\nwith P0/P1/Deferred tiers)"];
     emergency_exit      [shape=box, style="rounded,filled", fillcolor="#ffcdd2",

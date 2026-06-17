@@ -5,9 +5,9 @@
 # Usage:
 #   audit-verify.sh <audit-dir> [--strict]
 #
-# --strict  also require codex.md and devils-advocate.md (not just claude.md
-#           + synthesis.md + REPORT.md). Off by default so single-agent
-#           degraded runs can still pass verify with a warning.
+# --strict  also require devils-advocate.md (not just claude.md +
+#           synthesis.md + REPORT.md). Off by default so runs where the
+#           devil's-advocate pass was skipped can still pass with a warning.
 #
 # Exit codes:
 #   0   all required artifacts present and non-empty
@@ -54,7 +54,7 @@ check_optional_strict() {
       echo "FAIL: $label missing or empty (strict mode): $AUDIT_DIR/$file" >&2
       errors=$((errors+1))
     else
-      echo "WARN: $label missing — single-agent degraded synthesis assumed" >&2
+      echo "WARN: $label missing — devil's-advocate pass assumed skipped" >&2
       warnings=$((warnings+1))
     fi
   fi
@@ -94,12 +94,10 @@ check_required "REPORT.md"          "Report"
 check_table    "claude.md"          "Claude review"
 check_table    "synthesis.md"       "Synthesis"
 
-# Strict-only or warn: the codex-side artifacts (single-agent fallback
+# Strict-only or warn: the devil's-advocate artifact (a skipped DA pass
 # is allowed but loudly noted).
-check_optional_strict "codex.md"           "Codex review"
 check_optional_strict "devils-advocate.md" "Devil's advocate"
 
-check_table    "codex.md"           "Codex review"
 check_table    "devils-advocate.md" "Devil's advocate"
 
 if [[ "$errors" -gt 0 ]]; then
@@ -125,8 +123,7 @@ audit-verify.sh: OK ($warnings warning(s)).
   AUDIT_DIR: $AUDIT_DIR
   Artifacts:
     claude.md           $(wc -l < "$AUDIT_DIR/claude.md" 2>/dev/null | tr -d ' ') lines
-    codex.md            $([ -s "$AUDIT_DIR/codex.md" ] && wc -l < "$AUDIT_DIR/codex.md" | tr -d ' ' || echo "MISSING (single-agent fallback)")
     synthesis.md        $(wc -l < "$AUDIT_DIR/synthesis.md" 2>/dev/null | tr -d ' ') lines
-    devils-advocate.md  $([ -s "$AUDIT_DIR/devils-advocate.md" ] && wc -l < "$AUDIT_DIR/devils-advocate.md" | tr -d ' ' || echo "MISSING (single-agent fallback)")
+    devils-advocate.md  $([ -s "$AUDIT_DIR/devils-advocate.md" ] && wc -l < "$AUDIT_DIR/devils-advocate.md" | tr -d ' ' || echo "MISSING (DA pass skipped)")
     REPORT.md           $(wc -l < "$AUDIT_DIR/REPORT.md" 2>/dev/null | tr -d ' ') lines
 SUMMARY

@@ -25,8 +25,8 @@ The script:
 
 - Confirms `MANIFEST.json` exists (audit-runner ran)
 - Requires `claude.md`, `synthesis.md`, `REPORT.md` non-empty
-- Warns (without failing) if `codex.md` or `devils-advocate.md` missing — single-agent fallback is allowed
-- Confirms `claude.md`, `codex.md`, `synthesis.md`, `devils-advocate.md` (where present) contain markdown table rows
+- Warns (without failing) if `devils-advocate.md` is missing — a skipped devil's-advocate pass is allowed
+- Confirms `claude.md`, `synthesis.md`, `devils-advocate.md` (where present) contain markdown table rows
 - Short-circuits with success if `EMERGENCY.md` is present (emergency-exit path)
 - On success, stamps `completed_at` into `MANIFEST.json`
 

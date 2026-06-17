@@ -24,9 +24,9 @@ cat > "$AUDIT_DIR/tooling-raw/STATUS.md" <<'EOF'
 
 Design is a pure-LLM audit. No automated tooling was run in Phase 1.
 
-The independent reviewers (Claude + Codex) perform the entire review
+The review sub-agent performs the entire review
 manually in Phase 2 against the heuristic priority order documented in
-the skill and the codex prompt.
+the skill and the review prompt.
 EOF
 ```
 
@@ -47,7 +47,7 @@ echo "Apple project detected: $([ "$APPLE_PROJECT" -eq 1 ] && echo yes || echo n
   >> "$AUDIT_DIR/tooling-raw/STATUS.md"
 ```
 
-The reviewers in Phase 2 read this state and the codex prompt instructs both reviewers to promote HIG accordingly.
+The review sub-agent in Phase 2 reads this state and the review prompt instructs it to promote HIG accordingly.
 
 ### 3. Detect explicit design system (informs heuristic priority 1)
 

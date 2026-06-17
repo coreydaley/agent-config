@@ -67,7 +67,6 @@ audit_init() {
   "started_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "expected_artifacts": [
     "claude.md",
-    "codex.md",
     "synthesis.md",
     "devils-advocate.md",
     "REPORT.md"

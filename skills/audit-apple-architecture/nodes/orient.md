@@ -23,7 +23,7 @@ cat > "$AUDIT_DIR/tooling-raw/STATUS.md" <<'EOF'
 # Phase 1 tooling — apple-architecture
 
 This audit runs no Phase 1 tooling. Architecture findings come from
-manual code reading by both reviewers in Phase 2. The survey step
+manual code reading by the review sub-agent in Phase 2. The survey step
 below identifies SwiftUI / Concurrency / Modules patterns to guide the
 reviewers.
 

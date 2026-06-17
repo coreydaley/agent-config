@@ -4,12 +4,11 @@ Print the audit hand-off message to the user. **Verify already passed** — this
 
 ## Inputs
 
-- Walker state: `audit_dir`, `verify_output`, `da_status`, `codex_status`, `ingest_status`
+- Walker state: `audit_dir`, `verify_output`, `da_status`, `ingest_status`
 
 ```bash
 AUDIT_DIR=$(scripts/walk.sh get --state "$STATE" --key audit_dir)
 VERIFY_OUTPUT=$(scripts/walk.sh get --state "$STATE" --key verify_output)
-CODEX_STATUS=$(scripts/walk.sh get --state "$STATE" --key codex_status)
 DA_STATUS=$(scripts/walk.sh get --state "$STATE" --key da_status)
 INGEST_STATUS=$(scripts/walk.sh get --state "$STATE" --key ingest_status)
 ```
@@ -84,11 +83,11 @@ Parse the audit summary table to populate the hand-off counts.
 > ```
 ```
 
-If `CODEX_STATUS=failed`, add to the warnings:
+If `da_status=failed`, add to the warnings:
 
 ```
-> - **Degraded run**: Codex review unavailable; this was a single-agent
->   audit. Consider re-running once codex is reachable.
+> - **Degraded run**: the devil's-advocate pass was skipped. Consider
+>   re-running to get the adversarial check.
 ```
 
 If `DA_STATUS=failed`, add:

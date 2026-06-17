@@ -6,7 +6,7 @@ Phase 5 of the framework. Convert the synthesized findings into a sprint-able `R
 
 - `$AUDIT_DIR/synthesis.md` (with devil's-advocate challenges incorporated)
 - `$AUDIT_DIR/tooling-raw/STATUS.md` (for the overview's tooling summary — design has none)
-- Walker state: `audit_dir`, `da_status`, `codex_status`, `apple_project`
+- Walker state: `audit_dir`, `da_status`, `apple_project`
 
 ```bash
 AUDIT_DIR=$(scripts/walk.sh get --state "$STATE" --key audit_dir)
@@ -77,7 +77,6 @@ browser/device testing.>
 Intermediate audit artifacts:
 - $AUDIT_DIR/tooling-raw/STATUS.md (design is pure-LLM; no tool output)
 - $AUDIT_DIR/claude.md
-- $AUDIT_DIR/codex.md           <or "MISSING — single-agent run" if codex_status=failed>
 - $AUDIT_DIR/synthesis.md
 - $AUDIT_DIR/devils-advocate.md <or "MISSING — DA failed" if da_status=failed>
 
@@ -122,7 +121,7 @@ confidential before sharing externally.
 
 ## Dependencies
 
-- Intermediate files: $AUDIT_DIR/{claude,codex,synthesis,devils-advocate}.md
+- Intermediate files: $AUDIT_DIR/{claude,synthesis,devils-advocate}.md
 - Sprint ordering: design tasks that touch shared tokens or components
   should be ordered before tasks that depend on them.
 ```

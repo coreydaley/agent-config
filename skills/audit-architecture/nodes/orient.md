@@ -22,7 +22,7 @@ cat > "$AUDIT_DIR/tooling-raw/STATUS.md" <<EOF
 
 Architecture is a pure-LLM audit. No automated tooling runs in Phase 1.
 This directory exists for layout uniformity with other /audit-* skills;
-Phase 2 reviewers (Claude + Codex) work directly from source.
+The Phase 2 review sub-agent works directly from source.
 EOF
 ```
 

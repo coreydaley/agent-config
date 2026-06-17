@@ -6,7 +6,7 @@ Phase 5 of the framework. Convert the synthesized findings into a sprint-able au
 
 - `$AUDIT_DIR/synthesis.md` (with devil's-advocate challenges incorporated)
 - `$AUDIT_DIR/tooling-raw/STATUS.md` (for the overview's tooling summary)
-- Walker state: `audit_dir`, `da_status`, `codex_status`
+- Walker state: `audit_dir`, `da_status`
 
 ```bash
 AUDIT_DIR=$(scripts/walk.sh get --state "$STATE" --key audit_dir)
@@ -67,7 +67,7 @@ Write the per-run audit deliverable to `$AUDIT_DIR/REPORT.md` with the following
 - `## Overview` — 1-2 paragraphs: scope, tooling summary, total findings by severity, top 3 issues. Note the audit's inherent limitations: most network-layer findings require a proxy-driven reproduction (Charles / mitmproxy) or a real backend round-trip; the audit catches the misconfig but only the proxy capture or load test confirms the fix.
 - If a cert-pinning expiration falls inside the audit window, include a callout at the top: `Immediate Action — cert-pinning expiration inside audit window. The pinned certificate at <host> expires <date> with no documented multi-pin fallback. Pin failure bricks every install of every shipped version simultaneously. See Immediate Action section below.`
 - `## Audit Summary` — severity-count table (Critical / High / Medium / Low / Total) and category-count table (non-zero categories only).
-- Intermediate-artifacts list: `tooling-raw/`, `claude.md`, `codex.md` (or `MISSING — single-agent run`), `synthesis.md`, `devils-advocate.md` (or `MISSING — DA failed`).
+- Intermediate-artifacts list: `tooling-raw/`, `claude.md`, `synthesis.md`, `devils-advocate.md` (or `MISSING — DA failed`).
 - `## Implementation Plan` with subsections:
   - `### Immediate Action — cert-pinning expiration inside audit window` — only if a qualifying CertPinning finding exists; one task block per finding.
   - `### P0 — Must Ship` — one block per Critical and High finding.
@@ -85,7 +85,7 @@ Write the per-run audit deliverable to `$AUDIT_DIR/REPORT.md` with the following
   - [ ] MultipartUpload fixes: verified via Instruments Allocations that memory does not grow with file size
   - [ ] WebSocketURLSession fixes: verified via Network Link Conditioner with a Lossy profile that reconnect uses backoff and ultimately succeeds
 - `## Sensitive-content warning` — references to internal API endpoints, OAuth client IDs, pinned-cert fingerprints. Treat as confidential. Proxy captures generated during verification may contain auth tokens; redact before sharing externally.
-- `## Dependencies` — `$AUDIT_DIR/tooling-raw/` and `$AUDIT_DIR/{claude,codex,synthesis,devils-advocate}.md`.
+- `## Dependencies` — `$AUDIT_DIR/tooling-raw/` and `$AUDIT_DIR/{claude,synthesis,devils-advocate}.md`.
 
 ## Outputs
 
