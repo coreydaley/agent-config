@@ -15,7 +15,7 @@ description: >-
   creates a milestone or wiki page, writes a repo file, or runs git. Takes an
   optional one-line rough idea to seed the discussion. Invoke via /feature-create.
 argument-hint: "[<rough idea>] [--help]"
-disable-model-invocation: true
+disable-model-invocation: false
 model: opus
 ---
 

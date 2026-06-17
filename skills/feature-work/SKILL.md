@@ -19,7 +19,7 @@ description: >-
   is skipped — no flag, no stored cursor, idempotent by construction. Invoke via
   /feature-work.
 argument-hint: "<feature-issue-ref> [--help]"
-disable-model-invocation: true
+disable-model-invocation: false
 model: sonnet
 ---
 
