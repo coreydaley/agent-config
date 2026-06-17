@@ -40,12 +40,17 @@ This skill exists because:
 
 ## How it works
 
-1. Detects the project's `.xcodeproj` from cwd (BFS up to depth 3).
+1. Detects the project's `.xcodeproj` from cwd (BFS up to depth 3) and
+   prefers a sibling `.xcworkspace` when one exists — local SPM package
+   test targets only resolve through the workspace, so `--all` against
+   the workspace is the real everything (SPM + app unit + UI); against
+   a bare project the package suites would silently not run.
 2. Pre-creates the destination dir on the mini.
-3. Rsyncs the local working tree → same absolute path on the mini.
-   Excludes `.git`, `build/`, `DerivedData/`, `.build/`,
-   `node_modules/`, `xcuserdata/`, `*.xcresult`, etc. — only source
-   files travel.
+3. Rsyncs the local working tree → a **dedicated staging dir** on the
+   mini (`$XCUITEST_ON_MINI_DIR`, default `~/.xcuitest-on-mini`)
+   with the local path preserved beneath it. Excludes `.git`, `build/`,
+   `DerivedData/`, `.build/`, `node_modules/`, `xcuserdata/`,
+   `*.xcresult`, etc. — only source files travel.
 4. SSHes to the mini, runs `xcodebuild test` with the supplied filter
    (defaults to `<scheme>UITests`), pipes through `xcbeautify` if
    available.
@@ -53,10 +58,17 @@ This skill exists because:
    back to `<repo>/build/remote-ui-tests.xcresult/` for local Xcode
    inspection.
 
-Path mapping is identity: `$(pwd)` on the local Mac becomes `$(pwd)`
-on the mini. Works because both machines have `/Users/corey` as the
-home directory. If you switch to a Mac with a different home layout,
-this assumption breaks — flag at that point.
+Path mapping is **namespaced, not identity**: `$LOCAL_ROOT` becomes
+`$XCUITEST_ON_MINI_DIR$LOCAL_ROOT` on the mini (e.g.
+`~/.xcuitest-on-mini~/Code/.../main`). The mini
+is the CI runner / Forgejo source-of-truth host and has its own
+checkouts at the live `~/Code/...` paths — mirroring under a
+dedicated staging dir keeps the `rsync --delete` from ever clobbering
+them. Side benefits: each worktree gets a collision-free mirror, and
+Xcode keys DerivedData by source-path hash so the mirror builds in its
+own bucket instead of fighting the mini's checkout. Nothing depends on
+the path being identical, only stable + writable. Override the base via
+`XCUITEST_ON_MINI_DIR`.
 
 ## Help mode
 
@@ -120,10 +132,13 @@ bash scripts/run.sh --help
   also work but the ALL form is simpler. The Mac mini is presumed
   single-purpose; if it weren't, the security calculus would shift.
 
-Override hostname / user via env if you ever stand up a second runner:
+Override hostname / user / staging dir via env if you ever stand up a
+second runner:
 
 - `XCUITEST_ON_MINI_HOST=…`
 - `XCUITEST_ON_MINI_USER=…`
+- `XCUITEST_ON_MINI_DIR=…` (remote staging base; default
+  `~/.xcuitest-on-mini`)
 
 ## Why the double sudo + launchctl dance
 

@@ -8,10 +8,13 @@
 # doesn't need .git. No first-time clone, no drift between local and
 # remote git state, less data transferred.
 #
-# Path mapping is identity: $(pwd) on the MBP becomes $(pwd) on the mini.
-# Works because both Macs are user `corey` with `/Users/corey` home dirs.
-# If you ever use a Mac with a different home layout, this breaks — flag
-# at that point and add explicit local→remote mapping.
+# Path mapping is NOT identity: the local tree is mirrored UNDER a
+# dedicated staging dir on the mini ($XCUITEST_ON_MINI_DIR, default
+# ~/.xcuitest-on-mini) with its full local path preserved
+# beneath it. This keeps the rsync --delete from ever touching the
+# mini's own checkouts (it's the CI runner / Forgejo source-of-truth
+# host), and gives each worktree its own collision-free mirror +
+# isolated DerivedData bucket.
 
 set -euo pipefail
 
@@ -21,6 +24,7 @@ set -euo pipefail
 
 REMOTE_HOST="${XCUITEST_ON_MINI_HOST:-mac-mini.example}"
 REMOTE_USER="${XCUITEST_ON_MINI_USER:-corey}"
+REMOTE_MIRROR_BASE="${XCUITEST_ON_MINI_DIR:-~/.xcuitest-on-mini}"
 SCHEME=""
 PROJECT_PATH=""
 TEST_FILTER=""
@@ -65,6 +69,10 @@ FLAGS
 ENVIRONMENT
   XCUITEST_ON_MINI_HOST   Remote hostname. Default: mac-mini.example
   XCUITEST_ON_MINI_USER   Remote SSH user. Default: corey
+  XCUITEST_ON_MINI_DIR    Remote staging base the local tree is mirrored
+                          under (local path preserved beneath it). Keeps
+                          rsync --delete off the mini's own checkouts.
+                          Default: ~/.xcuitest-on-mini
 
 EXAMPLES
   # Run all UI tests (default behavior)
@@ -174,9 +182,13 @@ while [[ "$SEARCH_DIR" != "/" ]]; do
   SEARCH_DIR="$(dirname "$SEARCH_DIR")"
 done
 
-REMOTE_ROOT="$LOCAL_ROOT"  # identity mapping; both Macs use /Users/corey
+# Mirror UNDER a dedicated staging dir, preserving the local path beneath
+# it, so --delete can never reach the mini's own checkouts and each
+# worktree gets a unique, collision-free mirror.
+REMOTE_ROOT="${REMOTE_MIRROR_BASE%/}${LOCAL_ROOT}"
 
 echo "==> Worktree root: ${LOCAL_ROOT}"
+echo "==> Mirror root:   ${REMOTE_ROOT}"
 echo "==> Container:     ${CONTAINER_PATH#$LOCAL_ROOT/} (${CONTAINER_FLAG})"
 
 # Relative container (workspace or project) path inside the repo root,
