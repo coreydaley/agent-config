@@ -64,10 +64,10 @@ Invoke with `/command-name` in Claude Code. Commands with `disable-model-invocat
 | `/feature-plan` | One-shot multi-agent plan that decomposes a feature issue into dependency-linked, self-assigned sub-issues (the feature is "blocked by" each task) |
 | `/feature-work` | Build a feature's sub-issues autonomously on a `feature/<slug>` branch — one commit per sub-issue with `Closes #N`, pushed (no merge); ends with a defer punch list |
 | `/review-pr-simple` | Single-agent PR review → `REVIEW.md` |
-| `/review-pr-comprehensive` | Dual-agent PR review (Claude + Codex) → `REVIEW.md` |
+| `/review-pr-comprehensive` | Comprehensive multi-phase PR review (review → synthesis → devil's advocate) → `REVIEW.md` |
 | `/review-address-feedback` | Walk through review feedback and apply fixes |
 | `/polish-pull-request` | Final-pass PR cleanup before merge |
-| **Audits** (all 5-phase dual-agent dot-graph skills — structurally gated $AUDIT_DIR / codex / verify via `lib/audit-*.sh`) | |
+| **Audits** (all 5-phase dot-graph skills — structurally gated $AUDIT_DIR / verify via `lib/audit-*.sh`) | |
 | `/audit-architecture` | Platform-agnostic architecture review — findings anchored to named principles + migration cost |
 | `/audit-design` | Platform-agnostic UI/UX review — HIG promoted to priority 2 on Swift projects |
 | `/audit-web-accessibility-human` | Web accessibility (WCAG 2.1/2.2) review |
@@ -109,12 +109,11 @@ Skills are auto-discovered from `~/.claude/skills/`. Each skill has a `SKILL.md`
 | `feature-plan` | One-shot multi-agent planning of a feature issue into dependency-linked, self-assigned sub-issues (strict orchestrator/worker separation; the feature is "blocked by" each task) |
 | `feature-work` | Build a feature's sub-issues autonomously on a `feature/<slug>` branch — one commit per sub-issue with `Closes #N`, pushed (no merge); git-derived resume; ends with a defer punch list |
 | `review-pr-simple` | Single-agent PR review → `REVIEW.md` |
-| `review-pr-comprehensive` | Dual-agent PR review (Claude + Codex, synthesis, devil's advocate) → `REVIEW.md` |
+| `review-pr-comprehensive` | Comprehensive PR review (review, synthesis, devil's advocate) → `REVIEW.md` |
 | `review-address-feedback` | Walk through PR review feedback and apply fixes; supports live PR comments or a local `REVIEW.md` |
 | `polish-pull-request` | Final-pass PR cleanup — title, body, cross-links, stale thread resolution |
 | `commit` | Analyze changes and create grouped conventional commits with conventional `Co-authored-by` trailers |
 | `frontend-design` | Production-grade UI component creation |
-| `generate-post-image` | Hugo blog post image generation via DALL-E 3 |
 | `skill-creator` | Walks the user through authoring a new skill: discusses scope, picks pattern (graph-driven or cli-wrapper), scaffolds, validates, hands off uncommitted |
 
 Most multi-phase skills (`commit`, `polish-pull-request`, `review-*`, `feature-*`) are built on the [dot-graph skill pattern](docs/DOT-GRAPH-SKILL-PATTERN.md): the workflow lives in a `graph.dot` with per-node prose under `nodes/`, walked deterministically by `lib/graph_walker.py`. Drift between routing and prose is structurally impossible.
@@ -130,10 +129,9 @@ Each audit run gets its own timestamped folder under `~/Reports/<org>/<repo>/aud
 ```
 ~/Reports/<org>/<repo>/audits/
 └── YYYY-MM-DDTHH-MM-SS-<audit-id>/      # one folder per run; <audit-id> = architecture | design | test-coverage | web-accessibility | web-responsive | web-security | apple-accessibility | apple-adaptivity | apple-app-store-review | apple-architecture | apple-design | apple-localization | apple-performance | apple-persistence | apple-privacy | apple-security | apple-testing
-    ├── claude.md                       ← Claude's independent review
-    ├── codex.md                        ← Codex's independent review
-    ├── synthesis.md                    ← unified findings
-    ├── devils-advocate.md              ← Codex challenge pass
+    ├── claude.md                       ← review sub-agent's findings
+    ├── synthesis.md                    ← consolidated findings
+    ├── devils-advocate.md              ← devil's-advocate sub-agent challenge pass
     └── REPORT.md                       ← final findings report
 ```
 
@@ -163,7 +161,7 @@ All feature, review, and audit artifacts live under `~/Reports/<org>/<repo>/`, d
 │           └── ADDRESSED.md
 └── audits/
     └── YYYY-MM-DDTHH-MM-SS-<lens>/                   # one folder per audit run
-        └── claude.md  codex.md  synthesis.md  devils-advocate.md  REPORT.md
+        └── claude.md  synthesis.md  devils-advocate.md  REPORT.md
 ```
 
 `/feature-work` produces no per-run report folder — its artifacts are the commits on each repo's `feature/<slug>` branch and the updated (still-open) sub-issues; its walker state lives under `$TMPDIR/.claude-walker/feature-work/`.

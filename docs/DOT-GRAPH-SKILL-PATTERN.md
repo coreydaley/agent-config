@@ -303,13 +303,13 @@ cleanup) is rejected.
 ### Parallel delegation
 
 A single node launches multiple workers in parallel and waits for
-all. Used in `/review-pr-comprehensive` (Claude + Codex) and
-`/feature-plan` (up to 7 parallel review lenses).
+all. Used in `/feature-plan` (up to 7 parallel review lenses, each a
+fresh sub-agent via the Agent tool).
 
 ```
-                            ┌─ Codex (background)
-independent-reviews ────────┤                       → wait → synthesis
-                            └─ Claude subagent (Agent tool)
+                  ┌─ review lens 1 (subagent)
+reviews ──────────┼─ review lens 2 (subagent)  → wait → incorporate
+                  └─ review lens N (subagent)
 ```
 
 The graph shows one node; the parallelism is internal. The skill's
@@ -583,7 +583,7 @@ Cover at least:
   alternatives listed.
 
 The smoke-tests don't run the actual node work (no real PR, no real
-Codex calls). They verify the **graph contract** — the walker enforces
+sub-agent calls). They verify the **graph contract** — the walker enforces
 the documented routes.
 
 ---
@@ -639,6 +639,5 @@ hardcoded.
 | Need details on... | Read |
 |---|---|
 | Walker internals (state file, transitions, refusal) | `lib/graph_walker.py` |
-| Codex invocation pattern (used in parallel-delegation nodes) | `lib/codex-invocation.md` |
 | Any specific skill's flow | `skills/<skill>/SKILL.md` and `graph.svg` |
 | Any specific node's prose | `skills/<skill>/nodes/<id>.md` |
