@@ -45,6 +45,10 @@ Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `style`, `ci`
 
 Claude Code has access to file system tools (Read, Write, Edit, Glob, Grep), Bash, and browser tools. Use dedicated tools (Read, Edit, Glob) in preference to Bash equivalents.
 
+### Apple StoreKit tests need the GUI launchd domain (any project with `SKTestSession`)
+
+`SKTestSession`-backed StoreKit tests only work in the **logged-in GUI launchd domain**. Running `xcodebuild test` through the **Bash tool** (a non-GUI launchd domain) makes transactions come back `.unverified` with an empty `Transaction.currentEntitlements`, so every "buy → owned" entitlement test fails while "not owned" cases pass — it *looks* like a code bug but is not. They pass in **Xcode ⌘U** and on a **GUI-session runner** (e.g. the `xcuitest-on-mini` skill, which uses `launchctl asuser`). **Never trust a Bash `xcodebuild test` result for `SKTestSession` entitlement tests** — run them via ⌘U or a GUI-domain runner, and keep them serial (`@Suite(.serialized)` + a non-parallelizable test target, since the StoreKit test env is process-global per-user). A corrupt local StoreKit agent (transactions unverified even in the GUI domain) is fixed by quitting Xcode, `rm -rf ~/Library/Caches/com.apple.storekitagent`, and rebooting. Don't dismiss these reds as "environmental noise" — diagnose the domain.
+
 ## Memory
 
 CLAUDE.md files are loaded hierarchically: `~/.claude/CLAUDE.md` (global) → project root → subdirectories. More specific files take precedence.
