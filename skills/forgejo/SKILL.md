@@ -1,7 +1,7 @@
 ---
 name: forgejo
 description: Use this skill when the user asks to work with Forgejo (the self-hosted git forge). Covers all `tea` CLI operations against the user's Forgejo instance at https://mac-mini.example:3000 — repos, pull requests, issues, releases, labels, milestones, organizations, and raw API calls. Trigger phrases include "forgejo", "tea pr", "tea issue", "tea repo", "homelab forgejo", "self-hosted git", "open a forgejo PR", "list forgejo issues".
-version: 1.0.0
+version: 1.1.0
 disable-model-invocation: false
 ---
 
@@ -127,7 +127,7 @@ tea pulls close <number>
 tea pulls reopen <number>
 ```
 
-`tea` does not natively expose a `--draft` flag on `pulls create` across all versions. If the installed `tea` is missing it, fall back to a raw API call (see [Raw API](#raw-api) below) with `"draft": true`.
+`tea pulls create` has no `--draft` flag. Create drafts via `tea api` — see [Draft PRs](#draft-prs) under the gaps section.
 
 ## Issues
 
@@ -209,7 +209,7 @@ tea actions variables list
 tea actions variables create --name FOO --value "bar"
 ```
 
-For the GitHub Actions analogue of `gh run watch` (real-time tailing), `tea` does not currently have a `watch` subcommand. Poll `tea actions runs view <run-id>` or hit the API endpoint directly: `GET /repos/{owner}/{repo}/actions/runs/{run_id}`.
+For the GitHub Actions analogue of `gh run watch` (real-time tailing), `tea` does not currently have a `watch` subcommand. Poll `tea actions runs view <run-id>` or `tea api '/repos/{owner}/{repo}/actions/runs/{run_id}'`.
 
 ## Releases
 
@@ -247,31 +247,120 @@ tea organizations list
 tea organizations <org>
 ```
 
-## Raw API
+## Raw API — prefer `tea api`
 
-For anything `tea` doesn't expose (draft PRs on older `tea`, admin endpoints, server config), call the Forgejo REST API directly. The API is OpenAPI-documented at `https://mac-mini.example:3000/api/swagger`.
+For anything `tea`'s typed subcommands don't expose, call the Forgejo REST API. **Use the built-in `tea api` command** (present since `tea` 0.13) — it reuses the saved login, so it handles the token, the self-signed TLS cert, *and* substitutes `{owner}`/`{repo}` from the cwd repo automatically. No manual token extraction, no `-k`. The API is OpenAPI-documented at `https://mac-mini.example:3000/api/swagger` (raw spec: `https://mac-mini.example:3000/swagger.v1.json`).
 
-Read the token once from the `tea` config, then use it for `curl`. On macOS the config lives at `~/Library/Application Support/tea/config.yml`; `yq` is not always installed, so use a `grep`/`awk` extraction that has no extra deps:
+```bash
+# GET — {owner}/{repo} are filled from the cwd repo context
+tea api '/repos/{owner}/{repo}'                       # repo metadata
+tea api /user | jq -r .login                          # whoami
+tea api /version                                       # connectivity / server version
+
+# POST/PATCH/DELETE — body via -f (string fields) or -d (raw JSON).
+# Providing a body defaults the method to POST; set others with -X.
+tea api -X POST -f title=Title -f body=Body -f head=feature-x -f base=main -F draft=true \
+  '/repos/{owner}/{repo}/pulls'                        # create a draft PR (see below)
+
+tea api -X PATCH -d '{"body":"edited"}' \
+  '/repos/{owner}/{repo}/issues/comments/123'          # edit a comment
+
+# Quote any endpoint containing ? or & so the shell doesn't expand it
+tea api '/repos/{owner}/{repo}/issues?state=open&type=issues'
+```
+
+`-f key=value` sends strings; `-F key=value` sends typed JSON (numbers, booleans, `null`, arrays/objects, or `@file`); `-d`/`--data` sends a raw JSON body (`@file` / `@-` for stdin). Use `-r <owner>/<repo>` to target a repo other than the cwd, `-i` to include response status/headers, `-o <file>` to write the body to a file.
+
+**`curl` fallback** — only if `tea api` is somehow unavailable. Read the token from the `tea` config (macOS path; no `yq` dependency) and pass `-k` for the self-signed cert:
 
 ```bash
 TOKEN=$(awk '/name: homelab/{f=1} f&&/token:/{print $2; exit}' "$HOME/Library/Application Support/tea/config.yml")
 BASE=https://mac-mini.example:3000/api/v1
-
-# List my repos
 curl -sk -H "Authorization: token $TOKEN" "$BASE/user/repos" | jq '.[].full_name'
-
-# Create a draft PR
-curl -sk -X POST \
-  -H "Authorization: token $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Title","body":"Body","head":"feature-x","base":"main","draft":true}' \
-  "$BASE/repos/<owner>/<repo>/pulls"
-
-# Get server version (also useful as a connectivity check)
-curl -sk "$BASE/version"
 ```
 
-`-k` skips TLS verification (needed for the self-signed cert). Do not propagate `-k` to scripts that talk to public endpoints — it's specific to this `.local` instance.
+`-k` skips TLS verification (needed only for this `.local` self-signed cert) — never propagate it to scripts hitting public endpoints.
+
+## Gaps — operations `tea` can't do (use `tea api`)
+
+`tea` 0.14.1 has no typed command for these; all are verified present on this instance (Forgejo 15.0.3). Reach for `tea api`.
+
+### Issue dependencies (blocked-by / blocks)
+
+The backbone of the **feature workflow** (`/feature-plan` wires the parent feature as "blocked by" each sub-issue). The POST body is an `IssueMeta` — `index` is the *other* issue's number (`owner`/`repo` optional when same repo).
+
+```bash
+# List what issue N is blocked by (its dependencies)
+tea api '/repos/{owner}/{repo}/issues/N/dependencies'
+
+# Make issue N depend on (be "blocked by") issue B
+tea api -X POST -F index=B '/repos/{owner}/{repo}/issues/N/dependencies'
+
+# Remove that dependency
+tea api -X DELETE -F index=B '/repos/{owner}/{repo}/issues/N/dependencies'
+
+# Inverse direction — issues that N blocks
+tea api '/repos/{owner}/{repo}/issues/N/blocks'
+tea api -X POST -F index=B '/repos/{owner}/{repo}/issues/N/blocks'
+```
+
+### Draft PRs
+
+`tea pulls create` has no `--draft` flag. Create as draft via the API (`draft:true`), or toggle an existing PR's draft state with PATCH:
+
+```bash
+tea api -X POST -f title=Title -f body=Body -f head=feature-x -f base=main -F draft=true \
+  '/repos/{owner}/{repo}/pulls'
+# Un-draft / re-draft an existing PR #N
+tea api -X PATCH -F draft=false '/repos/{owner}/{repo}/pulls/N'
+```
+
+### Request / cancel PR reviewers
+
+No `tea` command assigns reviewers. Body is `PullReviewRequestOptions` (`reviewers`, `team_reviewers` arrays):
+
+```bash
+tea api -X POST -F reviewers='["alice","bob"]' \
+  '/repos/{owner}/{repo}/pulls/N/requested_reviewers'
+tea api -X DELETE -F reviewers='["bob"]' \
+  '/repos/{owner}/{repo}/pulls/N/requested_reviewers'
+```
+
+### Inline (line-specific) PR review comments
+
+`tea pulls review` is **interactive-only** — unusable from an agent. Post a complete review (event + body + per-line comments) in one non-interactive call. `event` is one of `APPROVED`, `REQUEST_CHANGES`, `COMMENT`; each comment needs `path` and a `new_position` (line in the new file). Remember the `*(via Claude Code)*` attribution rule.
+
+```bash
+tea api -X POST '/repos/{owner}/{repo}/pulls/N/reviews' -d '{
+  "event": "COMMENT",
+  "body": "Overall looks good *(via Claude Code)*",
+  "comments": [
+    {"path": "src/foo.swift", "new_position": 42, "body": "nit: rename this *(via Claude Code)*"}
+  ]
+}'
+```
+
+`tea pulls review-comments N` (alias `rc`) lists them; `tea pulls resolve`/`unresolve` toggle resolution.
+
+### Edit / delete existing comments
+
+`tea comment` only *adds*. Edit or delete by comment id (`EditIssueCommentOption` body):
+
+```bash
+tea api -X PATCH -f body='updated text *(via Claude Code)*' \
+  '/repos/{owner}/{repo}/issues/comments/{id}'
+tea api -X DELETE '/repos/{owner}/{repo}/issues/comments/{id}'
+```
+
+### Other API-only surface
+
+All under `/repos/{owner}/{repo}/...` — consult the swagger spec for bodies:
+
+- **Pin / unpin issues**: `PUT|DELETE .../issues/{index}/pin`, list `.../issues/pinned`
+- **Reactions**: `GET|POST|DELETE .../issues/{index}/reactions` (and `.../issues/comments/{id}/reactions`)
+- **Branch protection**: `GET|POST .../branch_protections`, `PATCH|DELETE .../branch_protections/{name}`
+- **Collaborators**: `GET .../collaborators`, `PUT|DELETE .../collaborators/{user}`, `.../collaborators/{user}/permission`
+- **Wiki**: `.../wiki/pages`, `.../wiki/new`, `.../wiki/page/{pageName}`
 
 ## Useful flags
 
