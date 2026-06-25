@@ -150,6 +150,29 @@ Secrets (`.env`, `oauth-creds.json`) live only on the mini under `~/outline/` an
 gitignored — never commit them. The Forgejo OAuth2 app backing SSO is "Outline"
 (redirect `https://mac-mini.example/auth/oidc.callback`).
 
+## Backups
+
+Covered by the mini's existing `~/.local/bin/dev-server-backup.sh` (launchd
+`local.dev-server-backup`, daily 03:00 → dedicated `/Volumes/Backups` drive, 14-day
+rotation, then carried offsite by Time Machine):
+
+- **Database** — the script dumps every non-template PG database, so `outline` is picked
+  up automatically (no per-db list to maintain): `/Volumes/Backups/postgresql/databases/outline-<date>.dump`
+  (custom format; restore with `pg_restore -d outline`). Roles/passwords are in the
+  `globals-<date>.sql.gz` dump.
+- **Uploads** — attachments live in the Docker volume `outline_outline-data` (not on the
+  host FS). The script tars it via a throwaway `alpine` container streaming to stdout:
+  `/Volumes/Backups/outline/outline-uploads-<date>.tgz` (contains `./uploads/...`).
+  Best-effort: if OrbStack is down the uploads step warns and skips rather than failing
+  the whole run.
+- The OrbStack data dir (`~/Library/Group Containers/HUAQ24HBR6.dev.orbstack/data`) is
+  also Time-Machine-*included*, but a live-VM-image copy isn't crash-consistent — the
+  logical dumps above are the authoritative restore path. `~/OrbStack` is only a virtual
+  view (stores nothing); its TM exclusion is irrelevant.
+
+Restore sketch: `pg_restore` the `.dump` into a fresh `outline` db, untar the uploads
+archive into the `outline_outline-data` volume, then `docker compose up -d`.
+
 ## Troubleshooting: OIDC "Authorize" → redirect/refresh loop → 429
 
 The loop is never the real error — it's Outline failing the OIDC **back-channel** to
