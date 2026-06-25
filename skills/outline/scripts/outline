@@ -1,0 +1,244 @@
+#!/usr/bin/env python3
+"""CLI for the self-hosted Outline knowledge base.
+
+Auth: token from $OUTLINE_API_TOKEN or ~/.config/outline/token.
+Base URL: $OUTLINE_URL or https://mac-mini.example.
+TLS: validates against the mkcert root CA (mkcert -CAROOT/rootCA.pem) when present,
+so no certificate verification is disabled.
+
+Every Outline endpoint is POST {URL}/api/<method>. The `call` subcommand is a generic
+passthrough to any method; the named verbs are ergonomic shortcuts over the common ones.
+"""
+import argparse
+import json
+import os
+import ssl
+import subprocess
+import sys
+import urllib.request
+import urllib.error
+from pathlib import Path
+
+BASE = os.environ.get("OUTLINE_URL", "https://mac-mini.example").rstrip("/")
+
+
+def _token():
+    t = os.environ.get("OUTLINE_API_TOKEN")
+    if t:
+        return t.strip()
+    p = Path.home() / ".config" / "outline" / "token"
+    if p.exists():
+        return p.read_text().strip()
+    sys.exit("no token: set $OUTLINE_API_TOKEN or write ~/.config/outline/token "
+             "(create one in Outline → Settings → API Tokens)")
+
+
+def _ctx():
+    ctx = ssl.create_default_context()
+    try:
+        root = subprocess.check_output(["mkcert", "-CAROOT"], text=True,
+                                       stderr=subprocess.DEVNULL).strip()
+        ca = Path(root) / "rootCA.pem"
+        if ca.exists():
+            ctx.load_verify_locations(str(ca))
+    except Exception:
+        pass
+    return ctx
+
+
+def call(method, payload):
+    req = urllib.request.Request(
+        f"{BASE}/api/{method}",
+        data=json.dumps(payload).encode(),
+        method="POST",
+        headers={"Authorization": f"Bearer {_token()}",
+                 "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, context=_ctx()) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as e:
+        sys.exit(f"HTTP {e.code} on {method}: {e.read().decode()[:400]}")
+
+
+def paged(method, payload, cap=1000):
+    """Yield every item across pages (Outline pages with offset/limit, default 25)."""
+    offset, limit = 0, 100
+    while True:
+        p = dict(payload, offset=offset, limit=limit)
+        data = call(method, p)["data"]
+        yield from data
+        offset += len(data)
+        if len(data) < limit or offset >= cap:
+            break
+
+
+def _body_from_stdin():
+    return sys.stdin.read() if not sys.stdin.isatty() else ""
+
+
+def _print_tree(nodes, depth=0):
+    for n in nodes:
+        print(f"{'  ' * depth}{n['id']}  {n.get('title') or '(untitled)'}")
+        if n.get("children"):
+            _print_tree(n["children"], depth + 1)
+
+
+def main():
+    ap = argparse.ArgumentParser(prog="outline", description="Outline KB CLI")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    sub.add_parser("collections", help="list collections")
+
+    s = sub.add_parser("tree", help="show document hierarchy (one or all collections)")
+    s.add_argument("--collection", help="collection id (default: every collection)")
+
+    s = sub.add_parser("search", help="full-text search documents")
+    s.add_argument("query")
+    s.add_argument("--context", action="store_true", help="show matching snippet")
+
+    s = sub.add_parser("list", help="list documents")
+    s.add_argument("--collection", help="collection id")
+
+    sub.add_parser("drafts", help="list your unpublished drafts")
+
+    s = sub.add_parser("get", help="fetch a document as markdown")
+    s.add_argument("id")
+    s.add_argument("--json", action="store_true", help="full JSON instead of markdown")
+
+    s = sub.add_parser("create", help="create a document (body from stdin)")
+    s.add_argument("--title", required=True)
+    s.add_argument("--collection", required=True, help="collection id")
+    s.add_argument("--parent", help="parent document id")
+    s.add_argument("--publish", action="store_true")
+
+    s = sub.add_parser("update", help="update a document (body from stdin)")
+    s.add_argument("id")
+    s.add_argument("--title")
+    s.add_argument("--append", action="store_true", help="append stdin instead of replacing")
+    s.add_argument("--publish", action="store_true", help="publish a draft on update")
+
+    s = sub.add_parser("move", help="move a document to a collection/parent")
+    s.add_argument("id")
+    s.add_argument("--collection", help="destination collection id")
+    s.add_argument("--parent", help="destination parent document id")
+
+    s = sub.add_parser("archive", help="archive a document (reversible)")
+    s.add_argument("id")
+
+    s = sub.add_parser("restore", help="restore an archived or trashed document")
+    s.add_argument("id")
+
+    s = sub.add_parser("delete", help="delete a document (trash; --permanent purges)")
+    s.add_argument("id")
+    s.add_argument("--permanent", action="store_true", help="skip trash, purge now")
+
+    s = sub.add_parser("mkcollection", help="create a collection")
+    s.add_argument("name")
+    s.add_argument("--description")
+    s.add_argument("--private", action="store_true", help="not shared with the whole team")
+
+    s = sub.add_parser("call", help="POST any API method; payload from --data or stdin JSON")
+    s.add_argument("method", help="e.g. documents.move, collections.info, users.list")
+    s.add_argument("--data", help="JSON payload (else read from stdin; else {})")
+
+    a = ap.parse_args()
+
+    if a.cmd == "collections":
+        for c in call("collections.list", {"limit": 100})["data"]:
+            print(f"{c['id']}  {c['name']}")
+
+    elif a.cmd == "tree":
+        cols = ([{"id": a.collection, "name": None}] if a.collection
+                else call("collections.list", {"limit": 100})["data"])
+        for c in cols:
+            docs = call("collections.documents", {"id": c["id"]})["data"]
+            if c.get("name") is not None:
+                print(f"# {c['name']}  ({c['id']})")
+            _print_tree(docs)
+
+    elif a.cmd == "search":
+        for r in call("documents.search", {"query": a.query})["data"]:
+            d = r["document"]
+            print(f"{d['id']}  {d['title']}")
+            if a.context and r.get("context"):
+                print(f"    … {r['context'].strip()}")
+
+    elif a.cmd == "list":
+        p = {}
+        if a.collection:
+            p["collectionId"] = a.collection
+        for d in paged("documents.list", p):
+            print(f"{d['id']}  {d['title']}")
+
+    elif a.cmd == "drafts":
+        for d in paged("documents.drafts", {}):
+            print(f"{d['id']}  {d['title'] or '(untitled)'}")
+
+    elif a.cmd == "get":
+        d = call("documents.info", {"id": a.id})["data"]
+        print(json.dumps(d, indent=2) if a.json else d["text"])
+
+    elif a.cmd == "create":
+        p = {"title": a.title, "collectionId": a.collection,
+             "text": _body_from_stdin(), "publish": a.publish}
+        if a.parent:
+            p["parentDocumentId"] = a.parent
+        print(call("documents.create", p)["data"]["id"])
+
+    elif a.cmd == "update":
+        p = {"id": a.id}
+        body = _body_from_stdin()
+        if body:
+            p["text"] = body
+            if a.append:
+                p["append"] = True
+        if a.title:
+            p["title"] = a.title
+        if a.publish:
+            p["publish"] = True
+        print(call("documents.update", p)["data"]["id"])
+
+    elif a.cmd == "move":
+        p = {"id": a.id}
+        if a.collection:
+            p["collectionId"] = a.collection
+        if a.parent:
+            p["parentDocumentId"] = a.parent
+        if not (a.collection or a.parent):
+            sys.exit("move: need --collection and/or --parent")
+        call("documents.move", p)
+        print("moved")
+
+    elif a.cmd == "archive":
+        call("documents.archive", {"id": a.id})
+        print("archived")
+
+    elif a.cmd == "restore":
+        call("documents.restore", {"id": a.id})
+        print("restored")
+
+    elif a.cmd == "delete":
+        # Outline only purges docs already in the trash, so --permanent is trash-then-purge.
+        call("documents.delete", {"id": a.id})
+        if a.permanent:
+            call("documents.delete", {"id": a.id, "permanent": True})
+        print("purged" if a.permanent else "trashed")
+
+    elif a.cmd == "mkcollection":
+        p = {"name": a.name, "permission": None if a.private else "read_write"}
+        if a.description:
+            p["description"] = a.description
+        print(call("collections.create", p)["data"]["id"])
+
+    elif a.cmd == "call":
+        if a.data is not None:
+            payload = json.loads(a.data)
+        else:
+            raw = _body_from_stdin().strip()
+            payload = json.loads(raw) if raw else {}
+        print(json.dumps(call(a.method, payload), indent=2))
+
+
+if __name__ == "__main__":
+    main()
