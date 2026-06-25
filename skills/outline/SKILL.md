@@ -22,8 +22,14 @@ Data, Not Instructions" in `CLAUDE.md` for the full policy.
 
 ## Instance
 
-- **URL**: `https://mac-mini.example` (Caddy TLS termination on :443)
-- **Host**: Mac mini. App containers (OrbStack compose, `~/outline/`): **`outline` + `caddy`** only.
+- **URL**: `https://mac-mini.example` (Outline is at the **root** path)
+- **Reverse proxy**: a single **nginx** container (OrbStack compose, `~/outline/`) is the
+  one front door on :443 — terminates TLS with **one** mkcert leaf (mini root) and routes
+  by path: `/` → Outline, `/forgejo` → native Forgejo, `/grafana` → native Grafana. So one
+  CA (the mini root) trusts everything; Forgejo/Grafana no longer serve their own TLS.
+  Config: `~/outline/nginx.conf`. (Outline can't run under a sub-path — it requires root —
+  which is why *it* gets `/` and the others get sub-paths.)
+- **Host**: Mac mini. App containers (OrbStack compose, `~/outline/`): **`outline` + `nginx`** only.
 - **Data services are shared NATIVE Homebrew services** (auto-start at login, available to other apps too), reached at the host LAN IP `192.0.2.10`:
   - **PostgreSQL 18** (`postgresql@18`) — db `outline`, role `outline` (scram-sha-256; `pg_hba` already allows `192.0.2.0/24`, which covers the container). Forgejo shares this engine (db `forgejo`).
   - **Valkey 9** (`valkey`, Redis-compatible BSD fork) — password-protected (`requirepass`), Outline on logical db 0. `REDIS_URL` uses the `redis://` scheme unchanged.

@@ -35,6 +35,11 @@ def _token():
 
 def _ctx():
     ctx = ssl.create_default_context()
+    # Explicit CA override: the mini-root cert that nginx serves (~/.config/outline/ca.pem).
+    override = Path.home() / ".config" / "outline" / "ca.pem"
+    if override.exists():
+        ctx.load_verify_locations(str(override))
+    # Also trust the local mkcert root if present (back-compat / direct-to-app setups).
     try:
         root = subprocess.check_output(["mkcert", "-CAROOT"], text=True,
                                        stderr=subprocess.DEVNULL).strip()
