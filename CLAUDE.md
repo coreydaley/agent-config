@@ -152,22 +152,6 @@ Each repo's `make install` is idempotent (safe to re-run after a `git pull`). Ea
 
 This pattern lets tools like Agent Project Tracker (and any future portfolio app with Claude integration) ship their skills alongside their server / CLI source, evolving together rather than across repo boundaries.
 
-## Obsidian Vault
-
-The vault lives at `~/Vault/` (symlinked from iCloud for backup). Refer to it as "the vault." Use the `obsidian` skill for all vault operations.
-
-### Vault structure
-
-The vault has top-level folders for `Ideas/`, `Knowledge/`, `Projects/`, `Drafts/`, `Tasks/`, and `Templates/`. Each folder has a corresponding `.base` file at the vault root that provides the table/board views for that folder.
-
-### Project file naming convention
-
-Each project lives in its own folder under `Projects/`. The hub document for a project is named `<ProjectName>.md` (matching the folder name), **not** `README.md`. This is so that the Projects base view's `file.name` column displays the actual project name rather than a sea of identical "README" rows.
-
-Sub-files within a project folder follow the pattern `<ProjectName> — <aspect>.md` (em-dash separator) so they remain visually grouped and attributable to the project in listings. For example, within `Projects/QuorumForge/`, the hub is `QuorumForge.md` and sub-files might be `QuorumForge — demo scenario.md`, `QuorumForge — agent personas.md`, etc. If a project accumulates many sub-files, they can be moved into a sub-folder (e.g. `Projects/QuorumForge/notes/`) but the hub stays at `Projects/QuorumForge/QuorumForge.md`.
-
-Links like `[[QuorumForge]]` from other notes resolve unambiguously to the hub file under this convention.
-
 ## Dotfiles
 
 Lives at `~/Code/mac-mini.example/coreydaley/dotfiles/` (source of truth: self-hosted Forgejo at `mac-mini.example`; auto-mirrored to private GitHub at `coreydaley/dotfiles`).
