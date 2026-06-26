@@ -338,7 +338,7 @@ upstream context-loading nodes and the terminal sink.
 When a node walks N items (per-finding, per-PR, per-issue, per-group),
 the loop is internal to one node — no graph node per iteration. Used
 in `/commit` (per-group), `/review-address-feedback` (per-finding),
-`/feature-work` forgejo-walk (per-issue), `/feature-plan`
+`/feature-work` sub-issue-walk (per-issue), `/feature-plan`
 (per-issue creation).
 
 The node's prose describes the loop: "for each X in Y, do Z; on

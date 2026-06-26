@@ -42,7 +42,7 @@ Partition `subissue_ids` into:
 - **active** — still-open sub-issues with **no** `Closes #<m>` commit on the branch yet.
 - **shipped** — sub-issues already committed this branch (skip — resume past them).
 
-Also skip any sub-issue already `closed` in Forgejo (rare for this flow, but it means the work merged in a prior cycle).
+Also skip any sub-issue already `closed` on GitHub (rare for this flow, but it means the work merged in a prior cycle).
 
 ```bash
 scripts/walk.sh set --state "$STATE" --key active_subissue_ids  --value "<JSON: still-to-do refs>"
@@ -83,4 +83,4 @@ scripts/walk.sh transition --state "$STATE" --from detect_inflight --to terminal
 
 - **Never prompt here.** The run is autonomous; this node only detects and decides. The only exit is "nothing to do."
 - **The feature branch's commit log is the cursor.** Resume is idempotent by construction — re-running the same `/feature-work <feature-issue-ref>` picks up exactly where the branch left off. There is no `--continue`; there is no stored position.
-- **A shipped sub-issue means its commit is on the branch — not that it's merged.** It still shows OPEN in Forgejo until the user merges. Skip it for *this* run's work, but it's not "closed" yet.
+- **A shipped sub-issue means its commit is on the branch — not that it's merged.** It still shows OPEN on GitHub until the user merges. Skip it for *this* run's work, but it's not "closed" yet.

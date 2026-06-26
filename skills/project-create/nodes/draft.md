@@ -1,7 +1,7 @@
 # Node: draft
 
-Assemble the Overview wiki doc and repo description from the discussion.
-Render everything inline for review. Nothing is created yet.
+Assemble the Overview doc (`docs/Overview.md`) and repo description from the
+discussion. Render everything inline for review. Nothing is created yet.
 
 ## Inputs
 
@@ -19,12 +19,12 @@ SESSION_DIR=$(scripts/walk.sh get --state "$STATE" --key session_dir)
 
 ### 1. Repo description (one line)
 
-Tight, plain text — shown in Forgejo repo listings. Max ~120 chars.
+Tight, plain text — shown in GitHub repo listings. Max ~120 chars.
 Persist: `scripts/walk.sh set --state "$STATE" --key repo_description --value "<text>"`
 
-### 2. Overview wiki doc
+### 2. Overview doc
 
-Write `$SESSION_DIR/Overview.md`:
+Write `$SESSION_DIR/Overview.md` (committed to the repo at `docs/Overview.md`):
 
 ```markdown
 # <Title>

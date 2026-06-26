@@ -1,6 +1,6 @@
 # Node: init
 
-Initialize walker state. No Forgejo calls yet — everything is local until `create`.
+Initialize walker state. No GitHub calls yet — everything is local until `create`.
 
 ## Steps
 

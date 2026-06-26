@@ -4,13 +4,13 @@ Resolve the **feature issue**, fetch its body (the spec), warn if it isn't
 labelled `type/feature`, run the **idempotency guard**, set up the working
 folder, and initialize walker state. Handle `--help` inline.
 
-The input is a single Forgejo **feature issue** — its body IS the spec this
+The input is a single GitHub **feature issue** — its body IS the spec this
 skill plans against. This is NOT a SEED.md, a milestone, or a PRD.
 
 ## Inputs
 
 - The user's arguments: `<feature-issue-ref> [--help]`. The ref is one of:
-  - **Issue URL** — `https://mac-mini.example:3000/<owner>/<repo>/issues/<n>`
+  - **Issue URL** — `https://github.com/<owner>/<repo>/issues/<n>`
   - **`<owner>/<repo>#N`** — globally unique short ref
   - **Bare `#N`** — resolved against the cwd repo's remote
 
@@ -20,12 +20,10 @@ skill plans against. This is NOT a SEED.md, a milestone, or a PRD.
    SKILL.md) and stop. **Don't proceed to walker init.** `--help` is the
    only flag; any other flag → fail loudly with the offending flag echoed.
 
-2. **Verify `tea` is available:**
+2. **Verify `gh` is available and authenticated:**
    ```bash
-   command -v tea >/dev/null || { echo "install tea first (see forgejo skill)"; exit 1; }
-   tea login default >/dev/null 2>&1 || { echo "no default tea login — see forgejo skill setup"; exit 1; }
-   TOKEN=$(awk '/name: homelab/{f=1} f&&/token:/{print $2; exit}' "$HOME/Library/Application Support/tea/config.yml")
-   BASE=https://mac-mini.example:3000/api/v1   # curl with -k (self-signed cert)
+   command -v gh >/dev/null || { echo "install gh first (see the gh skill)"; exit 1; }
+   gh auth status >/dev/null 2>&1 || { echo "gh not authenticated — run 'gh auth login' (see the gh skill)"; exit 1; }
    ```
 
 3. **Resolve the feature ref → `OWNER_REPO`, `ISSUE_NUMBER`:**
@@ -35,7 +33,7 @@ skill plans against. This is NOT a SEED.md, a milestone, or a PRD.
      `upstream`, falls back to `origin`); the number is `N`.
      ```bash
      REMOTE=$(git remote get-url upstream 2>/dev/null || git remote get-url origin 2>/dev/null || echo "")
-     OWNER_REPO=$(echo "$REMOTE" | sed 's|.*github\.com[:/]||; s|.*mac-mini.example:3000/||; s|\.git$||')
+     OWNER_REPO=$(echo "$REMOTE" | sed 's|.*github\.com[:/]||; s|\.git$||')
      ```
      **Bail if a bare `#N` is passed outside a repo** (no remote resolves):
      "Bare `#N` needs a repo — run `/feature-plan` inside the project
@@ -43,10 +41,10 @@ skill plans against. This is NOT a SEED.md, a milestone, or a PRD.
 
 4. **Fetch the feature issue (the spec):**
    ```bash
-   ISSUE_JSON=$(curl -sk -H "Authorization: token $TOKEN" \
-     "$BASE/repos/$OWNER_REPO/issues/$ISSUE_NUMBER")
+   ISSUE_JSON=$(gh issue view "$ISSUE_NUMBER" --repo "$OWNER_REPO" \
+     --json number,title,body,state,labels,url,assignees)
    ```
-   **Bail if the issue doesn't exist / 404s:** "No issue `$OWNER_REPO#$ISSUE_NUMBER`."
+   **Bail if the issue doesn't exist / `gh` errors:** "No issue `$OWNER_REPO#$ISSUE_NUMBER`."
 
    Extract title, body, labels, and state from `ISSUE_JSON`. Cache the body
    locally as the spec after the folder exists (step 6).
@@ -74,20 +72,19 @@ skill plans against. This is NOT a SEED.md, a milestone, or a PRD.
    ```
 
 7. **Idempotency guard — STOP if already planned.** A second run would
-   double-create sub-issues; there's no reliable way to reconcile. Check
-   whether the feature already has **dependency-linked sub-issues** — issues
-   that block it (the links `create-issues` writes):
+   double-create sub-issues; there's no reliable way to reconcile. The durable
+   "already planned" marker is the feature's **native sub-issues** that
+   `create-issues` attaches. Count them via the REST API:
    ```bash
-   BLOCKERS=$(curl -sk -H "Authorization: token $TOKEN" \
-     "$BASE/repos/$OWNER_REPO/issues/$ISSUE_NUMBER/dependencies" | jq 'length')
+   SUBS=$(gh api "repos/$OWNER_REPO/issues/$ISSUE_NUMBER/sub_issues" --jq 'length' 2>/dev/null || echo 0)
    ```
-   If `BLOCKERS` > 0, **bail** (hard stop, not a graph transition):
+   If `SUBS` > 0, **bail** (hard stop, not a graph transition):
 
    ```
-   ⚠ Feature $OWNER_REPO#$ISSUE_NUMBER already has $BLOCKERS dependency-linked
-     sub-issue(s) — it looks already planned. This skill is one-shot and does
-     NOT dedupe. Re-planning would create a DUPLICATE set. To re-plan, delete
-     the existing sub-issues and their dependency links first.
+   ⚠ Feature $OWNER_REPO#$ISSUE_NUMBER already has $SUBS native sub-issue(s) —
+     it looks already planned. This skill is one-shot and does NOT dedupe.
+     Re-planning would create a DUPLICATE set. To re-plan, delete (or detach)
+     the existing sub-issues first.
    ```
 
    This is an honest "you've already run this" tripwire, not a reconcile.
@@ -139,7 +136,7 @@ scripts/walk.sh transition --state "$STATE" --from init --to orient
 - Unknown flag → bail with the offending flag echoed.
 - Bare `#N` outside a repo → bail (step 3).
 - Feature issue 404 → bail (step 4).
-- Feature already has dependency-linked sub-issues → bail (step 7); one-shot.
-- `tea` not installed / no default login → bail pointing at the `forgejo` skill.
+- Feature already has native sub-issues → bail (step 7); one-shot.
+- `gh` not installed / not authenticated → bail pointing at the `gh` skill.
 
 These bails are hard exits, not graph transitions — init's only edge is to `orient`.

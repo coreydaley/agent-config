@@ -19,23 +19,19 @@ The repos the feature touches are the union of the repos its **sub-issues** touc
 ### Resolution order
 
 1. **`subissue_repos`** (preferred) — the per-sub-issue → repos map from `load-context`. Union the values, dedupe `<org>/<repo>`. Single entry → single-repo. Multiple → multi-repo.
-2. **Feature issue body** — if `subissue_repos` is empty (no Files sections), fall back to any Forgejo repo URLs / `<org>/<repo>` refs in the feature body.
+2. **Feature issue body** — if `subissue_repos` is empty (no Files sections), fall back to any GitHub repo URLs / `<org>/<repo>` refs in the feature body.
 3. **The feature issue's own repo** — last resort: the repo the feature issue lives in (`<owner>/<repo>` from `feature_ref`). Most features are single-repo; this is the common case.
 
 The **primary** repo is the feature issue's own repo when it's in the manifest; otherwise the alphabetically-first `<org>/<repo>`. `commit-push` orders by primary-first.
 
 ## Default branch (per repo)
 
-The feature branch is **cut from each repo's default branch**, so resolve and store the default per repo (`main` vs `master` can differ). Resolve via the Forgejo API (authoritative) with a local fallback:
+The feature branch is **cut from each repo's default branch**, so resolve and store the default per repo (`main` vs `master` can differ). Resolve via `gh` (authoritative) with a local fallback:
 
 ```bash
-TOKEN=$(awk '/name: homelab/{f=1} f&&/token:/{print $2; exit}' "$HOME/Library/Application Support/tea/config.yml")
-BASE=https://mac-mini.example:3000/api/v1
-
 # Per repo:
-DEFAULT_BRANCH=$(curl -sk -H "Authorization: token $TOKEN" \
-  "$BASE/repos/<org>/<repo>" | jq -r '.default_branch')
-# Local fallback if the API is unreachable:
+DEFAULT_BRANCH=$(gh repo view "<org>/<repo>" --json defaultBranchRef --jq .defaultBranchRef.name)
+# Local fallback if gh is unreachable:
 #   git -C <bare> symbolic-ref --short refs/remotes/origin/HEAD | sed 's#^origin/##'
 ```
 

@@ -2,11 +2,11 @@
 name: project-create
 description: >-
   Guided back-and-forth discussion to shape a new project, then scaffold it in
-  one shot: creates a Forgejo repo under the `projects` org, bare-clones it to
-  the standard local path, creates the `main` worktree, commits a README and
-  empty .gitignore, pushes, and creates a wiki Overview page capturing the
-  discussion output. Two outcomes only — cancel (nothing created) or approve
-  (full scaffold). Invoke via /project-create.
+  one shot: creates a private GitHub repo under `coreydaley` (via the `gh` CLI),
+  bare-clones it to the standard local path, creates the `main` worktree,
+  commits a README, an empty .gitignore, and a docs/Overview.md capturing the
+  discussion output, then pushes. Two outcomes only — cancel (nothing created)
+  or approve (full scaffold). Invoke via /project-create.
 argument-hint: "[--help]"
 disable-model-invocation: false
 ---
@@ -19,8 +19,8 @@ Walks the graph in `graph.dot`, executing each node's prose from
 
 Two outcomes:
 - **Cancel** at any point → `terminal`, nothing touched.
-- **Approve** at `ask-create` → full scaffold: Forgejo repo, bare clone,
-  main worktree, README, .gitignore, push, wiki Overview.
+- **Approve** at `ask-create` → full scaffold: GitHub repo, bare clone,
+  main worktree, README, .gitignore, docs/Overview.md, push.
 
 The creation step is the only mutation in the skill.
 
@@ -33,22 +33,21 @@ If `--help` or `-h` is in the arguments, print and stop:
 
 What it does
   Shapes the project through conversation (slug, title, description, scope,
-  known hard parts, open questions), drafts a wiki Overview doc + repo
+  known hard parts, open questions), drafts an Overview doc + repo
   description for review, then on approval:
-    - Creates the Forgejo repo under projects/<slug>
-    - Bare-clones it to ~/Code/mac-mini.example/projects/<slug>/
+    - Creates the private GitHub repo coreydaley/<slug> (via gh)
+    - Bare-clones it to ~/Code/github.com/coreydaley/<slug>/
     - Creates the main worktree
-    - Commits README.md + .gitignore and pushes
-    - Creates the wiki Overview page
+    - Commits README.md + .gitignore + docs/Overview.md and pushes
 
 Usage
   /project-create        # interactive, no args
   /project-create --help
 
 Output (on approval)
-  Forgejo repo:  https://mac-mini.example:3000/projects/<slug>
-  Wiki Overview: https://mac-mini.example:3000/projects/<slug>/wiki/Overview
-  Local clone:   ~/Code/mac-mini.example/projects/<slug>/
+  GitHub repo:   https://github.com/coreydaley/<slug>
+  Overview doc:  ~/Code/github.com/coreydaley/<slug>/main/docs/Overview.md
+  Local clone:   ~/Code/github.com/coreydaley/<slug>/
 
 Next step (printed, not run)
   /feature-create   →  capture your first feature
@@ -64,8 +63,8 @@ Eight nodes:
 - **`ask-wrap-up`** *(decision)* — draft it / keep going / cancel.
 - **`draft`** — assemble Overview.md + repo description; render inline.
 - **`ask-create`** *(decision)* — scaffold it / revise / cancel.
-- **`create`** — the only mutation: Forgejo repo + bare clone + worktree +
-  README + .gitignore + push + wiki Overview.
+- **`create`** — the only mutation: GitHub repo + bare clone + worktree +
+  README + .gitignore + docs/Overview.md + push.
 - **`handoff`** — print URLs + next step.
 - **`terminal`** — sink.
 
@@ -87,15 +86,15 @@ Enforced by `scripts/walk.sh` wrapping `lib/graph_walker.py`. Read
 
 ## Transport
 
-Forgejo at `https://mac-mini.example:3000` via `curl -sk` (self-signed
-TLS) and the `tea` CLI (login alias `homelab`). Token extracted from the tea
-config in `create` node. Git operations run in the local shell.
+GitHub via the `gh` CLI (authenticated via `gh auth`, HTTPS). Repos are created
+under `coreydaley` (private by default). Git operations run in the local shell.
+Cross-ref the `gh` skill.
 
 ## Artifacts
 
 ```
 $TMPDIR/.claude-walker/project-create/<TS>/
-  Overview.md          # wiki page draft (ephemeral; wiki is canonical)
+  Overview.md          # committed to the repo at docs/Overview.md
   README.md            # committed to the repo
   .walk-state.json     # walker state
 ```

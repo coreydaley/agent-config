@@ -44,7 +44,7 @@ genuinely don't apply, but say so):
 - **Push back when thin.** "It should handle errors" isn't an error-state spec.
   An acceptance criterion you can't verify isn't one. Real peers challenge.
 - **Pull live context when it helps** — read code, grep, check the README, look at
-  related issues (`tea issues list --repo <repo>`). Ground claims.
+  related issues (`gh issue list --repo <repo>`). Ground claims.
 - **Ground in the project, don't re-litigate it.** What the project is and who
   it's for comes from the README (the `orient_summary`). Keep the feature
   consistent with it; don't make the issue restate the product premise.

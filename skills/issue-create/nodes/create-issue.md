@@ -30,7 +30,7 @@ Create a label **only if** one of that name doesn't already exist
 ensure_label() {  # name color description
   jq -e --arg n "$1" '.[] | select((.name|ascii_downcase) == ($n|ascii_downcase))' \
     "$SESSION_DIR/.labels.json" >/dev/null 2>&1 && return 0
-  tea labels create --repo "$ORG_REPO" --name "$1" --color "$2" --description "$3"
+  gh label create "$1" --repo "$ORG_REPO" --color "$2" --description "$3" 2>/dev/null || true
 }
 
 # Type label — colour per type (only used when the label doesn't already exist).
@@ -61,32 +61,40 @@ LABELS="type/$ISSUE_TYPE,priority/$PRIORITY"
 
 ### 2. Create the self-assigned issue
 
+`gh issue create` reads the body from a file, so the local `ISSUE.md` IS the body
+file — no mktemp needed.
+
 ```bash
-tea issues create \
+ISSUE_URL=$(gh issue create \
   --repo "$ORG_REPO" \
   --title "$TITLE" \
-  --description "$(cat "$SESSION_DIR/ISSUE.md")" \
-  --labels "$LABELS" \
-  --assignees coreydaley
+  --body-file "$SESSION_DIR/ISSUE.md" \
+  --label "type/$ISSUE_TYPE" \
+  --label "priority/$PRIORITY" \
+  --assignee @me)
 ```
 
-- **Self-assign** (`--assignees coreydaley`) — solo workflow; the issue lands on
+- **Self-assign** (`--assignee @me`) — solo workflow; the issue lands on
   your board immediately.
 - **No `--milestone`** — version milestones are attached by hand at release time.
 
-Capture the created issue **number** and **html_url** from the `tea` output
-(or query it back: `tea issues list --repo "$ORG_REPO" --state open --output json`).
+`gh issue create` prints the new issue **URL** on stdout (captured above). Get the
+**number** back from it:
+
+```bash
+ISSUE_NUMBER=$(gh issue view "$ISSUE_URL" --json number --jq .number)
+```
 
 ### 3. Verify it landed
 
-If `tea issues create` errored (auth, repo, validation), surface the error
+If `gh issue create` errored (auth, repo, validation), surface the error
 verbatim, set `create_status=failed`, and **do not** claim success — the local
 `ISSUE.md` is the fallback.
 
 ```bash
 scripts/walk.sh set --state "$STATE" --key create_status  --value "<created|failed>"
 scripts/walk.sh set --state "$STATE" --key issue_number   --value "<#N or empty>"
-scripts/walk.sh set --state "$STATE" --key issue_url      --value "<html_url or empty>"
+scripts/walk.sh set --state "$STATE" --key issue_url      --value "<issue URL or empty>"
 scripts/walk.sh set --state "$STATE" --key applied_labels --value "$LABELS"
 ```
 
@@ -112,8 +120,8 @@ scripts/walk.sh transition --state "$STATE" --from create_issue --to handoff
 
 ## Failure modes
 
-- `tea labels create` fails (concurrent create, permission) → **non-fatal**;
+- `gh label create` fails (concurrent create, permission) → **non-fatal**;
   re-list and continue. If a label still can't be applied, create the issue with
   whatever labels did apply and note it in the hand-off.
-- `tea issues create` fails → surface verbatim, mark `create_status=failed`, route
+- `gh issue create` fails → surface verbatim, mark `create_status=failed`, route
   to `handoff` (which points at the local draft). Never report a non-existent issue.

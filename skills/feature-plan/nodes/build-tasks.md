@@ -2,13 +2,13 @@
 
 Turn the `PLAN.md` task breakdown into **one sub-issue per task**, derive
 each sub-issue's fields and its relationships to the others (and to the
-parent feature), and verify every task is covered. Pure-compute — no Forgejo
+parent feature), and verify every task is covered. Pure-compute — no GitHub
 mutations here; `create-issues` does the writing.
 
 ## Inputs
 
 - `plan_md_path`, `labels_path`, `feature_number`, `feature_title`,
-  `owner_repo`, `deps_enabled`, `session_dir` from walker state
+  `owner_repo`, `session_dir` from walker state
 
 ```bash
 STATE="$SESSION_DIR/.walk-state.json"
@@ -20,7 +20,7 @@ LABELS_PATH=$(scripts/walk.sh get --state "$STATE" --key labels_path)
 ## Granularity: one sub-issue per task
 
 Each **top-level Implementation Plan item** (`- [ ]`) under P0 / P1 in
-`PLAN.md` becomes **exactly one Forgejo sub-issue**. With one commit per
+`PLAN.md` becomes **exactly one GitHub sub-issue**. With one commit per
 issue, finer issues mean finer tracking and a cleaner commit history. Do
 **not** group tasks into larger "logical-PR" issues; structure is expressed
 through **relationships** between issues, not by merging them.
@@ -47,19 +47,19 @@ For each sub-issue, derive:
 | Success Criteria | The slice of the feature's Definition of Done relevant to this task, plus task-specific verification. Each bullet concrete and verifiable. |
 | Priority | P0 or P1, from the Implementation Plan subsection the task came from. Surfaced in the body **and** mapped to a `priority/p0` / `priority/p1` label. |
 | Labels | The matching `priority/p*` label, plus any *domain / kind* labels (`type/bug`, `type/enhancement`, a subsystem label, …) that already exist in the repo. Domain labels are never auto-recoloured; `create-issues` creates any missing one with a default colour. |
-| Depends on | Other sub-issues this task **hard-blocks on** — it cannot start until they're done. From PLAN.md's Dependencies & Ordering section and file-overlap ordering. Referenced by task index now; resolved to `#<number>` and wired as a **native Forgejo dependency** after creation. |
+| Depends on | Other sub-issues this task **hard-blocks on** — it cannot start until they're done. From PLAN.md's Dependencies & Ordering section and file-overlap ordering. Referenced by task index now; resolved to the predecessor's database id and wired as a **native blocked-by dependency** after creation. |
 | Related | Other sub-issues this task is **associated with but not blocked by**. Referenced by task index now; rendered as `#<number>` cross-references in the body after creation. |
 
-**The parent feature is "blocked by" every sub-issue.** That linkage is not
-a per-issue field here — it's a fixed rule `create-issues` applies (for each
-created sub-issue `#T`, the feature gets a `depends-on #T`). Note it so
-`show-plan` can state it; don't model it as task-to-task data.
+**The feature links to every sub-issue via the native sub-issue hierarchy.**
+That linkage is not a per-issue field here — it's a fixed rule `create-issues`
+applies (it attaches each created issue as a native sub-issue of the feature).
+Note it so `show-plan` can state it; don't model it as task-to-task data.
 
 ### Dependency vs. related — how to classify
 
 - **Depends on (hard):** sub-issue B literally cannot be implemented or
-  verified until A is merged. These become real Forgejo dependencies when
-  `deps_enabled`. Always also rendered as a body "Blocked by #A" line.
+  verified until A is merged. Wired as a native blocked-by dependency (B
+  blocked_by A) — the signal `/feature-work` topo-sorts on.
 - **Related (soft):** the two touch the same area but either can proceed
   independently. These are `#N` mentions in a "Related" body section.
 
@@ -130,7 +130,7 @@ scripts/walk.sh transition --state "$STATE" --from build_tasks --to show_plan
 
 - **One sub-issue per task.** Never group; never invent. Relationships carry
   structure.
-- **Don't write to Forgejo here.** In-memory + sidecar only. All mutations
+- **Don't write to GitHub here.** In-memory + sidecar only. All mutations
   happen in `create-issues`.
-- **The feature-blocked-by-each-task rule is fixed**, applied in
+- **The native sub-issue attach rule is fixed**, applied in
   `create-issues`; don't encode it as task-to-task data.

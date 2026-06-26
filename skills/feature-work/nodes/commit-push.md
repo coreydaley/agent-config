@@ -1,6 +1,6 @@
 # Node: commit-push
 
-Make **one commit per sub-issue** on each repo's `feature/<slug>` branch, push to Forgejo, then **comment on the sub-issue** citing the commit SHA. No pull requests, no merge, **no close** — this is the personal-project flow: commit to the feature branch, push, keep the sub-issue assigned/commented and OPEN. The `Closes #N` trailer is armed but dormant; it fires when the user merges the feature branch later.
+Make **one commit per sub-issue** on each repo's `feature/<slug>` branch, push to GitHub, then **comment on the sub-issue** citing the commit SHA. No pull requests, no merge, **no close** — this is the personal-project flow: commit to the feature branch, push, keep the sub-issue assigned/commented and OPEN. The `Closes #N` trailer is armed but dormant; it fires when the user merges the feature branch later.
 
 This node handles the **single-sub-issue** path. For the multi-sub-issue walk, `implement` runs this same commit → push → comment sequence per sub-issue inside its loop and short-circuits past this node at the graph level.
 
@@ -37,7 +37,7 @@ EOF
 
 - **Conventional Commits** subject (`feat:`, `fix:`, `refactor:`, `docs:`, `chore:`, `test:`, `style:`, `ci:`), imperative, lowercase, ≤72 chars.
 - **`Closes #<m>`** trailer — reference the sub-issue in the **same repo** as bare `#<m>`; a sub-issue in a different repo as `<owner>/<repo>#<m>` (cross-repo refs link but only same-repo `Closes` auto-closes — and only on merge to the default branch). **The trailer does not close anything now** — these commits land on `feature/<slug>`, not the default branch, so the close is deferred until the user merges.
-- **No internal review IDs** (LR/SR/CR/CX). Forgejo issue refs (`#N`) are encouraged.
+- **No internal review IDs** (LR/SR/CR/CX). GitHub issue refs (`#N`) are encouraged.
 - **No AI co-author trailers** unless the repo's `git log` already uses them — match what's there.
 - If any Success Criteria were noted-incomplete in `validate-success`, add a short `Known incomplete:` line; if any were **deferred** (subjective/device/secret/App-Store/judgment-call), add a `Deferred:` line naming them so the commit body records the handoff.
 
@@ -47,19 +47,19 @@ EOF
 ( cd "$WT" && git push -u origin HEAD:"$FEATURE_BRANCH" )
 ```
 
-Push the commit to the **`feature/<slug>` branch** (not the default branch). The first push sets upstream (`-u`); subsequent sub-issue pushes append to the same branch. `origin` is the Forgejo remote on the worktree's clone. **Pushing here does NOT close the sub-issue** — the branch isn't the default branch, so Forgejo doesn't fire `Closes #N`. The sub-issue closes when the user merges the feature branch.
+Push the commit to the **`feature/<slug>` branch** (not the default branch). The first push sets upstream (`-u`); subsequent sub-issue pushes append to the same branch. `origin` is the GitHub remote on the worktree's clone. **Pushing here does NOT close the sub-issue** — the branch isn't the default branch, so GitHub doesn't fire `Closes #N`. The sub-issue closes when the user merges the feature branch.
 
 If the push is rejected (remote feature branch moved ahead — e.g. another machine), surface the rejection — **don't force-push**. Tell the user to reconcile (pull/rebase the feature branch) and re-run. **Skip the sub-issue comment below** when the push failed — the work didn't ship.
 
 ## Update the sub-issue (always — comment only, never close)
 
-After the push lands, record the outcome on the Forgejo sub-issue so the board shows progress. Operate on the sub-issue's own repo (`<owner>/<repo>` from `<owner>/<repo>#<m>`).
+After the push lands, record the outcome on the GitHub sub-issue so the board shows progress. Operate on the sub-issue's own repo (`<owner>/<repo>` from `<owner>/<repo>#<m>`).
 
 ```bash
 # Completion comment citing the commit SHA(s), the feature branch, and a
-# one-line summary (attribution suffix per the forgejo skill).
-tea issues "<m>" --repo "<owner>/<repo>" --add-comments \
-  "✅ Implemented in \`<short-sha>\` on \`$FEATURE_BRANCH\` — <one-line summary>. Closes on merge. *(via Claude Code)*"
+# one-line summary (attribution suffix per the gh skill).
+gh issue comment "<m>" --repo "<owner>/<repo>" \
+  --body "✅ Implemented in \`<short-sha>\` on \`$FEATURE_BRANCH\` — <one-line summary>. Closes on merge. *(via Claude Code)*"
 ```
 
 **Do NOT close the sub-issue and do NOT move it to a done label.** It stays OPEN, assigned, with its in-progress label, until the user merges the feature branch (which fires `Closes #<m>` and closes it). Closing here would be wrong — the work hasn't reached the default branch.

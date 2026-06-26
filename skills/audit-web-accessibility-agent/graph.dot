@@ -40,7 +40,7 @@ digraph audit_web_accessibility_agent {
                          label="handoff\n(print hand-off message\nwith verify output)"];
 
     file_findings       [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
-                         label="file-findings\\n(file P0/P1 findings as\\nbug issues in Forgejo)"];
+                         label="file-findings\\n(file P0/P1 findings as\\nbug issues in GitHub)"];
 
     // -- Decision nodes (diamonds) -------------------------------------
     verify              [shape=diamond, style=filled, fillcolor="#ffe0b2",

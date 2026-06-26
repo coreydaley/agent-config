@@ -1,7 +1,7 @@
 # Node: ask-create
 
 User-input gate. The body has been rendered and a priority chosen. Creating the
-issue files a Forgejo issue (a mutation), so confirm — and name the exact labels
+issue files a GitHub issue (a mutation), so confirm — and name the exact labels
 that will be applied so there are no surprises.
 
 ## Inputs
@@ -36,7 +36,7 @@ filing. Cheap to keep editing; the issue is the committal act.
 - **`user_create`** → `create-issue`. File it.
 - **`user_revise`** → `gather`. Back to refining the body (or re-running the type
   template if the user wants a different type — re-set `issue_type` in `gather`).
-- **`user_cancel`** → `terminal`. Local draft kept; Forgejo untouched.
+- **`user_cancel`** → `terminal`. Local draft kept; GitHub untouched.
 
 Record exactly one:
 
@@ -51,7 +51,7 @@ scripts/walk.sh transition --state "$STATE" --from ask_create --to terminal     
 ## Notes
 
 - **Creating the issue is the only mutation in this skill.** Up to here everything
-  is local + read-only against Forgejo. Treat the confirmation seriously.
+  is local + read-only against GitHub. Treat the confirmation seriously.
 - **Cancel is safe.** The working draft stays at `$SESSION_DIR/ISSUE.md`; the user
   can re-run later or file it by hand.
 - **Revise can change the type.** If the user realizes it's an enhancement, not a

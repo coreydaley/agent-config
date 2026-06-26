@@ -4,17 +4,18 @@
 // collaborative planning (formerly /sprint-plan) with milestone→issues
 // decomposition (formerly /sprint-plan-to-issues) into ONE skill.
 //
-// Input is a single Forgejo FEATURE ISSUE (its body is the spec). The
+// Input is a single GitHub FEATURE ISSUE (its body is the spec). The
 // orchestrator plans the feature with strict orchestrator/worker
 // separation — drafts, critiques, and reviews are delegated to FRESH
 // Claude subagents (Agent tool) so no context judges its own output.
 // All workers inherit the current session model; there is no model
 // tier and no phase-selection menu. After ONE
 // approval gate, the skill creates the task breakdown directly as
-// self-assigned Forgejo sub-issues, linking the parent feature to each
-// task via native issue dependencies (feature "blocked by" each task).
+// self-assigned GitHub issues (via the gh CLI), attaches each as a NATIVE
+// sub-issue of the feature, and encodes task-to-task ordering as native
+// blocked-by dependencies (both via gh api).
 // No milestone is created; the verbose plan is a local ephemeral
-// PLAN.md, the sub-issues ARE the durable plan.
+// PLAN.md, the native sub-issues + their dependencies ARE the durable plan.
 //
 // The walker (Claude, per SKILL.md) reads each node's prose from
 // nodes/<id>.md, performs the work, evaluates the outgoing edges'
@@ -32,7 +33,7 @@ digraph feature_plan {
     init                 [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
                           label="init\n(resolve feature issue; warn if\nno feature label; idempotency guard)"];
     orient               [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
-                          label="orient\n(repo grounding, prior-art,\nlabels, deps feature on)"];
+                          label="orient\n(repo grounding, prior-art,\nlabels)"];
     intent               [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
                           label="intent\n(write intent.md from the\nfeature spec; surface areas)"];
     draft                [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
@@ -52,7 +53,7 @@ digraph feature_plan {
     discuss_plan         [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
                           label="discuss-plan\n(iterate on the breakdown,\nback to ask-approval)"];
     create_issues        [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
-                          label="create-issues\n(create self-assigned sub-issues;\nwire deps; feature blocked-by each)"];
+                          label="create-issues\n(create self-assigned issues; attach as\nnative sub-issues; blocked-by deps)"];
     handoff              [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
                           label="handoff\n(print results + next step:\nfeature-work)"];
 

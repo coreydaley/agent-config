@@ -1,7 +1,7 @@
 // Issue Create state machine.
 //
 // Source of truth for the /issue-create skill. A guided capture of a standalone
-// bug / enhancement / chore / etc. as a tracked Forgejo ISSUE in the cwd repo —
+// bug / enhancement / chore / etc. as a tracked GitHub ISSUE in the cwd repo —
 // the issue body IS the report. Distinct from /feature-create (which captures a
 // decomposable feature spec): this is the single-issue track. The two tracks are
 // kept separate — an issue is never promoted into a feature here.

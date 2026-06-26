@@ -1,10 +1,11 @@
 // Feature Work state machine.
 //
 // Source of truth for the /feature-work skill. Autonomous execution of a
-// feature's SUB-ISSUES — the issues a feature ISSUE is "blocked by"
+// feature's SUB-ISSUES — the native GitHub sub-issues of a feature ISSUE
 // (created by /feature-plan). The skill cuts/finds a feature/<slug> branch
 // per repo (worktree-isolated, off the default branch), walks the
-// sub-issues in dependency order, and commits one commit per sub-issue
+// sub-issues in dependency order (topo-sorted by native blocked-by deps),
+// and commits one commit per sub-issue
 // (Closes #N) to the feature branch, pushing as it goes. It NEVER merges:
 // the issues close when the USER merges the branch later. A single
 // sub-issue failure is recorded and skipped, never halts the run.

@@ -31,7 +31,7 @@ It's on your board. Pick it up whenever; nothing runs automatically.
 ```
 ⚠ The issue wasn't filed (see the error above).
 Your work is safe in the local draft:  $SESSION_DIR/ISSUE.md
-Retry: re-run /issue-create, or file it by hand with `tea issues create`.
+Retry: re-run /issue-create, or file it by hand with `gh issue create`.
 ```
 
 That's it — no closing summary, no "let me know if you have questions."

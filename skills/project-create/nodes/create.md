@@ -3,6 +3,9 @@
 The skill's only mutation. Runs top-to-bottom; surface any error verbatim and
 stop rather than continuing in a broken state.
 
+GitHub operations use the `gh` CLI (authenticated via `gh auth`, HTTPS). Git
+operations run in the local shell. Cross-ref the `gh` skill.
+
 ## Inputs
 
 ```bash
@@ -10,31 +13,28 @@ SLUG=$(scripts/walk.sh get --state "$STATE" --key slug)
 TITLE=$(scripts/walk.sh get --state "$STATE" --key title)
 REPO_DESC=$(scripts/walk.sh get --state "$STATE" --key repo_description)
 SESSION_DIR=$(scripts/walk.sh get --state "$STATE" --key session_dir)
-TOKEN=$(awk '/name: homelab/{f=1} f&&/token:/{print $2; exit}' \
-  "$HOME/Library/Application Support/tea/config.yml")
-BASE=https://mac-mini.example:3000/api/v1
-ORG=projects
-CLONE_ROOT="$HOME/Code/mac-mini.example/$ORG/$SLUG"
+OWNER=coreydaley
+CLONE_ROOT="$HOME/Code/github.com/$OWNER/$SLUG"
 ```
 
 ## Steps
 
-### 1. Create the Forgejo repo
+### 1. Create the GitHub repo
 
 ```bash
-curl -sk -X POST -H "Authorization: token $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "{\"name\":\"$SLUG\",\"description\":\"$REPO_DESC\",\"private\":false,\"auto_init\":false}" \
-  "$BASE/orgs/$ORG/repos"
+gh repo create "$OWNER/$SLUG" --private --description "$REPO_DESC"
 ```
 
-Bail on error — if the repo already exists or org is wrong, surface it and stop.
+Default visibility is **private** (matches the user's other repos). Do NOT use
+`gh`'s auto-clone — the bare clone in the next step is the canonical local copy.
+Bail on error — if the repo already exists, surface it and stop.
 
 ### 2. Bare clone
 
 ```bash
-git clone --bare "https://mac-mini.example:3000/$ORG/$SLUG.git" "$CLONE_ROOT/.bare"
+git clone --bare "https://github.com/$OWNER/$SLUG.git" "$CLONE_ROOT/.bare"
 echo "gitdir: ./.bare" > "$CLONE_ROOT/.git"
+git -C "$CLONE_ROOT/.bare" config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
 ```
 
 ### 3. Create main worktree + initial commit
@@ -47,8 +47,11 @@ cd main
 cp "$SESSION_DIR/README.md" README.md
 # .gitignore
 touch .gitignore
-git add README.md .gitignore
-git commit -m "chore: initial project scaffold
+# docs/Overview.md
+mkdir -p docs
+cp "$SESSION_DIR/Overview.md" docs/Overview.md
+git add README.md .gitignore docs/Overview.md
+git commit --no-gpg-sign -m "chore: initial project scaffold
 
 Co-authored-by: Claude <noreply@anthropic.com>"
 git push -u origin HEAD:main
@@ -57,25 +60,13 @@ git push -u origin HEAD:main
 ### 4. Set default branch to main
 
 ```bash
-curl -sk -X PATCH -H "Authorization: token $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"default_branch":"main"}' \
-  "$BASE/repos/$ORG/$SLUG"
+gh repo edit "$OWNER/$SLUG" --default-branch main
 ```
 
-### 5. Create wiki Overview page
+### 5. Persist results
 
 ```bash
-curl -sk -X POST -H "Authorization: token $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "{\"title\":\"Overview\",\"content_base64\":\"$(base64 < "$SESSION_DIR/Overview.md")\"}" \
-  "$BASE/repos/$ORG/$SLUG/wiki/new"
-```
-
-### 6. Persist results
-
-```bash
-REPO_URL="https://mac-mini.example:3000/$ORG/$SLUG"
+REPO_URL="https://github.com/$OWNER/$SLUG"
 scripts/walk.sh set --state "$STATE" --key repo_url    --value "$REPO_URL"
 scripts/walk.sh set --state "$STATE" --key clone_path  --value "$CLONE_ROOT"
 scripts/walk.sh set --state "$STATE" --key create_status --value "created"

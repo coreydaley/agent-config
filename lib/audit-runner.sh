@@ -39,7 +39,7 @@ audit_init() {
   if [[ -n "$remote" ]]; then
     # Host-agnostic: strip a trailing .git, normalize scp/ssh/https
     # separators to '/', then take the last two path segments as
-    # <org>/<repo>. Works for github.com, self-hosted Forgejo
+    # <org>/<repo>. Works for github.com and any self-hosted git host
     # (https://host:port/org/repo.git and ssh://git@host:port/org/repo.git),
     # and scp-style git@host:org/repo.git alike.
     ORG_REPO=$(printf '%s' "$remote" | sed -E 's|\.git$||' | tr ':' '/' \

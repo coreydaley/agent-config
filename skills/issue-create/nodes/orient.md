@@ -35,7 +35,7 @@ it's heading.
 exist (and never re-create one with a different colour):
 
 ```bash
-tea labels list --repo "$ORG_REPO" --output json > "$SESSION_DIR/.labels.json"
+gh label list --repo "$ORG_REPO" --json name,color,description > "$SESSION_DIR/.labels.json"
 ```
 
 ### 3. Light repo context
@@ -73,5 +73,5 @@ scripts/walk.sh transition --state "$STATE" --from orient --to classify
 
 - No README → proceed; ground from `CLAUDE.md` / recent commits / the user's
   framing instead. Never block.
-- `tea labels list` fails (auth / repo) → surface; `create-issue` will retry and
+- `gh label list` fails (auth / repo) → surface; `create-issue` will retry and
   can still create labels. Not fatal to orient.

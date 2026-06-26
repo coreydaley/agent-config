@@ -36,7 +36,7 @@ and come back — `/feature-plan` reads it whenever you're ready.
 ```
 ⚠ The issue wasn't filed (see the error above).
 Your work is safe in the local draft:  $SESSION_DIR/FEATURE.md
-Retry: re-run /feature-create, or file it by hand with `tea issues create`.
+Retry: re-run /feature-create, or file it by hand with `gh issue create`.
 ```
 
 That's it — no closing summary, no "let me know if you have questions."

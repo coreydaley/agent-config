@@ -3,7 +3,7 @@
 Resolve the repo, set up the working folder, capture any rough-idea argument,
 initialize walker state.
 
-An issue is a **Forgejo issue in the cwd repo**, so this skill needs a repo. It
+An issue is a **GitHub issue in the cwd repo**, so this skill needs a repo. It
 resolves `<owner>/<repo>` from the cwd's git remote (prefers `upstream`, falls
 back to `origin`).
 
@@ -22,12 +22,12 @@ back to `origin`).
 2. **Resolve the repo:**
    ```bash
    REMOTE=$(git remote get-url upstream 2>/dev/null || git remote get-url origin 2>/dev/null || echo "")
-   ORG_REPO=$(echo "$REMOTE" | sed 's|.*github\.com[:/]||; s|.*mac-mini.example:3000/||; s|\.git$||')
+   ORG_REPO=$(echo "$REMOTE" | sed 's|.*github\.com[:/]||; s|\.git$||')
    ```
 
    **Bail if `$ORG_REPO` is empty** (cwd has no usable remote): "No repo
    resolved — run `/issue-create` inside the project checkout. An issue is tracked
-   in the repo's Forgejo." Do not proceed.
+   in the repo's GitHub." Do not proceed.
 
 3. **Set up the working folder.** An issue gets its own area under the repo's
    reports tree:
@@ -37,7 +37,7 @@ back to `origin`).
    mkdir -p "$SESSION_DIR"
    ```
    The local `ISSUE.md` written here (in `draft`) is an ephemeral working copy of
-   the issue body; the **Forgejo issue** is the durable record.
+   the issue body; the **GitHub issue** is the durable record.
 
 4. **Initialize the walker state file:**
    ```bash
@@ -72,5 +72,5 @@ scripts/walk.sh transition --state "$STATE" --from init --to orient
 ## Failure modes
 
 - No repo resolves → bail (step 2); an issue needs a repo to live in.
-- `tea` / Forgejo not reachable → not fatal here; `orient`'s label fetch and
-  `create-issue` handle Forgejo errors. init only needs the repo + local dir.
+- `gh` / GitHub not reachable → not fatal here; `orient`'s label fetch and
+  `create-issue` handle GitHub errors. init only needs the repo + local dir.

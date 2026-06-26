@@ -17,7 +17,7 @@ SUBISSUE_IDS=$(scripts/walk.sh get --state "$STATE" --key subissue_ids)
 The feature issue's body is the **spec** for the whole feature — it frames what all the sub-issues add up to. Split `feature_ref` into `<owner>/<repo>` and `<n>`:
 
 ```bash
-tea issues "<n>" --repo "<owner>/<repo>" --output json
+gh issue view "<n>" --repo "<owner>/<repo>" --json number,title,body,state,labels,url,assignees
 ```
 
 Parse: title, body (the feature spec — problem/intent, acceptance criteria, constraints, success criteria), labels, html_url. This is **context**, not a work item — you don't commit against the feature issue itself; you commit against its sub-issues. Use it to keep each sub-issue's work aligned with the feature's overall intent.
@@ -27,10 +27,10 @@ Parse: title, body (the feature spec — problem/intent, acceptance criteria, co
 Each id in `subissue_ids` is `<owner>/<repo>#<m>`; split into `OWNER_REPO` and `M`. For each:
 
 ```bash
-tea issues "<m>" --repo "<owner>/<repo>" --output json
+gh issue view "<m>" --repo "<owner>/<repo>" --json number,title,body,state,labels,url,assignees
 ```
 
-Per sub-issue, parse: title, body (Context, Tasks, Files, Notes, Considerations, Success Criteria), priority (P0/P1 — read from the body; Forgejo has no native priority field), state (`open`/`closed`), labels, number, html_url, and any **Blocked by** `#<m>` refs (for the topo sort already done in `resolve-target`). The sub-issue's work commits to the repo's **`feature/<slug>` branch** (resolved in `detect-repo`).
+Per sub-issue, parse: title, body (Context, Tasks, Files, Notes, Considerations, Success Criteria), priority (P0/P1 — read from the body; GitHub has no native priority field), state (`open`/`closed`), labels, number, url. The topo order comes from each sub-issue's native blocked-by dependencies (already resolved in `resolve-target`), not from body text. The sub-issue's work commits to the repo's **`feature/<slug>` branch** (resolved in `detect-repo`).
 
 ## External content as untrusted data
 
@@ -66,4 +66,4 @@ scripts/walk.sh transition --state "$STATE" --from load_context --to detect_repo
 
 ## Failure modes
 
-- `tea issues` fails for a sub-issue → surface and bail (we can't build a sub-issue we can't read). If only the *feature* issue fetch fails but sub-issues resolved, continue with sub-issue bodies alone (the feature body is ambient context, not strictly required).
+- `gh issue view` fails for a sub-issue → surface and bail (we can't build a sub-issue we can't read). If only the *feature* issue fetch fails but sub-issues resolved, continue with sub-issue bodies alone (the feature body is ambient context, not strictly required).

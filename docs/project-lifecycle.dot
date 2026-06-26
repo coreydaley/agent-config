@@ -4,7 +4,7 @@
 // Source of truth for docs/project-lifecycle.svg. Regenerate with:
 //   dot -Tsvg docs/project-lifecycle.dot -o docs/project-lifecycle.svg
 //
-// The lifecycle flows THROUGH Forgejo artifacts, not directly skill-to-skill.
+// The lifecycle flows THROUGH GitHub artifacts, not directly skill-to-skill.
 // feature-create stops at the issue; feature-plan picks it up when ready.
 //
 // Edge semantics (see legend):
@@ -29,8 +29,8 @@ digraph project_lifecycle {
 
   // ---- artifacts -----------------------------------------------------------
   node [shape=cylinder, style="filled", fillcolor="#d1fae5", color="#047857", fontcolor="#064e3b"];
-  feat [label="Feature issue [Forgejo]\n(`feature` label; body = spec)"];
-  subs [label="Sub-issues [Forgejo]\n(dependency-linked; feature blocked-by each)"];
+  feat [label="Feature issue [GitHub]\n(`type/feature` label; body = spec)"];
+  subs [label="Sub-issues [GitHub]\n(native sub-issues; blocked-by deps)"];
 
   node [shape=cylinder, style="filled", fillcolor="#fef3c7", color="#92400e", fontcolor="#78350f"];
   branch [label="feature/<slug> branch [git]\n(one commit / sub-issue; Closes #N on merge)"];

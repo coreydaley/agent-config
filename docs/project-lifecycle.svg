@@ -22,10 +22,10 @@
 <!-- feat -->
 <g id="node4" class="node">
 <title>feat</title>
-<path fill="#d1fae5" stroke="#047857" d="M217.38,-415C217.38,-417.21 182.69,-419 140,-419 97.31,-419 62.62,-417.21 62.62,-415 62.62,-415 62.62,-379 62.62,-379 62.62,-376.79 97.31,-375 140,-375 182.69,-375 217.38,-376.79 217.38,-379 217.38,-379 217.38,-415 217.38,-415"/>
-<path fill="none" stroke="#047857" d="M217.38,-415C217.38,-412.79 182.69,-411 140,-411 97.31,-411 62.62,-412.79 62.62,-415"/>
-<text xml:space="preserve" text-anchor="middle" x="140" y="-398.55" font-family="Helvetica,sans-Serif" font-size="11.00" fill="#064e3b">Feature issue [Forgejo]</text>
-<text xml:space="preserve" text-anchor="middle" x="140" y="-386.55" font-family="Helvetica,sans-Serif" font-size="11.00" fill="#064e3b">(`feature` label; body = spec)</text>
+<path fill="#d1fae5" stroke="#047857" d="M229,-415C229,-417.21 189.11,-419 140,-419 90.89,-419 51,-417.21 51,-415 51,-415 51,-379 51,-379 51,-376.79 90.89,-375 140,-375 189.11,-375 229,-376.79 229,-379 229,-379 229,-415 229,-415"/>
+<path fill="none" stroke="#047857" d="M229,-415C229,-412.79 189.11,-411 140,-411 90.89,-411 51,-412.79 51,-415"/>
+<text xml:space="preserve" text-anchor="middle" x="140" y="-398.55" font-family="Helvetica,sans-Serif" font-size="11.00" fill="#064e3b">Feature issue [GitHub]</text>
+<text xml:space="preserve" text-anchor="middle" x="140" y="-386.55" font-family="Helvetica,sans-Serif" font-size="11.00" fill="#064e3b">(`type/feature` label; body = spec)</text>
 </g>
 <!-- fc&#45;&gt;feat -->
 <g id="edge1" class="edge">
@@ -43,10 +43,10 @@
 <!-- subs -->
 <g id="node5" class="node">
 <title>subs</title>
-<path fill="#d1fae5" stroke="#047857" d="M257.12,-227.5C257.12,-229.71 204.63,-231.5 140,-231.5 75.37,-231.5 22.88,-229.71 22.88,-227.5 22.88,-227.5 22.88,-191.5 22.88,-191.5 22.88,-189.29 75.37,-187.5 140,-187.5 204.63,-187.5 257.12,-189.29 257.12,-191.5 257.12,-191.5 257.12,-227.5 257.12,-227.5"/>
-<path fill="none" stroke="#047857" d="M257.12,-227.5C257.12,-225.29 204.63,-223.5 140,-223.5 75.37,-223.5 22.88,-225.29 22.88,-227.5"/>
-<text xml:space="preserve" text-anchor="middle" x="140" y="-211.05" font-family="Helvetica,sans-Serif" font-size="11.00" fill="#064e3b">Sub&#45;issues [Forgejo]</text>
-<text xml:space="preserve" text-anchor="middle" x="140" y="-199.05" font-family="Helvetica,sans-Serif" font-size="11.00" fill="#064e3b">(dependency&#45;linked; feature blocked&#45;by each)</text>
+<path fill="#d1fae5" stroke="#047857" d="M235,-227.5C235,-229.71 192.42,-231.5 140,-231.5 87.58,-231.5 45,-229.71 45,-227.5 45,-227.5 45,-191.5 45,-191.5 45,-189.29 87.58,-187.5 140,-187.5 192.42,-187.5 235,-189.29 235,-191.5 235,-191.5 235,-227.5 235,-227.5"/>
+<path fill="none" stroke="#047857" d="M235,-227.5C235,-225.29 192.42,-223.5 140,-223.5 87.58,-223.5 45,-225.29 45,-227.5"/>
+<text xml:space="preserve" text-anchor="middle" x="140" y="-211.05" font-family="Helvetica,sans-Serif" font-size="11.00" fill="#064e3b">Sub&#45;issues [GitHub]</text>
+<text xml:space="preserve" text-anchor="middle" x="140" y="-199.05" font-family="Helvetica,sans-Serif" font-size="11.00" fill="#064e3b">(native sub&#45;issues; blocked&#45;by deps)</text>
 </g>
 <!-- fp&#45;&gt;subs -->
 <g id="edge2" class="edge">

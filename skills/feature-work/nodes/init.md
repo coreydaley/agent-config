@@ -48,4 +48,4 @@ scripts/walk.sh transition --state "$STATE" --from init --to resolve_target
 
 - Unknown flag → bail before walker init with a clear error.
 - No feature-issue ref → bail (step 2).
-- `tea` not authenticated (no default login) → defer detection until `resolve-target` (which actually calls it).
+- `gh` not authenticated → defer detection until `resolve-target` (which actually calls it).

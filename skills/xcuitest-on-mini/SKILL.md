@@ -61,7 +61,7 @@ This skill exists because:
 Path mapping is **namespaced, not identity**: `$LOCAL_ROOT` becomes
 `$XCUITEST_ON_MINI_DIR$LOCAL_ROOT` on the mini (e.g.
 `~/.xcuitest-on-mini~/Code/.../main`). The mini
-is the CI runner / Forgejo source-of-truth host and has its own
+is the CI / test runner host and has its own
 checkouts at the live `~/Code/...` paths — mirroring under a
 dedicated staging dir keeps the `rsync --delete` from ever clobbering
 them. Side benefits: each worktree gets a collision-free mirror, and

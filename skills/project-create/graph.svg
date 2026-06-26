@@ -84,9 +84,9 @@
 <title>create</title>
 <path fill="#e1f5fe" stroke="black" d="M292.5,-248C292.5,-248 131,-248 131,-248 125,-248 119,-242 119,-236 119,-236 119,-204 119,-204 119,-198 125,-192 131,-192 131,-192 292.5,-192 292.5,-192 298.5,-192 304.5,-198 304.5,-204 304.5,-204 304.5,-236 304.5,-236 304.5,-242 298.5,-248 292.5,-248"/>
 <text xml:space="preserve" text-anchor="middle" x="211.75" y="-233.55" font-family="Helvetica,sans-Serif" font-size="11.00">create</text>
-<text xml:space="preserve" text-anchor="middle" x="211.75" y="-221.55" font-family="Helvetica,sans-Serif" font-size="11.00">(Forgejo repo + bare clone +</text>
+<text xml:space="preserve" text-anchor="middle" x="211.75" y="-221.55" font-family="Helvetica,sans-Serif" font-size="11.00">(GitHub repo + bare clone +</text>
 <text xml:space="preserve" text-anchor="middle" x="211.75" y="-209.55" font-family="Helvetica,sans-Serif" font-size="11.00">worktree + README + .gitignore +</text>
-<text xml:space="preserve" text-anchor="middle" x="211.75" y="-197.55" font-family="Helvetica,sans-Serif" font-size="11.00">wiki Overview)</text>
+<text xml:space="preserve" text-anchor="middle" x="211.75" y="-197.55" font-family="Helvetica,sans-Serif" font-size="11.00">docs/Overview.md)</text>
 </g>
 <!-- handoff -->
 <g id="node5" class="node">

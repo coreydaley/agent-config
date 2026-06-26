@@ -12,8 +12,8 @@
 # dedicated staging dir on the mini ($XCUITEST_ON_MINI_DIR, default
 # ~/.xcuitest-on-mini) with its full local path preserved
 # beneath it. This keeps the rsync --delete from ever touching the
-# mini's own checkouts (it's the CI runner / Forgejo source-of-truth
-# host), and gives each worktree its own collision-free mirror +
+# mini's own checkouts (it's the CI / test runner host), and gives
+# each worktree its own collision-free mirror +
 # isolated DerivedData bucket.
 
 set -euo pipefail

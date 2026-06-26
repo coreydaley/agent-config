@@ -9,11 +9,10 @@ Print a summary of what will happen:
 ```
 Ready to scaffold this project?
 
-  Repo:      projects/<slug>  on mac-mini.example
-  Clone:     ~/Code/mac-mini.example/projects/<slug>/  (bare)
-  Worktree:  ~/Code/mac-mini.example/projects/<slug>/main/
-  Files:     README.md, .gitignore
-  Wiki:      Overview page
+  Repo:      coreydaley/<slug>  on GitHub (private)
+  Clone:     ~/Code/github.com/coreydaley/<slug>/  (bare)
+  Worktree:  ~/Code/github.com/coreydaley/<slug>/main/
+  Files:     README.md, .gitignore, docs/Overview.md
 
   1. Scaffold it  — create everything above.
   2. Revise       — back to the discussion.

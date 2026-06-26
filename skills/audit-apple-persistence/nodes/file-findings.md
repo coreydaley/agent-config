@@ -1,8 +1,8 @@
 # Node: file-findings
 
 File P0 and P1 audit findings from `REPORT.md` as `type/bug` issues in the
-project's Forgejo repository. Deferred findings are **skipped**. Runs after
-`verify` confirms all artifacts are valid.
+project's GitHub repository via the `gh` CLI. Deferred findings are **skipped**.
+Runs after `verify` confirms all artifacts are valid.
 
 ## Inputs
 
@@ -23,6 +23,9 @@ ORG_REPO=$(python3 -c "import json; print(json.load(open('$MANIFEST'))['org_repo
 OWNER="${ORG_REPO%%/*}"
 REPO="${ORG_REPO##*/}"
 ```
+
+`gh` targets the `$OWNER/$REPO` slug via `--repo`; it authenticates with your
+existing `gh auth` credential, so there is no token file to read.
 
 ### 2. Derive the audit domain label
 
@@ -85,71 +88,38 @@ print(json.dumps(findings))
 Run as: `python3 /dev/stdin "$AUDIT_DIR" <<'PYEOF' ... PYEOF`
 
 If REPORT.md has no P0 or P1 sections, `findings` will be empty — skip
-issue creation, write an empty `forgejo.md`, and continue to handoff.
+issue creation, write an empty `github.md`, and continue to handoff.
 
 ### 4. Ensure required labels exist
 
-Read the Forgejo token from `~/Library/Application Support/tea/config.yml`
-(regex `token:\s*(\S+)`). For each required label, check
-`GET /api/v1/repos/{owner}/{repo}/labels` — create only the ones that are
-missing by name. **Never edit or recolour an existing label.**
+`gh label create` errors if a label already exists, so swallow that error
+(`|| true`) and **never edit or recolour an existing label**.
 
 Required labels:
 
 | Name | Color |
 |---|---|
-| `type/bug` | `#d73a4a` |
-| `priority/p0` | `#b60205` |
-| `priority/p1` | `#e4e669` |
-| `audit:<domain>` | `#0075ca` |
+| `type/bug` | `d73a4a` |
+| `priority/p0` | `b60205` |
+| `priority/p1` | `e4e669` |
+| `audit:<domain>` | `0075ca` |
 
 ```bash
-TOKEN=$(python3 -c "
-import re
-with open('~/Library/Application Support/tea/config.yml') as f:
-    m = re.search(r'token:\s*(\S+)', f.read())
-print(m.group(1) if m else '')
-")
-
-existing=$(curl -sk "https://mac-mini.example:3000/api/v1/repos/$OWNER/$REPO/labels" \
-  -H "Authorization: token $TOKEN" | python3 -c "
-import json,sys; print('\n'.join(l['name'] for l in json.load(sys.stdin)))
-")
-
 for label_name in "type/bug" "priority/p0" "priority/p1" "$DOMAIN_LABEL"; do
-  if ! echo "$existing" | grep -qxF "$label_name"; then
-    case "$label_name" in
-      type/bug)          color="#d73a4a" ;;
-      priority/p0)  color="#b60205" ;;
-      priority/p1)  color="#e4e669" ;;
-      *)            color="#0075ca" ;;
-    esac
-    curl -sk -X POST "https://mac-mini.example:3000/api/v1/repos/$OWNER/$REPO/labels" \
-      -H "Authorization: token $TOKEN" -H "Content-Type: application/json" \
-      -d "{\"name\": \"$label_name\", \"color\": \"$color\"}" > /dev/null
-  fi
+  case "$label_name" in
+    type/bug)     color="d73a4a" ;;
+    priority/p0)  color="b60205" ;;
+    priority/p1)  color="e4e669" ;;
+    *)            color="0075ca" ;;
+  esac
+  gh label create "$label_name" --color "$color" --repo "$OWNER/$REPO" 2>/dev/null || true
 done
 ```
 
 ### 5. Create one issue per finding
 
-Get the numeric label IDs for `type/bug`, the tier label, and `$DOMAIN_LABEL`:
-
-```bash
-LABEL_IDS=$(curl -sk "https://mac-mini.example:3000/api/v1/repos/$OWNER/$REPO/labels" \
-  -H "Authorization: token $TOKEN" | python3 -c "
-import json, sys
-labels = json.load(sys.stdin)
-by_name = {l['name']: l['id'] for l in labels}
-import os
-tier_label = 'priority/' + os.environ.get('TIER', 'p0')
-domain = os.environ.get('DOMAIN_LABEL', '')
-ids = [by_name.get('type/bug'), by_name.get(tier_label), by_name.get(domain)]
-print(json.dumps([i for i in ids if i]))
-" TIER="$tier" DOMAIN_LABEL="$DOMAIN_LABEL")
-```
-
-For each finding, create one self-assigned issue:
+For each finding, create one self-assigned issue. Write the finding body to a
+temp file (`--body-file`) to avoid shell-escaping the multi-line Markdown:
 
 - **Title**: `[$DOMAIN_LABEL] $human_title`
 - **Body**: the full finding block from REPORT.md, plus a footer:
@@ -159,25 +129,34 @@ For each finding, create one self-assigned issue:
   _Audit: `$AUDIT_NAME` · report: `$AUDIT_DIR/REPORT.md`_
   ```
 - **Labels**: `type/bug` + `priority/<tier>` + `$DOMAIN_LABEL`
-- **Assignee**: `coreydaley`
+- **Assignee**: `@me`
 
 ```bash
-curl -sk -X POST "https://mac-mini.example:3000/api/v1/repos/$OWNER/$REPO/issues" \
-  -H "Authorization: token $TOKEN" -H "Content-Type: application/json" \
-  -d "{
-    \"title\": \"[$DOMAIN_LABEL] $human_title\",
-    \"body\": \"$body\n\n---\n_Audit: \`$AUDIT_NAME\` · report: \`$AUDIT_DIR/REPORT.md\`_\",
-    \"labels\": $LABEL_IDS,
-    \"assignees\": [\"coreydaley\"]
-  }"
+BODY_FILE=$(mktemp)
+{
+  printf '%s\n\n' "$body"
+  printf -- '---\n'
+  printf '_Audit: `%s` · report: `%s`_\n' "$AUDIT_NAME" "$AUDIT_DIR/REPORT.md"
+} > "$BODY_FILE"
+
+ISSUE_URL=$(gh issue create \
+  --repo "$OWNER/$REPO" \
+  --title "[$DOMAIN_LABEL] $human_title" \
+  --body-file "$BODY_FILE" \
+  --label "type/bug" --label "priority/$tier" --label "$DOMAIN_LABEL" \
+  --assignee "@me")
+rm -f "$BODY_FILE"
 ```
 
-### 6. Write `forgejo.md`
+`gh issue create` prints the new issue's URL on stdout — capture it for
+`github.md`.
 
-Write `$AUDIT_DIR/forgejo.md`:
+### 6. Write `github.md`
+
+Write `$AUDIT_DIR/github.md`:
 
 ```markdown
-# Forgejo Filing — <AUDIT_NAME>
+# GitHub Filing — <AUDIT_NAME>
 
 **Repo:** <owner>/<repo>  
 **Domain label:** <DOMAIN_LABEL>  
@@ -199,8 +178,8 @@ scripts/walk.sh set --state "$STATE" --key filed_count --value "<N>"
 
 ## Outputs
 
-- `$AUDIT_DIR/forgejo.md` written (always — empty table if no findings)
-- Forgejo issues created (one per P0/P1 finding)
+- `$AUDIT_DIR/github.md` written (always — empty table if no findings)
+- GitHub issues created (one per P0/P1 finding)
 - Walker state has `filed_count` set
 
 ## Outgoing edges
@@ -213,12 +192,12 @@ scripts/walk.sh transition --state "$STATE" --from file_findings --to handoff
 
 ## Failure modes
 
-- **No Forgejo token / unreachable instance**: warn, write `forgejo.md`
-  with `status: skipped — Forgejo unavailable`, continue to `handoff`.
+- **`gh` not authenticated / GitHub unreachable**: warn, write `github.md`
+  with `status: skipped — GitHub unavailable`, continue to `handoff`.
   Never abort the audit for a filing failure.
-- **API error on a single issue**: log the error in `forgejo.md`, continue
+- **API error on a single issue**: log the error in `github.md`, continue
   filing remaining findings. Partial success is acceptable.
 - **REPORT.md missing P0/P1 sections** (all-green audit): write empty
-  `forgejo.md` and continue.
-- **`org_repo` resolves to a GitHub URL or unknown host**: warn in
-  `forgejo.md`, skip filing, continue to `handoff`.
+  `github.md` and continue.
+- **`org_repo` resolves to a non-GitHub / unknown host**: warn in
+  `github.md`, skip filing, continue to `handoff`.

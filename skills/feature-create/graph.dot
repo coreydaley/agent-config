@@ -1,7 +1,7 @@
 // Feature Create state machine.
 //
 // Source of truth for the /feature-create skill. A guided, Socratic discussion
-// that captures a feature as a tracked Forgejo ISSUE (with a `type/feature` label)
+// that captures a feature as a tracked GitHub ISSUE (with a `type/feature` label)
 // in the cwd repo — the issue body IS the spec. Merges the exploratory
 // "shape a fuzzy idea" discussion (formerly /sprint-seed) with structured
 // engineering-surface capture (formerly /project-create-feature): explore +

@@ -1,7 +1,7 @@
 ---
 name: feature-create
 description: >-
-  State-machine-driven capture of a feature as a tracked Forgejo ISSUE (with a
+  State-machine-driven capture of a feature as a tracked GitHub ISSUE (with a
   `type/feature` label) in the cwd repo — the issue body IS the spec. Merges the
   exploratory "shape a fuzzy idea" discussion with structured engineering-surface
   capture: explore + structure in one pass, grounded in the repo README (no PRD,
@@ -21,7 +21,7 @@ model: opus
 
 # Feature Create
 
-State-machine-driven capture of a **feature** as a tracked Forgejo **issue** in
+State-machine-driven capture of a **feature** as a tracked GitHub **issue** in
 the cwd repo. The skill walks the graph in `graph.dot`, executing each node's
 prose from `nodes/<id>.md`, until it reaches the terminal node.
 
@@ -32,7 +32,7 @@ engineering-surface capture. You can hand it a rough one-line idea or start from
 nothing; either way it explores, structures, and — for a large feature — runs an
 independent readiness check before filing.
 
-**Why an issue.** A feature is discrete, trackable work, so it lives where Forgejo
+**Why an issue.** A feature is discrete, trackable work, so it lives where GitHub
 gives native lifecycle: labels, open/closed, board, dependencies. A feature is an
 **issue with a `type/feature` label, and the issue body is the spec** — no separate
 doc, no wiki page, no repo markdown file. Your open `type/feature` issues are your
@@ -47,10 +47,10 @@ job (it writes the tasks as linked sub-issues). Grounding comes from the repo
 
 If the user's arguments include `--help` or `-h` (in any position), print the
 blurb below verbatim and stop. **Don't proceed to init or anything else.** Help
-mode is a pure print-and-exit; no state file, no Forgejo calls.
+mode is a pure print-and-exit; no state file, no GitHub calls.
 
 ```
-/feature-create — capture a feature as a tracked Forgejo issue.
+/feature-create — capture a feature as a tracked GitHub issue.
 
 What it does
   Resolves the cwd repo, reads the README for grounding, then explores and
@@ -73,7 +73,7 @@ Usage
 
 Output
   Working draft:  ~/Reports/<org>/<repo>/features/<TS>/FEATURE.md  (ephemeral)
-  Durable record: the Forgejo issue (its body is the spec).
+  Durable record: the GitHub issue (its body is the spec).
 
 Next step (printed, not run)
   /feature-plan <issue-url>   →  plan it and create the linked sub-issues.
@@ -111,8 +111,8 @@ Eleven nodes:
 
 - **`init`** — resolve `<owner>/<repo>` from the cwd remote, set up the working
   folder, capture an optional rough-idea arg, init walker state. Bails if no repo.
-- **`orient`** — read the repo README for grounding; fetch repo labels; light repo
-  context. Synthesize, don't dump.
+- **`orient`** — read the repo README for grounding; fetch repo labels (`gh label
+  list`); light repo context. Synthesize, don't dump.
 - **`kickoff`** — opening message (restate any rough idea); detect and confirm
   **small vs large**.
 - **`discuss`** — the core: explore (surface complexity, alternatives, push back)
@@ -165,10 +165,10 @@ one more exchange is low; a filed issue is more work to fix.
 
 ## Transport
 
-Forgejo at `https://mac-mini.example:3000` via the `tea` CLI (login alias
-`homelab`) and the raw API (`curl -sk` — self-signed TLS). See the `forgejo`
-skill for login setup and the API fallback. Issue creation and label creation go
-through `tea`; this skill never touches git.
+GitHub via the `gh` CLI (authenticated via `gh auth`, HTTPS). See the `gh` skill
+for auth setup and usage. Issue creation and label creation go through `gh`; this
+skill never touches git. No tokens-from-files and no curl — `gh auth` is the only
+credential path.
 
 ## Artifacts and paths
 
@@ -180,7 +180,7 @@ through `tea`; this skill never touches git.
   .walk-state.json    # walker state
 ```
 
-The **durable record is the Forgejo issue** (body = spec); the local `FEATURE.md`
+The **durable record is the GitHub issue** (body = spec); the local `FEATURE.md`
 is a working copy / fallback. On cancel or a failed create, the local draft is the
 user's safety net.
 

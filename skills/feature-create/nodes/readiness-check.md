@@ -60,7 +60,7 @@ FINDINGS:
 ...
 ```
 
-The subagent is **read-only** — it does not edit `FEATURE.md` or touch Forgejo.
+The subagent is **read-only** — it does not edit `FEATURE.md` or touch GitHub.
 
 Persist + render:
 

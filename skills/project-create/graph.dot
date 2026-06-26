@@ -1,8 +1,8 @@
 // Project Create state machine.
 //
 // Guided discussion that shapes a new project, then scaffolds it:
-// Forgejo repo (projects/<slug>), bare clone, main worktree, README,
-// .gitignore, and wiki Overview page. Two outcomes only: cancel (nothing
+// GitHub repo (coreydaley/<slug>), bare clone, main worktree, README,
+// .gitignore, and docs/Overview.md. Two outcomes only: cancel (nothing
 // created) or approve (full scaffold). The creation gate is the only mutation.
 //
 // Render to SVG with scripts/render.sh. Validate with scripts/validate.py.
@@ -21,7 +21,7 @@ digraph project_create {
     draft      [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
                 label="draft\n(assemble Overview doc +\nrepo description; render inline)"];
     create     [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
-                label="create\n(Forgejo repo + bare clone +\nworktree + README + .gitignore +\nwiki Overview)"];
+                label="create\n(GitHub repo + bare clone +\nworktree + README + .gitignore +\ndocs/Overview.md)"];
     handoff    [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
                 label="handoff\n(print repo URL + next steps)"];
 

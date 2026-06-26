@@ -7,10 +7,10 @@ Print where everything landed. Nothing executed from here.
 ```
 Project scaffolded:
 
-  Forgejo:   https://mac-mini.example:3000/projects/<slug>
-  Wiki:      https://mac-mini.example:3000/projects/<slug>/wiki/Overview
-  Clone:     ~/Code/mac-mini.example/projects/<slug>/
-  Worktree:  ~/Code/mac-mini.example/projects/<slug>/main/
+  GitHub:    https://github.com/coreydaley/<slug>
+  Overview:  ~/Code/github.com/coreydaley/<slug>/main/docs/Overview.md
+  Clone:     ~/Code/github.com/coreydaley/<slug>/
+  Worktree:  ~/Code/github.com/coreydaley/<slug>/main/
 
 Next (nothing runs automatically):
   /feature-create   →  capture your first feature

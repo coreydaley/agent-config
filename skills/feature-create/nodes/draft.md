@@ -26,7 +26,7 @@ the feature delivers. Don't prefix with "Feature:". Keep it tight.
 ### 2. Assemble the body (tiered)
 
 Write `$SESSION_DIR/FEATURE.md` (the issue body). This is the **spec** — the
-what and why, not the how. Forgejo issue bodies render Markdown and auto-link
+what and why, not the how. GitHub issue bodies render Markdown and auto-link
 `#<n>`.
 
 **Small feature** — intent + acceptance criteria only:

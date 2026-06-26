@@ -55,7 +55,7 @@ CLAUDE.md files are loaded hierarchically: `~/.claude/CLAUDE.md` (global) → pr
 
 ## Agent Config
 
-Lives at `~/Code/mac-mini.example/coreydaley/agent-config/` (source of truth: self-hosted Forgejo at `mac-mini.example`; auto-mirrored to public GitHub at `coreydaley/agent-config`).
+Lives at `~/Code/github.com/coreydaley/agent-config/` (GitHub `coreydaley/agent-config` is the source of truth).
 Contains CLAUDE.md, commands, lib, skills, and subagents — all symlinked into `~/.claude/` via `make all`.
 
 ## Skills
@@ -81,23 +81,23 @@ Currently:
 - `graph_walker.py` — generic graph walker used by all dot-graph skills (see `docs/DOT-GRAPH-SKILL-PATTERN.md`). Reads a skill's `graph.dot`, validates transitions against the graph, and persists per-run state to a JSON file. Skills wrap it via their own `scripts/walk.sh`.
 - `audit-runner.sh` — owns audit `$AUDIT_DIR` creation under `~/Reports/<org>/<repo>/audits/<TS>-<audit-name>/` and writes `MANIFEST.json`. Every audit skill's `init` node calls this; without it, no downstream node has a writable directory.
 - `audit-verify.sh` — the hard artifact gate every audit's `verify` node runs. Exits non-zero if any required artifact (claude.md, synthesis.md, REPORT.md) is missing or empty; the handoff message must include its output verbatim.
-- `external-content-handling.md` — copy-paste boilerplate that skills fetching untrusted external content (Forgejo, GitHub, web pages, etc.) include verbatim in their `SKILL.md`.
+- `external-content-handling.md` — copy-paste boilerplate that skills fetching untrusted external content (GitHub, web pages, etc.) include verbatim in their `SKILL.md`.
 
 ## Skill patterns
 
 Skills with multi-phase workflows (review pipelines, feature planning, address-feedback loops) use the **dot-graph skill pattern**: the flow is a `graph.dot` with per-node markdown sidecars under `nodes/`, walked deterministically by `lib/graph_walker.py`. The graph is the source of truth — drift between prose and routing is structurally impossible. Reference: [`docs/DOT-GRAPH-SKILL-PATTERN.md`](docs/DOT-GRAPH-SKILL-PATTERN.md).
 
-Skills currently on this pattern: `commit`, `polish-pull-request`, `review-address-feedback`, `review-pr-comprehensive`, `review-pr-simple`, `feature-create`, `feature-plan`, `feature-work`, all 30 `audit-*` skills (22 apple + 8 general/web). CLI-wrapper skills (`forgejo`, `gh`, `gws`, `obsidian`, `orbstack`) are not on this pattern — they're one-shot operations with no internal state machine.
+Skills currently on this pattern: `commit`, `polish-pull-request`, `review-address-feedback`, `review-pr-comprehensive`, `review-pr-simple`, `feature-create`, `feature-plan`, `feature-work`, all 30 `audit-*` skills (22 apple + 8 general/web). CLI-wrapper skills (`gh`, `gws`, `obsidian`, `orbstack`) are not on this pattern — they're one-shot operations with no internal state machine.
 
 ## Feature workflow
 
-End-to-end lifecycle for capturing, planning, and building work as a **feature** — a Forgejo issue (`label:feature`) whose body is the spec, grounded in the repo README (no PRD, no milestone). Three skills compose: `/feature-create` captures the feature issue, `/feature-plan` decomposes it into dependency-linked sub-issues (the feature is "blocked by" each task), and `/feature-work` builds those sub-issues on a `feature/<slug>` branch — one commit per sub-issue with `Closes #N`, pushed but not merged. The user merges by hand later (which fires each `Closes #N` and closes the sub-issues), then closes the feature.
+End-to-end lifecycle for capturing, planning, and building work as a **feature** — a GitHub issue (`type/feature` label) whose body is the spec, grounded in the repo README (no PRD, no milestone). Three skills compose: `/feature-create` captures the feature issue, `/feature-plan` decomposes it into native GitHub sub-issues ordered by native blocked-by dependencies, and `/feature-work` builds those sub-issues on a `feature/<slug>` branch — one commit per sub-issue with `Closes #N`, pushed but not merged. The user merges by hand later (which fires each `Closes #N` and closes the sub-issues), then closes the feature.
 
 All feature, review, and audit artifacts live under `~/Reports/<org>/<repo>/` (derived from `upstream` remote, falling back to `origin`). Nothing is written into the project repo.
 
 ## Issue triage labels & sweep convention (all projects)
 
-Across every project (Forgejo or GitHub), issues carry three **orthogonal** label axes. Keep them distinct — never collapse one into another:
+Across every project (all on GitHub), issues carry three **orthogonal** label axes. Keep them distinct — never collapse one into another:
 
 - **`priority/*`** (`p0` / `p1` / `defer`) — the audit's/filer's severity. Set at filing; don't change it during work — it's the original triage.
 - **`size/*`** (`S` / `M` / `L` / `XL`) — the **effort estimate, applied at work-time, never at creation.** Size is only knowable once you've dug into the issue, so estimating it at filing is guessing. Pure information.
@@ -144,7 +144,7 @@ Layout convention per contributing repo:
 ```
 
 Naming convention to avoid collisions across repos:
-- `agent-config` owns generic verbs/topics: `audit-*`, `feature-*`, `review-*`, `commit`, `forgejo`, `gh`, `obsidian`, `orbstack`.
+- `agent-config` owns generic verbs/topics: `audit-*`, `feature-*`, `review-*`, `commit`, `gh`, `obsidian`, `orbstack`.
 - Project repos use a project prefix: `apt-*` for Agent Project Tracker, future apps follow the same pattern.
 - If a collision ever occurs, last-installed wins via symlink replacement — easy to detect by listing `~/.claude/skills/`.
 
@@ -154,12 +154,12 @@ This pattern lets tools like Agent Project Tracker (and any future portfolio app
 
 ## Dotfiles
 
-Lives at `~/Code/mac-mini.example/coreydaley/dotfiles/` (source of truth: self-hosted Forgejo at `mac-mini.example`; auto-mirrored to private GitHub at `coreydaley/dotfiles`).
+Lives at `~/Code/github.com/coreydaley/dotfiles/` (GitHub `coreydaley/dotfiles` is the source of truth).
 Contains shell, git, ghostty, starship, and VSCode configs — symlinked to their system destinations via `make all`.
 
 ## Sandbox
 
-Lives at `~/Code/mac-mini.example/coreydaley/sandbox/` (source of truth: self-hosted Forgejo at `mac-mini.example`; auto-mirrored to private GitHub at `coreydaley/sandbox`).
+Lives at `~/Code/github.com/coreydaley/sandbox/` (GitHub `coreydaley/sandbox` is the source of truth).
 Scripts go in `scripts/`, experiments and POCs go in `projects/<n>/`. Run `make all` after cloning to install git hooks.
 
 ## Git
@@ -168,7 +168,7 @@ Scripts go in `scripts/`, experiments and POCs go in `projects/<n>/`. Run `make 
 
 **Always clone repositories bare and use git worktrees.** When cloning a repo, use `git clone --bare <url> <dir>` and manage branches as worktrees via `git worktree add`.
 
-**Organize repositories under `~/Code/<host>/<org>/<repo>/`.** For example, `~/Code/mac-mini.example/coreydaley/dotfiles/` (Forgejo, your default) or `~/Code/github.com/<owner>/<repo>/` (third-party GitHub clones). Always clone into this structure regardless of the host or org.
+**Organize repositories under `~/Code/<host>/<org>/<repo>/`.** For example, `~/Code/github.com/coreydaley/dotfiles/` (your own repos) or `~/Code/github.com/<owner>/<repo>/` (third-party GitHub clones). Always clone into this structure regardless of the host or org.
 
 **For forked repositories, always configure the upstream remote.** After cloning a fork, add the original repo as `upstream` via `git remote add upstream <original-url>`.
 

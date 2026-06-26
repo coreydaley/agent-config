@@ -1,7 +1,7 @@
 ---
 name: feature-plan
 description: >-
-  State-machine-driven planning of a single Forgejo FEATURE ISSUE into a
+  State-machine-driven planning of a single GitHub FEATURE ISSUE into a
   set of self-assigned sub-issues. Point it at a feature issue (URL,
   `<owner>/<repo>#N`, or `#N` in the cwd repo); it reads the issue body as
   the spec and plans the work with strict orchestrator/worker separation —
@@ -10,12 +10,13 @@ description: >-
   the current session model; there is no model tier and no
   phase-selection menu. After ONE approval gate showing the
   proposed task breakdown, it creates one self-assigned sub-issue per task
-  (Context / Implementation / Success Criteria, priority + domain labels),
-  wires task-to-task ordering via native Forgejo dependencies, and links
-  the parent feature as "blocked by" each task. No milestone, no checkbox
-  list in the feature body — the sub-issues ARE the durable plan; the
-  verbose rationale is a local ephemeral PLAN.md. One-shot: it STOPS if the
-  feature already has dependency-linked sub-issues. Invoke via /feature-plan.
+  (Context / Implementation / Success Criteria, priority + domain labels)
+  via the `gh` CLI, attaches each as a **native GitHub sub-issue** of the
+  feature, and encodes task-to-task ordering as **native blocked-by
+  dependencies** (both via `gh api`). No milestone — the native sub-issue
+  hierarchy (parent progress bar) plus the dependency links ARE the durable
+  plan; the verbose rationale is a local ephemeral PLAN.md. One-shot: it
+  STOPS if the feature already has native sub-issues. Invoke via /feature-plan.
 argument-hint: "<feature-issue-ref> [--help]"
 disable-model-invocation: false
 model: opus
@@ -23,7 +24,7 @@ model: opus
 
 # Feature Plan: Plan a Feature into Sub-Issues
 
-State-machine-driven planning of one Forgejo **feature issue** into a set
+State-machine-driven planning of one GitHub **feature issue** into a set
 of tracked, self-assigned **sub-issues**. The skill walks the graph in
 `graph.dot`, executing each node's prose from `nodes/<id>.md`, until it
 reaches the terminal node.
@@ -31,22 +32,23 @@ reaches the terminal node.
 This is the middle of the feature pipeline (`/feature-create` →
 `/feature-plan` → `/feature-work`). `/feature-create` captured the feature
 as an issue whose body is the spec; this skill **reads that spec and plans
-the work**, then files the task breakdown as native Forgejo sub-issues
-linked back to the feature.
+the work**, then files the task breakdown as **native GitHub sub-issues** of
+the feature, ordered by **native blocked-by dependencies**.
 
 The orchestrator handles analysis, synthesis, and human dialogue, but
 **never drafts, critiques, or reviews**. Generative and adversarial work
 is delegated to fresh Claude subagents — each with a clean context, so no
 single context writes a plan and then judges its own output.
 
-**Why sub-issues, not a milestone or a checklist.** A feature is a discrete
-piece of work; its task breakdown lives as sibling issues linked back to
-the feature via native Forgejo **dependencies** (the feature is "blocked
-by" each task). Dependencies are the single source of truth for ordering
-and completion — a checkbox list pasted into the feature body would drift
-against issue state. There is **no milestone** here. The verbose
-plan/rationale is an ephemeral local `PLAN.md`; the sub-issues are the
-durable plan.
+**Why sub-issues, not a milestone.** A feature is a discrete piece of work;
+its task breakdown lives as **native GitHub sub-issues** of the feature. The
+feature↔task link is the native sub-issue hierarchy (GitHub auto-renders the
+child list and a progress bar on the parent); the task-to-task ordering is
+native **blocked-by dependencies** between the sub-issues. Both are written
+via `gh api` and are the single source of truth — no parallel text checklist
+to drift against. There is **no milestone** here. The verbose plan/rationale
+is an ephemeral local `PLAN.md`; the native sub-issues + their dependencies
+are the durable plan.
 
 ## Roles
 
@@ -66,7 +68,7 @@ subagents; they differ by context, not by family.
 If the user's arguments to this skill include `--help` or `-h` (in any
 position), print the blurb below verbatim and stop. **Don't proceed to
 walker init or anything else.** Help mode is a pure print-and-exit; no
-state file, no Forgejo calls.
+state file, no GitHub calls.
 
 ```
 /feature-plan — plan a feature issue into self-assigned sub-issues.
@@ -78,16 +80,17 @@ What it does
   orchestrator merges, fresh subagents run review lenses, findings are
   incorporated. It derives one sub-issue per task, shows you the breakdown,
   and on approval creates each as a self-assigned issue (Context /
-  Implementation / Success Criteria, priority + domain labels) — wiring
-  task-to-task ordering as native dependencies and linking the feature as
-  "blocked by" each task. No milestone; no checklist in the feature body.
+  Implementation / Success Criteria, priority + domain labels) via `gh` —
+  attaching each as a native sub-issue of the feature and encoding
+  task-to-task ordering as native blocked-by dependencies (via `gh api`).
+  No milestone.
 
 When to use it
   After /feature-create has filed a feature issue you're ready to plan.
 
 Before you run it
-  - `tea` (the Forgejo CLI) is configured with the `homelab` login
-    (see the `forgejo` skill).
+  - `gh` (the GitHub CLI) is authenticated over HTTPS (`gh auth status`);
+    see the `gh` skill.
   - The feature issue exists and carries the `type/feature` label (warned if not).
 
 Usage
@@ -105,20 +108,21 @@ What you'll see while it runs
 
 Output
   Working doc:  ~/Reports/<org>/<repo>/features/<TS>/PLAN.md  (ephemeral)
-  Durable plan: the self-assigned Forgejo sub-issues, linked to the feature.
+  Durable plan: the self-assigned native GitHub sub-issues of the feature,
+                ordered by native blocked-by dependencies.
 
 Next step (printed, not run)
   /feature-work <feature-issue-url>   →  build the linked sub-issues.
 
 What this skill won't do
-  - Create a milestone, write a checklist into the feature body, or call
-    the sprint tracker — sub-issues + dependencies are the plan.
+  - Create a milestone or call the sprint tracker — native sub-issues + their
+    dependencies are the plan.
   - Run an interactive interview (the spec is the feature body).
   - Pick a model or tier — all workers are fresh subagents
     on the current model.
   - Create issues without your approval (gated behind ask-approval).
-  - Double-create. If the feature already has dependency-linked sub-issues,
-    it warns and STOPS.
+  - Double-create. If the feature already has native sub-issues, it warns
+    and STOPS.
 ```
 
 If the user's arguments do NOT include `--help` or `-h`, ignore this
@@ -156,11 +160,10 @@ Fifteen nodes:
 
 - **`init`** — resolve the feature issue (URL / `<owner>/<repo>#N` / `#N`
   in cwd repo); fetch its body (the spec); **warn if it lacks the `type/feature`
-  label**; run the **idempotency guard** (STOP if it already has
-  dependency-linked sub-issues); set up the working folder; init walker state.
+  label**; run the **idempotency guard** (STOP if it already has native
+  sub-issues); set up the working folder; init walker state.
 - **`orient`** — repo grounding (README / CLAUDE.md, recent commits),
-  prior-art / dependency check, repo labels; ensure the repo's issue-
-  dependency feature is on (enable if off).
+  prior-art / dependency check, repo labels.
 - **`intent`** — write `intent.md` from the feature spec; bake in Surface
   Area default decisions both drafts inherit.
 - **`draft`** — two fresh subagents draft the plan independently, in
@@ -177,9 +180,10 @@ Fifteen nodes:
 - **`show-plan`** — render the proposed sub-issue table inline.
 - **`ask-approval`** *(decision)* — create / discuss / cancel. The ONE gate.
 - **`discuss-plan`** — iterate on the breakdown, loop back to ask-approval.
-- **`create-issues`** — create one self-assigned sub-issue per task; wire
-  task-to-task ordering as native dependencies; link the **feature** as
-  "blocked by" each task; post ONE append-only comment on the feature.
+- **`create-issues`** — create one self-assigned sub-issue per task (`gh`);
+  attach each as a **native sub-issue** of the feature and wire task-to-task
+  ordering as **native blocked-by dependencies** (via `gh api`); post ONE
+  append-only comment on the feature.
 - **`handoff`** — print the created sub-issues + the next step `/feature-work`
   (don't run it).
 - **`terminal`** — sink.
@@ -244,20 +248,23 @@ after the workers return. Every worker is a fresh Claude subagent via the
 
 ## Transport
 
-Forgejo at `https://mac-mini.example:3000` via the `tea` CLI (login
-alias `homelab`) and the raw API (`curl -sk` — self-signed TLS). See the
-`forgejo` skill for login setup and the API fallback. Issue creation, label
-creation, dependency wiring, and the feature comment go through `tea` / the
-API; this skill never touches git.
+GitHub via the `gh` CLI (authenticated over HTTPS via `gh auth`). See the
+`gh` skill for auth and command reference. Issue creation, label creation,
+and the feature comment go through `gh issue ...`; the native sub-issue
+attach and the blocked-by dependency links go through `gh api` (the REST
+`/sub_issues` and `/dependencies/blocked_by` endpoints). This skill never
+touches git. The native sub-issue and dependency APIs need an issue's integer
+database **`id`** (not its number) — resolve it with
+`gh api repos/$OWNER/$REPO/issues/<n> --jq .id`.
 
 ## Idempotency
 
 This is a **one-shot** skill. Before creating anything, `init` checks
-whether the feature already has dependency-linked sub-issues (things that
-"block" the feature). If so, it **warns and STOPS** rather than
-double-creating — there is no reliable way to reconcile a second run against
-issues a prior run created. If you need to re-plan, delete the prior
-sub-issues (and their dependency links) first.
+whether the feature already has **native sub-issues**
+(`gh api repos/$OWNER/$REPO/issues/$N/sub_issues --jq 'length'` > 0). If so,
+it **warns and STOPS** rather than double-creating — there is no reliable way
+to reconcile a second run against issues a prior run created. If you need to
+re-plan, delete (or detach) the prior sub-issues first.
 
 ## Artifacts and paths
 
@@ -276,9 +283,9 @@ Per-run output in the feature's session folder:
   .walk-state.json     # walker state
 ```
 
-The **durable plan is the set of Forgejo sub-issues** linked to the feature;
-`PLAN.md` is an ephemeral working doc. On cancel, `PLAN.md` stays on disk as
-the user's safety net.
+The **durable plan is the set of native GitHub sub-issues** of the feature,
+ordered by native blocked-by dependencies; `PLAN.md` is an ephemeral working
+doc. On cancel, `PLAN.md` stays on disk as the user's safety net.
 
 ## Don'ts
 
@@ -289,20 +296,23 @@ the user's safety net.
   context, not a different engine.
 - **Don't run an interactive interview.** The feature body is the spec;
   Surface Area decisions flow through intent → drafts → critiques.
-- **Don't write a checkbox task list into the feature body.** It drifts
-  against issue state — dependencies are the single source of truth. The
-  only feature mutation allowed is ONE append-only comment: "Planned: N
-  sub-issues created (see Dependencies)."
-- **Don't double-create.** If the feature already has dependency-linked
-  sub-issues, warn and STOP (the `init` guard).
+- **Use the native APIs for linkage, don't hand-roll a text checklist.** The
+  feature↔task link is the native sub-issue attach; the ordering is native
+  blocked-by dependencies. Don't write a parallel `## Tasks` checklist or
+  `**Blocked by:**` body lines — they'd drift against the native state. The
+  only feature mutation is ONE append-only comment: "Planned: N sub-issues
+  created." (A single non-authoritative note like "_Tasks tracked as native
+  sub-issues._" in the body is fine, but never a manual checklist.)
+- **Don't double-create.** If the feature already has native sub-issues, warn
+  and STOP (the `init` guard).
 - **Don't recolour an existing label.** Ensure labels exist; create only
   the missing ones, never edit one that's already there.
-- **Don't make partial Forgejo mutations on cancel.** Cancel routes bail
+- **Don't make partial GitHub mutations on cancel.** Cancel routes bail
   before any `create-issues` call.
 
 ## ARGUMENTS
 
-The user passes a single feature-issue reference — a Forgejo issue URL,
+The user passes a single feature-issue reference — a GitHub issue URL,
 `<owner>/<repo>#N`, or a bare `#N` resolved in the cwd repo — plus the
 optional `--help` / `-h` (print help and exit). There are no other flags.
 

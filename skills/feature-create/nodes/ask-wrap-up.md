@@ -47,4 +47,4 @@ scripts/walk.sh transition --state "$STATE" --from ask_wrap_up --to terminal --c
 - **The offer is yours; the call is the user's.** Make the wrap-up offer when you
   sense convergence; don't force it.
 - **Nothing is filed until `create-issue`.** Drafting just assembles and renders;
-  Forgejo isn't touched until the user approves at `ask-create`.
+  GitHub isn't touched until the user approves at `ask-create`.

@@ -7,8 +7,7 @@ everything in one place before the single approval gate.
 
 - `tasks_plan_path`, `proposed_issue_count`, `feature_title`,
   `feature_number`, `feature_url`, `owner_repo`, `missing_labels`,
-  `deps_enabled`, `uncovered_tasks`, `orphan_issues`, `plan_md_path` from
-  walker state
+  `uncovered_tasks`, `orphan_issues`, `plan_md_path` from walker state
 
 ```bash
 STATE="$SESSION_DIR/.walk-state.json"
@@ -25,27 +24,22 @@ Render inline, in this order:
 Feature:      <owner_repo>#<feature_number> — <feature title>
               <feature_url>
 Repo:         <owner_repo>
-Dependencies: on   (native blocker links + feature-blocked-by-each-task)
-              — or, if enabling failed —
-              off  (couldn't enable the feature; ordering recorded in issue
-                    bodies only; the feature-blocked-by links can't be wired
-                    natively — enable via Settings → Repository → Issues →
-                    "Enable Dependencies", then re-plan)
+Linkage:      native sub-issues (feature↔task hierarchy + progress bar)
+Ordering:     native blocked-by dependencies (task-to-task)
 ```
-
-The `Dependencies` line reflects `deps_enabled` from `orient` (which enables
-the feature when off), so this is normally `on`.
 
 ### 2. Linkage model
 
 State plainly how the sub-issues attach to the feature:
 
 ```
-Each sub-issue will be self-assigned to coreydaley and linked so the
-feature #<feature_number> is "blocked by" it. No milestone is created; no
-checklist is written into the feature body — the dependencies ARE the plan.
-A single comment will be posted on the feature: "Planned: N sub-issues
-created (see Dependencies)."
+Each sub-issue will be self-assigned to coreydaley and attached as a NATIVE
+sub-issue of feature #<feature_number> (GitHub renders the child list +
+progress bar on the parent). Task-to-task ordering is wired as native
+blocked-by dependencies between the sub-issues. No milestone is created; no
+manual checklist is written into the feature body. A single comment will be
+posted on the feature: "Planned: N sub-issues created (tracked as native
+sub-issues)."
 ```
 
 ### 3. Plan summary
@@ -66,9 +60,10 @@ One row per task (one sub-issue per task). Columns carry the relationships:
 | 3 | ...   | P1       | priority/p1   | c.go  | -          | 2       |
 ```
 
-`Depends on` is a hard blocker (native dependency when `deps_enabled`, else
-body ref); `Related` is a soft `#N` cross-reference. Both reference the
-proposed `#` column (resolved to real issue numbers after creation).
+`Depends on` is a hard blocker (wired as a native blocked-by dependency);
+`Related` is a soft `#N` cross-reference (a `## Related` body line). Both
+reference the proposed `#` column (resolved to real issue numbers after
+creation).
 
 ### 5. Coverage check
 

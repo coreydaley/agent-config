@@ -2,7 +2,7 @@
 name: issue-create
 description: >-
   State-machine-driven capture of a standalone bug / enhancement / chore / docs /
-  refactor / test / performance / security item as a tracked Forgejo ISSUE in the
+  refactor / test / performance / security item as a tracked GitHub ISSUE in the
   cwd repo — the issue body IS the report. The single-issue track, distinct from
   /feature-create (decomposable feature specs); the two tracks stay separate (no
   promotion to feature). Resolves the repo, reads the README for grounding, lets
@@ -12,7 +12,7 @@ description: >-
   severity is actually knowable — walks a short guided aid to settle priority
   (p0 / p1 / defer). Files the issue self-assigned with a `type/*` and `priority/*`
   label only — never `size/*` (a work-time estimate) and never `deferred/*` (a sweep
-  decision). Guided long-form only (no one-liner — use Forgejo directly for that).
+  decision). Guided long-form only (no one-liner — use GitHub directly for that).
   Takes an optional one-line rough idea to seed the discussion. Invoke via
   /issue-create.
 argument-hint: "[<rough idea>] [--help]"
@@ -23,7 +23,7 @@ model: opus
 # Issue Create
 
 State-machine-driven capture of a standalone **issue** (bug, enhancement, chore,
-docs, refactor, test, performance, or security) as a tracked Forgejo **issue** in
+docs, refactor, test, performance, or security) as a tracked GitHub **issue** in
 the cwd repo. The skill walks the graph in `graph.dot`, executing each node's
 prose from `nodes/<id>.md`, until it reaches the terminal node.
 
@@ -35,7 +35,7 @@ feature-sized, you re-capture it with `/feature-create`. Keeping the tracks
 separate is intentional.
 
 **Why an issue.** Same reasoning as features: discrete, trackable work lives where
-Forgejo gives native lifecycle — labels, open/closed, board, dependencies. The
+GitHub gives native lifecycle — labels, open/closed, board, dependencies. The
 issue body IS the report; there's no separate doc.
 
 **It captures one item, well.** A clear title, a type-appropriate body, and a
@@ -94,10 +94,10 @@ It deliberately does **NOT** apply:
 
 If the user's arguments include `--help` or `-h` (in any position), print the
 blurb below verbatim and stop. **Don't proceed to init or anything else.** Help
-mode is a pure print-and-exit; no state file, no Forgejo calls.
+mode is a pure print-and-exit; no state file, no GitHub calls.
 
 ```
-/issue-create — capture a standalone bug / enhancement / chore / etc. as a Forgejo issue.
+/issue-create — capture a standalone bug / enhancement / chore / etc. as a GitHub issue.
 
 What it does
   Resolves the cwd repo, reads the README for grounding, then:
@@ -114,7 +114,7 @@ What it does
 When to use it
   Any standalone bug or improvement. For decomposable, spec-sized work use
   /feature-create instead — the two tracks are kept separate. For a quick
-  one-liner, just file it in Forgejo directly; this skill is the guided long form.
+  one-liner, just file it in GitHub directly; this skill is the guided long form.
 
 Usage
   /issue-create                          # interactive
@@ -123,7 +123,7 @@ Usage
 
 Output
   Working draft:  ~/Reports/<org>/<repo>/issues/<TS>/ISSUE.md  (ephemeral)
-  Durable record: the Forgejo issue (its body is the report).
+  Durable record: the GitHub issue (its body is the report).
 
 No pipeline
   This skill stops at the filed issue. There is no plan/work follow-on
@@ -214,7 +214,7 @@ the External Content policy in `CLAUDE.md`.
 - **Don't skip the priority aid.** Priority is required, and it's decided at the end.
 - **Don't file without confirmation.** `create-issue` is the only mutation; it runs
   only after `ask-create` = `user_create`.
-- **Don't run git, create a milestone, or write a repo file.** The Forgejo issue is
+- **Don't run git, create a milestone, or write a repo file.** The GitHub issue is
   the record; the local `ISSUE.md` is an ephemeral working copy.
 - **Don't auto-create unrelated labels.** Only the chosen `type/*` and `priority/*`,
   and only if they don't already exist (never recolour an existing label).

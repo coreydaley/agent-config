@@ -60,8 +60,8 @@ Invoke with `/command-name` in Claude Code. Commands with `disable-model-invocat
 |---|---|
 | `/commit` | Analyze uncommitted changes and create grouped conventional commits |
 | `/tag` | Analyze commits since last tag and propose the next semantic version |
-| `/feature-create` | Capture a feature as a Forgejo issue (`label:feature`); README-grounded, explores + structures the spec, large features graded by a fresh reviewer before filing |
-| `/feature-plan` | One-shot multi-agent plan that decomposes a feature issue into dependency-linked, self-assigned sub-issues (the feature is "blocked by" each task) |
+| `/feature-create` | Capture a feature as a GitHub issue (`type/feature` label); README-grounded, explores + structures the spec, large features graded by a fresh reviewer before filing |
+| `/feature-plan` | One-shot multi-agent plan that decomposes a feature issue into self-assigned native GitHub sub-issues, ordered by blocked-by dependencies |
 | `/feature-work` | Build a feature's sub-issues autonomously on a `feature/<slug>` branch — one commit per sub-issue with `Closes #N`, pushed (no merge); ends with a defer punch list |
 | `/review-pr-simple` | Single-agent PR review → `REVIEW.md` |
 | `/review-pr-comprehensive` | Comprehensive multi-phase PR review (review → synthesis → devil's advocate) → `REVIEW.md` |
@@ -105,7 +105,7 @@ Skills are auto-discovered from `~/.claude/skills/`. Each skill has a `SKILL.md`
 | `gws` | Google Workspace operations — Gmail, Calendar, Drive, Docs, Sheets, Tasks |
 | `obsidian` | Obsidian vault operations via the `obsidian` CLI |
 | `orbstack` | OrbStack management — Linux machines, Docker, Kubernetes |
-| `feature-create` | Capture a feature as a Forgejo issue (`label:feature`), README-grounded; explores + structures the spec, large features graded by a fresh reviewer before filing |
+| `feature-create` | Capture a feature as a GitHub issue (`type/feature` label), README-grounded; explores + structures the spec, large features graded by a fresh reviewer before filing |
 | `feature-plan` | One-shot multi-agent planning of a feature issue into dependency-linked, self-assigned sub-issues (strict orchestrator/worker separation; the feature is "blocked by" each task) |
 | `feature-work` | Build a feature's sub-issues autonomously on a `feature/<slug>` branch — one commit per sub-issue with `Closes #N`, pushed (no merge); git-derived resume; ends with a defer punch list |
 | `review-pr-simple` | Single-agent PR review → `REVIEW.md` |
@@ -139,7 +139,7 @@ The report is a reference document. To act on findings, capture them as a featur
 
 ## Feature workflow output
 
-All feature, review, and audit artifacts live under `~/Reports/<org>/<repo>/`, derived from the source repo (`upstream` remote, falling back to `origin`). Nothing is written into the project repo itself. The **durable** record of a feature is its Forgejo issue + sub-issues + the commits that close them; the local files are ephemeral working copies.
+All feature, review, and audit artifacts live under `~/Reports/<org>/<repo>/`, derived from the source repo (`upstream` remote, falling back to `origin`). Nothing is written into the project repo itself. The **durable** record of a feature is its GitHub issue + native sub-issues + the commits that close them; the local files are ephemeral working copies.
 
 ```
 ~/Reports/<org>/<repo>/

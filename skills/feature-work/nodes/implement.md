@@ -69,28 +69,28 @@ When the whole list is done, transition via `feature_walk_complete → summarize
 
 ## Track the sub-issue (always)
 
-Keep the Forgejo sub-issue's state in step with the work — this is how progress is visible on the board without a PR. All of this is on the sub-issue's own repo (`<owner>/<repo>` from the `<owner>/<repo>#<m>` ref).
+Keep the GitHub sub-issue's state in step with the work — this is how progress is visible on the board without a PR. All of this is on the sub-issue's own repo (`<owner>/<repo>` from the `<owner>/<repo>#<m>` ref).
 
 Resolve the active user once:
 
 ```bash
-ME=$(tea whoami 2>/dev/null)   # the authenticated Forgejo username
+ME=$(gh api user --jq .login)   # the authenticated GitHub username
 ```
 
 **At the start of a sub-issue** (loop step 4, or once for a single sub-issue):
 
 ```bash
 # Assign it to yourself — the lightweight "I'm on this" signal.
-tea issues edit "<m>" --repo "<owner>/<repo>" --add-assignees "$ME"
+gh issue edit "<m>" --repo "<owner>/<repo>" --add-assignee "$ME"   # or --add-assignee @me
 
-# Post a starting comment (attribution suffix per the forgejo skill).
-tea issues "<m>" --repo "<owner>/<repo>" --add-comments \
-  "🔧 Starting work on this. *(via Claude Code)*"
+# Post a starting comment (attribution suffix per the gh skill).
+gh issue comment "<m>" --repo "<owner>/<repo>" \
+  --body "🔧 Starting work on this. *(via Claude Code)*"
 
 # Move status — ONLY if a matching label already exists in the repo
-# (check `tea labels list --repo <owner>/<repo>`; never auto-create labels).
-tea issues edit "<m>" --repo "<owner>/<repo>" \
-  --add-labels "in progress" --remove-labels "todo"   # only if those labels exist
+# (check `gh label list --repo <owner>/<repo>`; never auto-create labels).
+gh issue edit "<m>" --repo "<owner>/<repo>" \
+  --add-label "in progress" --remove-label "todo"   # only if those labels exist
 ```
 
 If the repo has no status labels, the assignee + open state is the status — don't invent labels.
@@ -124,7 +124,7 @@ For work that spans multiple repos: make the edits in each affected worktree; `c
 
 ## ID Suppression Rule
 
-**Don't reference internal review/sprint identifiers** (`R001`, `SR042`, `CR007`, etc.) in code, comments, or commit messages. Forgejo issue refs (e.g. `#42`, `coreydaley/enclave#42`) are fine — they're the public repo identifiers.
+**Don't reference internal review/sprint identifiers** (`R001`, `SR042`, `CR007`, etc.) in code, comments, or commit messages. GitHub issue refs (e.g. `#42`, `coreydaley/enclave#42`) are fine — they're the public repo identifiers.
 
 ## Comment Hygiene Rule
 

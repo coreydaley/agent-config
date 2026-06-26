@@ -26,5 +26,5 @@ None. Terminal is a sink.
 - **PLAN.md and intent.md stay on disk** even on cancel. The user can use
   them manually, or delete the session folder.
 - **Don't create issues, don't comment, don't push.** On the cancel path,
-  this skill leaves Forgejo untouched; on the success path, `create-issues`
+  this skill leaves GitHub untouched; on the success path, `create-issues`
   already did the mutations and `handoff` reported them.

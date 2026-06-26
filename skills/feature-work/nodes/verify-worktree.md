@@ -17,9 +17,9 @@ The same `feature/<slug>` worktree per repo serves the whole run, including ever
 
 ## Path conventions
 
-- **Bare clone:** `~/Code/mac-mini.example/<org>/<repo>/`
-  (the Forgejo host dir, per the user's `~/Code/<host>/<org>/<repo>/` convention)
-- **Worktree (feature branch):** `~/Code/mac-mini.example/<org>/<repo>/<feature-slug>/`
+- **Bare clone:** `~/Code/github.com/<org>/<repo>/`
+  (the GitHub host dir, per the user's `~/Code/<host>/<org>/<repo>/` convention)
+- **Worktree (feature branch):** `~/Code/github.com/<org>/<repo>/<feature-slug>/`
   - The dir name is the branch's last path segment (`feature/42-foo` → dir `42-foo`); pass an explicit path to `git worktree add` so the `feature/` prefix isn't treated as a directory.
 
 ## Per-repo flow
@@ -28,7 +28,7 @@ For each entry in `$REPOS`, with `$BASE_BRANCH` = that repo's `default_branch` a
 
 ```bash
 ORG=<org>; REPO=<repo>
-BARE="$HOME/Code/mac-mini.example/$ORG/$REPO"
+BARE="$HOME/Code/github.com/$ORG/$REPO"
 WT_DIR_NAME="${FEATURE_BRANCH##*/}"   # last segment, e.g. 42-foo
 ```
 
@@ -37,7 +37,7 @@ WT_DIR_NAME="${FEATURE_BRANCH##*/}"   # last segment, e.g. 42-foo
 ```bash
 if [ ! -d "$BARE" ]; then
   echo "Repo $ORG/$REPO not cloned at $BARE"
-  echo "Clone first: git clone --bare ssh://git@mac-mini.example:2222/$ORG/$REPO.git $BARE"
+  echo "Clone first: git clone --bare https://github.com/$ORG/$REPO.git $BARE"
   ROUTE_TO_TERMINAL=true
 fi
 ```
@@ -117,10 +117,7 @@ fi
 No prompt — create it. Resolve the base (the repo's default branch) first, fetch so the local ref is current, then create the feature branch worktree from it with an **explicit path argument**:
 
 ```bash
-  TOKEN=$(awk '/name: homelab/{f=1} f&&/token:/{print $2; exit}' "$HOME/Library/Application Support/tea/config.yml")
-  BASE_BRANCH=$(curl -sk -H "Authorization: token $TOKEN" \
-    "https://mac-mini.example:3000/api/v1/repos/$ORG/$REPO" \
-    | jq -r '.default_branch')
+  BASE_BRANCH=$(gh repo view "$ORG/$REPO" --json defaultBranchRef --jq .defaultBranchRef.name)
 
   # Resolve the base ref — upstream is source-of-truth in our workflow, then origin.
   if git -C "$BARE" rev-parse --verify "upstream/$BASE_BRANCH" >/dev/null 2>&1; then
