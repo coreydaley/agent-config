@@ -171,3 +171,5 @@ Scripts go in `scripts/`, experiments and POCs go in `projects/<n>/`. Run `make 
 **Organize repositories under `~/Code/<host>/<org>/<repo>/`.** For example, `~/Code/mac-mini.example/coreydaley/dotfiles/` (Forgejo, your default) or `~/Code/github.com/<owner>/<repo>/` (third-party GitHub clones). Always clone into this structure regardless of the host or org.
 
 **For forked repositories, always configure the upstream remote.** After cloning a fork, add the original repo as `upstream` via `git remote add upstream <original-url>`.
+
+**Remote protocol: HTTPS for GitHub.** GitHub remotes use **HTTPS** (`https://github.com/<owner>/<repo>.git`) — `gh auth` installs an HTTPS credential helper, so HTTPS authenticates via the gh token with no SSH key in the loop; this is GitHub's default and the consistent choice for a gh-centric workflow. All active repos (agent-config, dotfiles, sandbox, mac-mini, coreydaley-dev, purrchiver, secretstore, swift-kits) use GitHub `origin` over HTTPS and are the single source of truth.
