@@ -1,9 +1,8 @@
-# agent-config
+# Claude config (`claude/`)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![GitHub issues](https://img.shields.io/github/issues/coreydaley/agent-config)](https://github.com/coreydaley/agent-config/issues)
 
-A personal configuration repository for [Claude Code](https://claude.ai/code) — managing instructions, skills, commands, and subagents in one place, version-controlled and symlinked into `~/.claude/`.
+The personal [Claude Code](https://claude.ai/code) configuration — instructions, skills, commands, and subagents — symlinked into `~/.claude/`. Lives under `claude/` in the [dotfiles](https://github.com/coreydaley/dotfiles) repo. _(Formerly the standalone `agent-config` repo, now archived and merged here.)_
 
 > **Security notice:** The contents of this repository flow directly into Claude's system prompt. Review all files before use, and never commit secrets or credentials. A `gitleaks` pre-commit hook is included to help catch leaks before they happen.
 
@@ -23,13 +22,13 @@ A personal configuration repository for [Claude Code](https://claude.ai/code) �
 ## Setup
 
 ```bash
-git clone https://github.com/coreydaley/agent-config.git
-cd agent-config
+git clone https://github.com/coreydaley/dotfiles.git
+cd dotfiles
 brew install gitleaks
 make all
 ```
 
-`make all` creates symlinks into `~/.claude/` and installs the gitleaks pre-commit hook. It is idempotent — safe to run multiple times.
+dotfiles' `make all` runs the `symlink-claude` target (among others), which symlinks `claude/` into `~/.claude/` and installs the gitleaks hooks. It is idempotent — safe to run multiple times.
 
 ### What gets symlinked
 
@@ -47,9 +46,9 @@ Existing files at symlink destinations are backed up with a `.old` extension bef
 ### Individual targets
 
 ```bash
-make symlinks   # Create ~/.claude/ symlinks only
-make hooks      # Install gitleaks pre-commit hook only
-make help       # Show all available targets
+make symlink-claude   # Create ~/.claude/ symlinks only
+make hooks            # Install gitleaks pre-commit hook only
+make help             # Show all available targets
 ```
 
 ## Commands

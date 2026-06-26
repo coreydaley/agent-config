@@ -1,0 +1,2 @@
+# Custom slash commands live here (invoke with /command-name).
+# Tracked so the ~/.claude/commands symlink target always exists.

@@ -124,7 +124,7 @@ gh release upload v1.2.3 ./dist/*.tar.gz
 
 Conventions when cloning a new repo to work on (per `~/.claude/CLAUDE.md`):
 
-1. **Clone location**: `~/Code/<host>/<org>/<repo>/` (e.g. `~/Code/github.com/coreydaley/agent-config/`)
+1. **Clone location**: `~/Code/<host>/<org>/<repo>/` (e.g. `~/Code/github.com/coreydaley/dotfiles/`)
 2. **Always bare clone**, so the directory can host git worktrees
 3. **Branches via worktrees**: use `git worktree add` rather than checking out in the bare repo directly
 4. **For forks**: configure the original repo as `upstream` after cloning
