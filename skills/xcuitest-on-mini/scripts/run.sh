@@ -31,6 +31,9 @@ TEST_FILTER=""
 RUN_ALL=false
 CI_MODE=false
 PULL_XCRESULT=false
+# xcodebuild -destination. Default macOS (the historical behaviour); override
+# for iOS/iPadOS UI tests, e.g. --destination 'platform=iOS Simulator,name=iPad (A16)'.
+DESTINATION="platform=macOS"
 
 usage() {
   cat <<'EOF'
@@ -57,6 +60,9 @@ FLAGS
                     when you need a mini run to actually predict CI; the
                     default xcodebuild-over-.xctestplan run is serial and
                     does not reproduce CI's per-package parallelism.
+  --destination D   xcodebuild -destination string. Default: 'platform=macOS'.
+                    For iOS/iPadOS UI tests pass an iOS Simulator destination,
+                    e.g. --destination 'platform=iOS Simulator,name=iPad (A16)'.
   --scheme NAME     Xcode scheme name. Default: derived from the
                     .xcodeproj basename.
   --project PATH    Path to the .xcodeproj. Default: first .xcodeproj
@@ -100,6 +106,7 @@ while [[ $# -gt 0 ]]; do
     --all) RUN_ALL=true; shift ;;
     --ci) CI_MODE=true; shift ;;
     --scheme) SCHEME="$2"; shift 2 ;;
+    --destination) DESTINATION="$2"; shift 2 ;;
     --project) PROJECT_PATH="$2"; shift 2 ;;
     --pull-xcresult) PULL_XCRESULT=true; shift ;;
     --) shift; TEST_FILTER="${1:-}"; break ;;
@@ -258,7 +265,7 @@ else
     cd "${REMOTE_ROOT}" \&\& xcodebuild test
     "${CONTAINER_FLAG}" "'${REL_CONTAINER}'"
     -scheme "'${SCHEME}'"
-    -destination "'platform=macOS'"
+    -destination "'${DESTINATION}'"
     -resultBundlePath "'build/remote-tests.xcresult'"
   )
 
