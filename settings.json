@@ -37,8 +37,9 @@
   "skipDangerousModePermissionPrompt": true,
   "skipWorkflowUsageWarning": true,
   "theme": "light",
+  "switchModelsOnFlag": false,
   "teammateMode": "tmux",
   "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
-  "switchModelsOnFlag": false
+  "tui": "fullscreen"
 }
