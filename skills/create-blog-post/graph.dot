@@ -1,0 +1,47 @@
+// create-blog-post state machine.
+//
+// Source of truth for the create-blog-post skill. The walker (Claude, per
+// SKILL.md) reads each node's prose from nodes/<id>.md, performs the work,
+// evaluates the outgoing edges' conditions, and transitions via
+// scripts/walk.sh.
+//
+// Single-author blog workflow: Claude drafts, a fresh Claude sub-agent gives a
+// professional editorial critique, Claude finalizes. Intermediate artifacts
+// live OUTSIDE the repo under ~/Reports/<org>/<repo>/blog-posts/<slug>/ (the
+// project-wide convention).
+//
+// Render to SVG with scripts/render.sh. Validate with scripts/validate.py.
+
+digraph create_blog_post {
+    rankdir=TB;
+    bgcolor="white";
+    node  [fontname="Helvetica", fontsize=11];
+    edge  [fontname="Helvetica", fontsize=9];
+
+    // -- Process nodes (rounded boxes, light blue) ----------------------
+    init             [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="init\n(parse args, set up walker state)"];
+    orient           [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="orient\n(research, conventions, slug,\nresolve $DRAFTS_DIR)"];
+    draft            [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="draft (Claude)\n(write the draft)"];
+    editorial_review [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="editorial-review (sub-agent)\n(fresh-context editorial critique)"];
+    finalize         [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="finalize (Claude)\n(write final post, draft=false)"];
+
+    // -- Terminal node (green double-circle) ---------------------------
+    terminal         [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
+                      label="terminal"];
+
+    // -- Edges ---------------------------------------------------------
+    // Single-outgoing edges (no condition needed).
+    orient           -> draft;
+    draft            -> editorial_review;
+    editorial_review -> finalize;
+    finalize         -> terminal;
+
+    // init: help mode vs a real run.
+    init -> orient   [label="run"];
+    init -> terminal [label="help"];
+}
