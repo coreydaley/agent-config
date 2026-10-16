@@ -22,7 +22,7 @@ disable-model-invocation: false
 The Apple-ecosystem XCUITest grabs the screen via the "Automation
 Running" indicator for the duration of a UI test run. On a developer's
 primary Mac that interrupts everything else they're doing. The user
-has a Mac mini (`mac-mini.example`) sitting there as the CI
+has a Mac mini (`$XCUITEST_ON_MINI_HOST`) sitting there as the CI
 runner — use it for ad-hoc UI test runs too.
 
 This skill exists because:
@@ -47,7 +47,7 @@ This skill exists because:
    a bare project the package suites would silently not run.
 2. Pre-creates the destination dir on the mini.
 3. Rsyncs the local working tree → a **dedicated staging dir** on the
-   mini (`$XCUITEST_ON_MINI_DIR`, default `~/.xcuitest-on-mini`)
+   mini (`$XCUITEST_ON_MINI_DIR`, default `~/.xcuitest-on-mini` of the remote user)
    with the local path preserved beneath it. Excludes `.git`, `build/`,
    `DerivedData/`, `.build/`, `node_modules/`, `xcuserdata/`,
    `*.xcresult`, etc. — only source files travel.
@@ -60,7 +60,7 @@ This skill exists because:
 
 Path mapping is **namespaced, not identity**: `$LOCAL_ROOT` becomes
 `$XCUITEST_ON_MINI_DIR$LOCAL_ROOT` on the mini (e.g.
-`~/.xcuitest-on-mini~/Code/.../main`). The mini
+`~/.xcuitest-on-mini/Users/<you>/Code/.../main`). The mini
 is the CI / test runner host and has its own
 checkouts at the live `~/Code/...` paths — mirroring under a
 dedicated staging dir keeps the `rsync --delete` from ever clobbering
@@ -108,7 +108,7 @@ bash scripts/run.sh --help
 
 ## Setup expectations
 
-- The Mac mini must be reachable as `corey@mac-mini.example`
+- `XCUITEST_ON_MINI_HOST` must be set (e.g. in `~/.zshrc`), and the Mac mini must be reachable as `$XCUITEST_ON_MINI_USER@$XCUITEST_ON_MINI_HOST` (user defaults to your local username)
   via SSH key auth (no password).
 - Xcode must be installed on the mini at the canonical location.
 - `brew install xcbeautify` on the mini is optional but nicer
@@ -138,7 +138,7 @@ second runner:
 - `XCUITEST_ON_MINI_HOST=…`
 - `XCUITEST_ON_MINI_USER=…`
 - `XCUITEST_ON_MINI_DIR=…` (remote staging base; default
-  `~/.xcuitest-on-mini`)
+  `~/.xcuitest-on-mini` of the remote user)
 
 ## Why the double sudo + launchctl dance
 

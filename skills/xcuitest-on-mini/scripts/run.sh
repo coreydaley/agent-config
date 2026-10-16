@@ -10,7 +10,7 @@
 #
 # Path mapping is NOT identity: the local tree is mirrored UNDER a
 # dedicated staging dir on the mini ($XCUITEST_ON_MINI_DIR, default
-# ~/.xcuitest-on-mini) with its full local path preserved
+# ~/.xcuitest-on-mini of the remote user) with its full local path preserved
 # beneath it. This keeps the rsync --delete from ever touching the
 # mini's own checkouts (it's the CI / test runner host), and gives
 # each worktree its own collision-free mirror +
@@ -22,9 +22,10 @@ set -euo pipefail
 # Configuration (overridable via flags; see help)
 # -----------------------------------------------------------------------
 
-REMOTE_HOST="${XCUITEST_ON_MINI_HOST:-mac-mini.example}"
-REMOTE_USER="${XCUITEST_ON_MINI_USER:-corey}"
-REMOTE_MIRROR_BASE="${XCUITEST_ON_MINI_DIR:-~/.xcuitest-on-mini}"
+# The host has no default: set XCUITEST_ON_MINI_HOST in your shell profile.
+REMOTE_HOST="${XCUITEST_ON_MINI_HOST:-}"
+REMOTE_USER="${XCUITEST_ON_MINI_USER:-$(id -un)}"
+REMOTE_MIRROR_BASE="${XCUITEST_ON_MINI_DIR:-/Users/${REMOTE_USER}/.xcuitest-on-mini}"
 SCHEME=""
 PROJECT_PATH=""
 TEST_FILTER=""
@@ -73,12 +74,12 @@ FLAGS
   --help, -h        Print this help and exit.
 
 ENVIRONMENT
-  XCUITEST_ON_MINI_HOST   Remote hostname. Default: mac-mini.example
-  XCUITEST_ON_MINI_USER   Remote SSH user. Default: corey
+  XCUITEST_ON_MINI_HOST   Remote hostname (required), e.g. the mini's Bonjour name
+  XCUITEST_ON_MINI_USER   Remote SSH user. Default: your local username
   XCUITEST_ON_MINI_DIR    Remote staging base the local tree is mirrored
                           under (local path preserved beneath it). Keeps
                           rsync --delete off the mini's own checkouts.
-                          Default: ~/.xcuitest-on-mini
+                          Default: /Users/<remote user>/.xcuitest-on-mini
 
 EXAMPLES
   # Run all UI tests (default behavior)
@@ -122,6 +123,11 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ -z "$REMOTE_HOST" ]]; then
+  echo "error: set XCUITEST_ON_MINI_HOST to the Mac mini's hostname (e.g. in ~/.zshrc)" >&2
+  exit 2
+fi
 
 # -----------------------------------------------------------------------
 # Detect project root + scheme
