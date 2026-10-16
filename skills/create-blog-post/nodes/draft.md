@@ -27,7 +27,7 @@ Write a complete, publication-ready draft following all project conventions.
   categories = ["..."]
   +++
   ```
-  - `description`: SEO-friendly, ~75 words. Drives `<meta>`/og description, social previews, Pagefind search, and the post-list excerpts.
+  - `description`: one or two sentences, **170 characters max** (the site trims post-card summaries past that). Drives `<meta>`/og description, social previews, Pagefind search, and the post-list excerpts. If the repo `CLAUDE.md` sets a different limit, follow it.
   - `summary`: A single tight excerpt — 1–2 sentences, ~40–60 words — used as the RSS feed item description. Plain prose, no multi-paragraph structure, no "Read more" line (RSS clients link the post themselves). This is the only place `summary` is consumed.
   - `tags`: lowercase, hyphenated. **From the approved list in CLAUDE.md only. Cap at 4.**
   - `categories`: **exactly 1**, Title Case, from the fixed list in CLAUDE.md.
