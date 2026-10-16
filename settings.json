@@ -10,7 +10,7 @@
     ],
     "deny": []
   },
-  "model": "sonnet",
+  "model": "opus[1m]",
   "hooks": {
     "Stop": [
       {
@@ -40,5 +40,6 @@
   "teammateMode": "tmux",
   "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
-  "tui": "fullscreen"
+  "tui": "fullscreen",
+  "effortLevel": "high"
 }
