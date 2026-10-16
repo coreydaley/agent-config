@@ -55,7 +55,7 @@ CLAUDE.md files are loaded hierarchically: `~/.claude/CLAUDE.md` (global) → pr
 
 ## Agent Config
 
-Lives under `claude/` in the **dotfiles** repo (`~/Code/github.com/coreydaley/dotfiles/`; GitHub `coreydaley/dotfiles` is the source of truth). Contains CLAUDE.md, commands, lib, skills, and subagents — all symlinked into `~/.claude/` via dotfiles' `make all` (the `symlink-claude` target). _(Formerly the standalone `coreydaley/agent-config` repo, now archived and merged here.)_
+Lives in the **agent-config** repo (`~/Code/github.com/coreydaley/agent-config/`; GitHub `coreydaley/agent-config` is the source of truth). Contains CLAUDE.md, settings.json, commands, lib, skills, and subagents — all symlinked into `~/.claude/` via `make all`. **The repo is public**: its pre-commit/pre-push hooks (`make hooks`) run gitleaks and `scripts/check-personal-info.py` (hostnames, private IPs, emails, phone numbers, home paths, plus a private denylist at `~/.config/agent-config/denylist`). Never put secrets, personal details, or machine-specific values (hostnames, usernames) in it — read them from environment variables set in the private dotfiles instead.
 
 ## Skills
 
@@ -67,7 +67,7 @@ Custom slash commands live in `~/.claude/commands/`. Invoke with `/command-name`
 
 ## Lib
 
-Shared libraries live in `~/.claude/lib/` (symlinked from `dotfiles/claude/lib/`). Skills that need them add the lib path via:
+Shared libraries live in `~/.claude/lib/` (symlinked from `agent-config/lib/`). Skills that need them add the lib path via:
 
 ```python
 import sys
@@ -143,7 +143,7 @@ Layout convention per contributing repo:
 ```
 
 Naming convention to avoid collisions across repos:
-- The core Claude config (`dotfiles/claude`) owns generic verbs/topics: `audit-*`, `feature-*`, `review-*`, `commit`, `gh`, `obsidian`, `orbstack`.
+- The core Claude config (`agent-config`) owns generic verbs/topics: `audit-*`, `feature-*`, `review-*`, `commit`, `gh`, `obsidian`, `orbstack`.
 - Project repos use a project prefix: `apt-*` for Agent Project Tracker, future apps follow the same pattern.
 - If a collision ever occurs, last-installed wins via symlink replacement — easy to detect by listing `~/.claude/skills/`.
 
@@ -171,4 +171,4 @@ Scripts go in `scripts/`, experiments and POCs go in `projects/<n>/`. Run `make 
 
 **For forked repositories, always configure the upstream remote.** After cloning a fork, add the original repo as `upstream` via `git remote add upstream <original-url>`.
 
-**Remote protocol: HTTPS for GitHub.** GitHub remotes use **HTTPS** (`https://github.com/<owner>/<repo>.git`) — `gh auth` installs an HTTPS credential helper, so HTTPS authenticates via the gh token with no SSH key in the loop; this is GitHub's default and the consistent choice for a gh-centric workflow. All active repos (dotfiles, sandbox, mac-mini, coreydaley-dev, purrchiver, secretstore, swift-kits) use GitHub `origin` over HTTPS and are the single source of truth. (The Claude config now lives under `dotfiles/claude`, formerly the separate `agent-config` repo.)
+**Remote protocol: HTTPS for GitHub.** GitHub remotes use **HTTPS** (`https://github.com/<owner>/<repo>.git`) — `gh auth` installs an HTTPS credential helper, so HTTPS authenticates via the gh token with no SSH key in the loop; this is GitHub's default and the consistent choice for a gh-centric workflow. All active repos (agent-config, dotfiles, sandbox, mac-mini, coreydaley-dev, purrchiver, secretstore, swift-kits) use GitHub `origin` over HTTPS and are the single source of truth.

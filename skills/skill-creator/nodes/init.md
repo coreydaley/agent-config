@@ -37,10 +37,10 @@ Parse arguments, set up the state file, prepare for the discussion.
    from a cold question.
 
 5. **Resolve the Claude config skills directory** (follow the `~/.claude/skills`
-   symlink to its real location — currently `dotfiles/claude/skills`, but resolving
+   symlink to its real location — currently `agent-config/skills`, but resolving
    the symlink keeps this correct if the repo ever moves) and stash it:
    ```bash
-   SKILLS_DIR="$(readlink "$HOME/.claude/skills")"   # real path, e.g. …/dotfiles/main/claude/skills
+   SKILLS_DIR="$(readlink "$HOME/.claude/skills")"   # real path, e.g. …/agent-config/main/skills
    AGENT_CONFIG="$(dirname "$SKILLS_DIR")"            # the Claude config root
    scripts/walk.sh set --state "$STATE" --key agent_config_dir --value "$AGENT_CONFIG"
    scripts/walk.sh set --state "$STATE" --key skills_dir --value "$SKILLS_DIR"

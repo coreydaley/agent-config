@@ -1,10 +1,12 @@
-# Claude config (`claude/`)
+# agent-config
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-The personal [Claude Code](https://claude.ai/code) configuration — instructions, skills, commands, and subagents — symlinked into `~/.claude/`. Lives under `claude/` in the [dotfiles](https://github.com/coreydaley/dotfiles) repo. _(Formerly the standalone `agent-config` repo, now archived and merged here.)_
+My personal [Claude Code](https://claude.ai/code) configuration — instructions, skills, commands, and subagents — version-controlled and symlinked into `~/.claude/`. Shared in case it's useful; it's tuned to my own setup, so read before you borrow.
 
-> **Security notice:** The contents of this repository flow directly into Claude's system prompt. Review all files before use, and never commit secrets or credentials. A `gitleaks` pre-commit hook is included to help catch leaks before they happen.
+> **Security notice:** The contents of this repository flow directly into Claude's system prompt. Review all files before use, and never commit secrets or credentials. Pre-commit and pre-push hooks run `gitleaks` and a personal-info check (see [Safety hooks](#safety-hooks)), and CI runs the same scans on every push.
+
+> **⚠️ `settings.json` is permissive on purpose.** It allows every tool (`Bash(*)`, `Edit(*)`, `Write(*)`…) and skips the dangerous-mode prompt — it's my machine and my risk tolerance. Don't copy it as-is; start from Claude Code's defaults and allow only what you need.
 
 ## What's in here
 
@@ -22,13 +24,13 @@ The personal [Claude Code](https://claude.ai/code) configuration — instruction
 ## Setup
 
 ```bash
-git clone https://github.com/coreydaley/dotfiles.git
-cd dotfiles
+git clone https://github.com/coreydaley/agent-config.git
+cd agent-config
 brew install gitleaks
 make all
 ```
 
-dotfiles' `make all` runs the `symlink-claude` target (among others), which symlinks `claude/` into `~/.claude/` and installs the gitleaks hooks. It is idempotent — safe to run multiple times.
+`make all` symlinks this repo into `~/.claude/` and installs the safety hooks. It is idempotent — safe to run multiple times.
 
 ### What gets symlinked
 
@@ -46,10 +48,21 @@ Existing files at symlink destinations are backed up with a `.old` extension bef
 ### Individual targets
 
 ```bash
-make symlink-claude   # Create ~/.claude/ symlinks only
-make hooks            # Install gitleaks pre-commit hook only
-make help             # Show all available targets
+make symlinks   # Create ~/.claude/ symlinks only
+make hooks      # Install the safety hooks only
+make help       # Show all available targets
 ```
+
+## Safety hooks
+
+This repo is public, so `make hooks` installs two layers of protection:
+
+- **pre-commit** — blocks credential/key file types and large archives, runs `gitleaks protect --staged`, and runs `scripts/check-personal-info.py --staged` on the lines being added.
+- **pre-push** — `gitleaks detect` over the full history and the personal-info check over every tracked file.
+
+`scripts/check-personal-info.py` blocks home-network hostnames (`*.local`), private IPs, email addresses, phone numbers, and absolute home-directory paths, plus anything in a **private denylist** at `~/.config/agent-config/denylist` (created empty by `make hooks`, never committed — put names, employers, addresses, and the like there). Known-safe matches go in `.personal-info-allow`.
+
+CI (`.github/workflows/scan.yml`) re-runs gitleaks and the generic personal-info check on every push and pull request, in case a hook was skipped.
 
 ## Commands
 
