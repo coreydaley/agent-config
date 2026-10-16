@@ -7,7 +7,9 @@ mechanically. Drift from the documented flow becomes structurally
 impossible, not a vibes-level guarantee.
 
 This doc is the reference for the pattern. For the skills that use it,
-see the table at the bottom and each skill's `SKILL.md`.
+see the table at the bottom and each skill's `SKILL.md`. Some worked
+examples below cite review skills (`/review-pr-*`, `/polish-pull-request`)
+that have since been retired; the techniques still apply.
 
 ---
 
@@ -41,14 +43,14 @@ walks the graph: read `nodes/<current>.md`, do the work, evaluate the
 outgoing edges' conditions, transition. Repeat until terminal.
 
 A typical graph looks like this — the rendered `graph.svg` for
-`/review-pr-simple`:
+`/feature-create`:
 
-![/review-pr-simple graph](images/review-pr-simple.png)
+![/feature-create graph](../skills/feature-create/graph.svg)
 
-You can read the macro flow at a glance: linear backbone from `init`
-to `display`, three user-input gates (coral diamonds), one decision
-node (amber diamond), a `discuss` loop that returns to
-`ask-next-action`, and a single terminal sink that all cancel routes
+You can read the macro flow at a glance: a linear backbone from `init`
+through `orient` and `kickoff` into a `discuss` loop, user-input gates
+(coral diamonds) for wrapping up and creating the issue, a size-gated
+readiness check, and a single terminal sink that all cancel routes
 converge on. Per-node prose in `nodes/<id>.md` covers the work each
 node does.
 
@@ -619,14 +621,15 @@ just leave it procedural.
 
 | Skill | Nodes | Edges | Distinctive shape |
 |---|---:|---:|---|
-| `/commit` | 5 | 5 | Linear, smallest skill on the pattern |
-| `/feature-create` | 11 | 15 | Explore+structure discuss loop, size-gated readiness gate |
-| `/review-pr-simple` | 12 | 17 | Discuss loop, four-style post fork |
-| `/review-address-feedback` | 13 | 19 | Strategy-driven per-finding loop |
-| `/polish-pull-request` | 16 | 25 | Two-stage approval, preflight before destructive op |
-| `/feature-plan` | 15 | 17 | One-shot multi-agent plan → creates dependency-linked sub-issues |
-| `/review-pr-comprehensive` | 17 | 23 | Persistent worktree lifecycle + cleanup sink |
-| `/feature-work` | 12 | 15 | Autonomous per-sub-issue loop, git-derived resume |
+| `/commit` | 7 | 5 | Linear, smallest skill on the pattern |
+| `/create-blog-post` | 8 | 6 | Draft → fresh-agent critique → finalize |
+| `/project-create` | 10 | 12 | Discuss loop, single approve-or-cancel scaffold gate |
+| `/feature-create` | 13 | 15 | Explore+structure discuss loop, size-gated readiness gate |
+| `/issue-create` | 13 | 16 | Type-aware capture, optional readiness gate |
+| `/feature-work` | 14 | 16 | Autonomous per-sub-issue loop, git-derived resume |
+| `/feature-plan` | 17 | 17 | One-shot multi-agent plan → creates dependency-linked sub-issues |
+| `/skill-creator` | 18 | 23 | Pattern fork (dot-graph vs CLI wrapper), validate + smoke-test |
+| `audit-*` (29) | — | — | Shared 5-phase shape: orient → independent reviews → synthesis → devil's advocate → report → verify |
 
 The shared walker is `lib/graph_walker.py`. Each skill's
 `scripts/walk.sh` thin-wraps it with the skill's `graph.dot` path

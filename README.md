@@ -13,13 +13,12 @@ My personal [Claude Code](https://claude.ai/code) configuration — instructions
 | Path | Purpose |
 |---|---|
 | `CLAUDE.md` | Global instructions loaded by Claude Code on every session |
-| `settings.json` | Global Claude Code settings (permissions, hooks, statusline, model, theme) |
-| `commands/` | Custom slash commands (invoke with `/command-name`) |
-| `skills/` | Reusable skill modules auto-discovered by Claude Code |
-| `subagents/` | Specialized agents Claude can delegate work to |
-| `lib/` | Shared Python libraries imported by skills and commands |
-| `docs/` | Workflow documentation |
-| `scripts/` | Setup scripts |
+| `settings.json` | Global Claude Code settings (permissions, hooks, statusline, model, theme) — permissive, see the warning above |
+| `skills/` | Skills, auto-discovered by Claude Code and invoked as `/skill-name` |
+| `lib/` | Shared libraries for skills: the dot-graph walker and the audit runner/verifier |
+| `docs/` | The [dot-graph skill pattern](docs/DOT-GRAPH-SKILL-PATTERN.md) and the project-lifecycle diagram |
+| `scripts/` | Setup scripts: symlinks, safety hooks, personal-info check, statusline |
+| `commands/` | Custom slash commands — currently empty; everything is a skill |
 
 ## Setup
 
@@ -35,12 +34,13 @@ make all
 ### What gets symlinked
 
 ```
-CLAUDE.md       → ~/.claude/CLAUDE.md
-settings.json   → ~/.claude/settings.json
-commands/       → ~/.claude/commands/
-skills/         → ~/.claude/skills/
-subagents/      → ~/.claude/agents/
-lib/            → ~/.claude/lib/
+CLAUDE.md                       → ~/.claude/CLAUDE.md
+settings.json                   → ~/.claude/settings.json
+commands/                       → ~/.claude/commands/
+skills/                         → ~/.claude/skills/
+lib/                            → ~/.claude/lib/
+scripts/statusline-command.sh   → ~/.claude/statusline-command.sh
+subagents/                      → ~/.claude/agents/   (only if the folder exists; none ship today)
 ```
 
 Existing files at symlink destinations are backed up with a `.old` extension before replacement.
@@ -64,75 +64,41 @@ This repo is public, so `make hooks` installs two layers of protection:
 
 CI (`.github/workflows/scan.yml`) re-runs gitleaks and the generic personal-info check on every push and pull request, in case a hook was skipped.
 
-## Commands
-
-Invoke with `/command-name` in Claude Code. Commands with `disable-model-invocation` must be called explicitly; others may also trigger automatically based on context.
-
-| Command | Description |
-|---|---|
-| `/commit` | Analyze uncommitted changes and create grouped conventional commits |
-| `/tag` | Analyze commits since last tag and propose the next semantic version |
-| `/feature-create` | Capture a feature as a GitHub issue (`type/feature` label); README-grounded, explores + structures the spec, large features graded by a fresh reviewer before filing |
-| `/feature-plan` | One-shot multi-agent plan that decomposes a feature issue into self-assigned native GitHub sub-issues, ordered by blocked-by dependencies |
-| `/feature-work` | Build a feature's sub-issues autonomously on a `feature/<slug>` branch — one commit per sub-issue with `Closes #N`, pushed (no merge); ends with a defer punch list |
-| `/review-pr-simple` | Single-agent PR review → `REVIEW.md` |
-| `/review-pr-comprehensive` | Comprehensive multi-phase PR review (review → synthesis → devil's advocate) → `REVIEW.md` |
-| `/review-address-feedback` | Walk through review feedback and apply fixes |
-| `/polish-pull-request` | Final-pass PR cleanup before merge |
-| **Audits** (all 5-phase dot-graph skills — structurally gated $AUDIT_DIR / verify via `lib/audit-*.sh`) | |
-| `/audit-architecture` | Platform-agnostic architecture review — findings anchored to named principles + migration cost |
-| `/audit-design` | Platform-agnostic UI/UX review — HIG promoted to priority 2 on Swift projects |
-| `/audit-web-accessibility-human` | Web accessibility (WCAG 2.1/2.2) review |
-| `/audit-web-responsive` | Web responsive design review (viewport, breakpoints, touch targets) |
-| `/audit-web-security` | Backend/web/IaC/CI/agent-config security review (gitleaks + semgrep + dep scanners + trivy + actionlint, OWASP/CWE-anchored) |
-| `/audit-apple-accessibility` | Apple HIG accessibility (SwiftUI/UIKit/AppKit/WatchKit) review |
-| `/audit-apple-adaptivity` | Size classes + iPad multitasking + visionOS windowing + AX5 Dynamic Type layout (Apple-native analogue of `/audit-web-responsive`) |
-| `/audit-apple-app-store-review` | Full App Store Review Guidelines walk — preempts rejection reasons before submission |
-| `/audit-apple-architecture` | SwiftUI state ownership + `@MainActor` isolation + `Sendable` + structured concurrency + Swift Package modularization |
-| `/audit-apple-design` | Apple HIG-anchored design (SF Symbols, materials, dark mode, navigation, animation) |
-| `/audit-apple-localization` | String Catalogs + pluralization + RTL + locale-aware formatters |
-| `/audit-apple-performance` | Launch time + SwiftUI body invalidation + main-thread blocking + retain cycles + memory + energy (Instruments-anchored) |
-| `/audit-apple-persistence` | SwiftData / Core Data / GRDB + CloudKit sync + migration safety + threading |
-| `/audit-apple-privacy` | Privacy Manifest + ATT + required-reason APIs + SDK privacy declarations (preempts App Review rejection) |
-| `/audit-apple-security` | Apple-platform threat model (Keychain, ATS, entitlements, StoreKit, CloudKit, WKWebView, code signing) |
-| `/audit-apple-testing` | XCTest vs Swift Testing + XCUITest critical-flow coverage + Preview coverage + snapshot strategy |
-| `/skill-creator` | Author a new skill (graph-driven or cli-wrapper) end-to-end with topology approval and validation |
-| `/create-task` | Create a new task note in the Obsidian vault |
-| `/create-knowledge` | Create a new knowledge note in the Obsidian vault |
-| `/create-draft` | Create a new draft note in the Obsidian vault |
-| `/create-read-later` | Add a URL to the Read Later list in the Obsidian vault |
-| `/create-blog-post` | AI-powered blog post creation workflow |
-| `/sandbox-script` | Create a new standalone script in the sandbox |
-| `/sandbox-project` | Create a new project directory in the sandbox |
-| `/hsplit` | Split the current tmux pane horizontally (left/right) |
-| `/vsplit` | Split the current tmux pane vertically (top/bottom) |
-
 ## Skills
 
-Skills are auto-discovered from `~/.claude/skills/`. Each skill has a `SKILL.md` with YAML frontmatter describing when it applies. Skill descriptions are always loaded into context; skill bodies load only when triggered.
+Skills are auto-discovered from `~/.claude/skills/` and invoked as `/skill-name` (most can also trigger automatically from context). Each has a `SKILL.md` whose frontmatter description is always in context; the body loads only when the skill runs.
 
-| Skill | Description |
+### Workflow
+
+| Skill | What it does |
 |---|---|
-| `gh` | Clone/fork/worktree setup plus `gh` CLI operations — issues, PRs, releases, CI |
-| `gws` | Google Workspace operations — Gmail, Calendar, Drive, Docs, Sheets, Tasks |
-| `obsidian` | Obsidian vault operations via the `obsidian` CLI |
-| `orbstack` | OrbStack management — Linux machines, Docker, Kubernetes |
-| `feature-create` | Capture a feature as a GitHub issue (`type/feature` label), README-grounded; explores + structures the spec, large features graded by a fresh reviewer before filing |
-| `feature-plan` | One-shot multi-agent planning of a feature issue into dependency-linked, self-assigned sub-issues (strict orchestrator/worker separation; the feature is "blocked by" each task) |
-| `feature-work` | Build a feature's sub-issues autonomously on a `feature/<slug>` branch — one commit per sub-issue with `Closes #N`, pushed (no merge); git-derived resume; ends with a defer punch list |
-| `review-pr-simple` | Single-agent PR review → `REVIEW.md` |
-| `review-pr-comprehensive` | Comprehensive PR review (review, synthesis, devil's advocate) → `REVIEW.md` |
-| `review-address-feedback` | Walk through PR review feedback and apply fixes; supports live PR comments or a local `REVIEW.md` |
-| `polish-pull-request` | Final-pass PR cleanup — title, body, cross-links, stale thread resolution |
-| `commit` | Analyze changes and create grouped conventional commits with conventional `Co-authored-by` trailers |
-| `frontend-design` | Production-grade UI component creation |
-| `skill-creator` | Walks the user through authoring a new skill: discusses scope, picks pattern (graph-driven or cli-wrapper), scaffolds, validates, hands off uncommitted |
+| `/commit` | Plan logical commit groups from the working tree and write conventional commits (never amends, never force-pushes, never skips hooks) |
+| `/tag` | Pick the next semantic version from conventional commits and create the tag (confirms first, never pushes) |
+| `/feature-create` | Shape a fuzzy idea into a GitHub feature issue (`type/feature`) grounded in the repo README; large features are graded by a fresh reviewer before filing |
+| `/feature-plan` | Plan a feature issue into self-assigned native GitHub sub-issues ordered by blocked-by dependencies, with drafts and critiques from fresh sub-agents |
+| `/feature-work` | Build a feature's sub-issues on a `feature/<slug>` branch — one commit per sub-issue with `Closes #N`, pushed but never merged; ends with a punch list |
+| `/issue-create` | Capture a standalone bug / enhancement / chore / docs item as a labeled GitHub issue |
+| `/project-create` | Discuss a new project, then scaffold it: private GitHub repo, bare clone + worktree, README and overview |
+| `/skill-creator` | Author a new skill: pick the pattern (dot-graph or CLI wrapper), scaffold, validate, hand off uncommitted |
+| `/create-blog-post` | Draft a post for coreydaley.dev, get an editorial critique from a fresh sub-agent, then finalize |
 
-Most multi-phase skills (`commit`, `polish-pull-request`, `review-*`, `feature-*`) are built on the [dot-graph skill pattern](docs/DOT-GRAPH-SKILL-PATTERN.md): the workflow lives in a `graph.dot` with per-node prose under `nodes/`, walked deterministically by `lib/graph_walker.py`. Drift between routing and prose is structurally impossible.
+### Audits
 
-## Subagents
+29 audit skills, each a 5-phase dot-graph run — independent review, synthesis, devil's-advocate challenge, report, and a hard artifact gate (`lib/audit-verify.sh`) so an audit can't "finish" without writing its report. Findings are anchored to named principles (OWASP/CWE, WCAG, Apple HIG, App Store Review Guidelines, …).
 
-Subagents are specialized agents Claude delegates work to via the Agent tool, when one is needed. None are currently shipped — the prior `audit-*` subagents were migrated to dot-graph skills (see Commands table above) because prose-only enforcement failed silently in too many ways. The `subagents/` directory is preserved as the symlink target at `~/.claude/agents/` for future use.
+- **General / web:** `audit-architecture`, `audit-design`, `audit-web-security`, `audit-web-accessibility-human`, `audit-web-accessibility-agent`, `audit-web-responsive`, `audit-web-seo`
+- **Apple, cross-platform:** `audit-apple-accessibility`, `-adaptivity`, `-app-store-review`, `-architecture`, `-build-release`, `-deeplinks-continuity`, `-design`, `-extensions`, `-localization`, `-networking`, `-notifications`, `-observability`, `-performance`, `-persistence`, `-privacy`, `-security`, `-storekit`, `-testing`
+- **Apple, per platform:** `audit-apple-ios`, `-macos`, `-watchos`, `-visionos`
+
+### Tools
+
+| Skill | What it does |
+|---|---|
+| `gh` | GitHub via the `gh` CLI — cloning/forking (bare clone + worktrees), issues, PRs, releases, CI |
+| `orbstack` | OrbStack — Linux machines, Docker, Kubernetes |
+| `xcuitest-on-mini` | Run `xcodebuild test` on a Mac mini over SSH so UI tests don't take over your screen (set `XCUITEST_ON_MINI_HOST`) |
+
+Most multi-phase skills (`commit`, `feature-*`, `issue-create`, `project-create`, `skill-creator`, `create-blog-post`, and every `audit-*`) are built on the [dot-graph skill pattern](docs/DOT-GRAPH-SKILL-PATTERN.md): the workflow lives in a `graph.dot` with per-node prose under `nodes/`, walked deterministically by `lib/graph_walker.py`. Drift between routing and prose is structurally impossible.
 
 ### Audit output
 
@@ -140,7 +106,7 @@ Each audit run gets its own timestamped folder under `~/Reports/<org>/<repo>/aud
 
 ```
 ~/Reports/<org>/<repo>/audits/
-└── YYYY-MM-DDTHH-MM-SS-<audit-id>/      # one folder per run; <audit-id> = architecture | design | test-coverage | web-accessibility | web-responsive | web-security | apple-accessibility | apple-adaptivity | apple-app-store-review | apple-architecture | apple-design | apple-localization | apple-performance | apple-persistence | apple-privacy | apple-security | apple-testing
+└── YYYY-MM-DDTHH-MM-SS-<audit-id>/      # one folder per run; <audit-id> = the skill name without the audit- prefix, e.g. web-security, apple-privacy
     ├── claude.md                       ← review sub-agent's findings
     ├── synthesis.md                    ← consolidated findings
     ├── devils-advocate.md              ← devil's-advocate sub-agent challenge pass
@@ -151,7 +117,7 @@ The report is a reference document. To act on findings, capture them as a featur
 
 ## Feature workflow output
 
-All feature, review, and audit artifacts live under `~/Reports/<org>/<repo>/`, derived from the source repo (`upstream` remote, falling back to `origin`). Nothing is written into the project repo itself. The **durable** record of a feature is its GitHub issue + native sub-issues + the commits that close them; the local files are ephemeral working copies.
+All feature and audit artifacts live under `~/Reports/<org>/<repo>/`, derived from the source repo (`upstream` remote, falling back to `origin`). Nothing is written into the project repo itself. The **durable** record of a feature is its GitHub issue + native sub-issues + the commits that close them; the local files are ephemeral working copies.
 
 ```
 ~/Reports/<org>/<repo>/
@@ -165,12 +131,6 @@ All feature, review, and audit artifacts live under `~/Reports/<org>/<repo>/`, d
 │       ├── merge-notes.md                           # /feature-plan: merge synthesis
 │       ├── devils-advocate.md, security-review.md   # /feature-plan: review lenses
 │       └── PLAN.md                                  # /feature-plan working plan (sub-issues are durable)
-├── pr-reviews/
-│   └── pr-N/
-│       ├── YYYY-MM-DDTHH-MM-SS/                      # one folder per review run (/review-pr-*)
-│       │   └── REVIEW.md  diff.patch  ...
-│       └── YYYY-MM-DDTHH-MM-SS-addressed/            # one folder per /review-address-feedback run
-│           └── ADDRESSED.md
 └── audits/
     └── YYYY-MM-DDTHH-MM-SS-<lens>/                   # one folder per audit run
         └── claude.md  synthesis.md  devils-advocate.md  REPORT.md
@@ -180,4 +140,4 @@ All feature, review, and audit artifacts live under `~/Reports/<org>/<repo>/`, d
 
 ## Disclaimer
 
-This repository contains AI-generated content. Review all configurations and instructions before use. The creators assume no liability for problems caused by using resources from this repository. See [SECURITY.md](SECURITY.md) for details.
+This repository contains AI-generated content. Review all configurations and instructions before use. The creators assume no liability for problems caused by using resources from this repository. To report a security issue privately, use GitHub's private vulnerability reporting on this repo.
