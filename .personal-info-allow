@@ -1,0 +1,7 @@
+# Known-safe matches for scripts/check-personal-info.py (regexes, one per line).
+# Keep this short and specific — every entry is a hole in the check.
+^noreply@anthropic\.com$
+^git@github\.com$
+@example\.(com|org|net)$
+# OrbStack's documented default container subnet (skills/orbstack)
+^192\.168\.138\.0$

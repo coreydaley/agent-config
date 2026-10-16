@@ -5,8 +5,13 @@
 #
 # Purpose: Installs git hooks for this repository.
 #
-#   pre-commit  — blocked file extensions, risky large files, secret scanning
-#   pre-push    — full branch history secret scan (gitleaks detect)
+#   pre-commit  — blocked file extensions, risky large files, secret scanning,
+#                 personal-info check on the staged lines
+#   pre-push    — full-history secret scan (gitleaks detect) + personal-info
+#                 check across every tracked file
+#
+# Also creates an empty private denylist for the personal-info check at
+# ${XDG_CONFIG_HOME:-~/.config}/agent-config/denylist (outside the repo).
 #
 # Requires: gitleaks (brew install gitleaks)
 #
@@ -61,6 +66,9 @@ done < <(git diff --cached --name-only --diff-filter=ACM)
 # --- Secret scanning ---
 gitleaks protect --staged
 
+# --- Personal / embarrassing info (generic patterns + private denylist) ---
+python3 -I scripts/check-personal-info.py --staged || ERRORS=$((ERRORS + 1))
+
 
 if [ "$ERRORS" -gt 0 ]; then
     exit 1
@@ -71,7 +79,21 @@ echo "Installed: pre-commit"
 
 cat > "$HOOKS_DIR/pre-push" <<'EOF'
 #!/usr/bin/env bash
+set -euo pipefail
 gitleaks detect
+python3 -I scripts/check-personal-info.py --all
 EOF
 chmod +x "$HOOKS_DIR/pre-push"
 echo "Installed: pre-push"
+
+DENYLIST="${AGENT_CONFIG_DENYLIST:-${XDG_CONFIG_HOME:-$HOME/.config}/agent-config/denylist}"
+if [[ ! -f "$DENYLIST" ]]; then
+    mkdir -p "$(dirname "$DENYLIST")"
+    cat > "$DENYLIST" <<'EOF'
+# Private denylist for agent-config's personal-info check. NEVER commit this.
+# One case-insensitive regex per line; a match blocks the commit/push.
+# Examples: family names, employer, home address, salary figures, codenames.
+EOF
+    chmod 600 "$DENYLIST"
+    echo "Created private denylist: $DENYLIST (add your own patterns)"
+fi

@@ -1,0 +1,40 @@
+# Backstop for the local pre-commit/pre-push hooks (which can be skipped with
+# --no-verify): scan every push and PR for secrets and personal info.
+# The private denylist is local-only, so CI runs the generic checks.
+
+name: Scan
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  GITLEAKS_VERSION: 8.30.1
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0 # gitleaks scans full history
+
+      - name: Install gitleaks ${{ env.GITLEAKS_VERSION }}
+        run: |
+          set -eu
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          tarball="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSLO "$base/$tarball"
+          curl -sSL "$base/gitleaks_${GITLEAKS_VERSION}_checksums.txt" | grep " $tarball\$" | sha256sum -c -
+          tar -xzf "$tarball" gitleaks
+          sudo mv gitleaks /usr/local/bin/
+
+      - name: Secret scan (full history)
+        run: gitleaks detect --redact
+
+      - name: Personal-info check (all tracked files)
+        run: python3 -I scripts/check-personal-info.py --all
