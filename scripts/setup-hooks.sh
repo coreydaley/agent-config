@@ -89,7 +89,10 @@ echo "Installed: pre-push"
 DENYLIST="${AGENT_CONFIG_DENYLIST:-${XDG_CONFIG_HOME:-$HOME/.config}/agent-config/denylist}"
 if [[ ! -f "$DENYLIST" ]]; then
     mkdir -p "$(dirname "$DENYLIST")"
-    cat > "$DENYLIST" <<'EOF'
+    # First line is the marker check-personal-info.py blocks if it's ever
+    # copied into the repo (split so this script doesn't contain it).
+    printf '# %s%s\n' "AGENT-CONFIG-PRIVATE-" "DENYLIST" > "$DENYLIST"
+    cat >> "$DENYLIST" <<'EOF'
 # Private denylist for agent-config's personal-info check. NEVER commit this.
 # One case-insensitive regex per line; a match blocks the commit/push.
 # Examples: family names, employer, home address, salary figures, codenames.

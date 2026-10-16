@@ -20,6 +20,10 @@ the line.
 Allowlist: .personal-info-allow (regexes, one per line) for known-safe
 matches. A line containing "personal-info: allow" is skipped.
 
+The denylist itself can never be committed: any file named like *denylist*,
+any line carrying the denylist's marker, and any line that is a verbatim copy
+of a denylist pattern are blocked (and are never allowlisted).
+
 Usage:
   scripts/check-personal-info.py --staged   # added lines in the index (pre-commit)
   scripts/check-personal-info.py --all      # every tracked file (pre-push / CI)
@@ -39,22 +43,31 @@ GENERIC = [
 ]
 SKIP_MARKER = "personal-info: allow"
 ALLOW_FILE = ".personal-info-allow"
+# Written as the denylist's first line by setup-hooks.sh. Split so this file
+# doesn't contain the marker itself.
+DENYLIST_MARKER = "AGENT-CONFIG-PRIVATE-" + "DENYLIST"
+DENYLIST_NAME = re.compile(r"denylist", re.IGNORECASE)
 
 
 def git(*args):
     return subprocess.run(["git", *args], check=True, capture_output=True, text=True).stdout
 
 
-def load_regexes(path, flags=0):
+def pattern_lines(path):
     p = Path(path).expanduser()
     if not p.is_file():
         return None
-    out = []
-    for raw in p.read_text().splitlines():
-        line = raw.strip()
-        if line and not line.startswith("#"):
-            out.append(re.compile(line, flags))
-    return out
+    return [ln.strip() for ln in p.read_text().splitlines()
+            if ln.strip() and not ln.strip().startswith("#")]
+
+
+def load_regexes(path, flags=0):
+    lines = pattern_lines(path)
+    return None if lines is None else [re.compile(ln, flags) for ln in lines]
+
+
+def staged_paths():
+    return [p for p in git("diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z").split("\0") if p]
 
 
 def staged_lines():
@@ -94,11 +107,22 @@ def main():
     deny_path = os.environ.get("AGENT_CONFIG_DENYLIST") or os.path.join(
         os.environ.get("XDG_CONFIG_HOME", "~/.config"), "agent-config", "denylist")
     deny = load_regexes(deny_path, re.IGNORECASE)
+    deny_raw = set(pattern_lines(deny_path) or [])
     generic = [(label, re.compile(rx)) for label, rx in GENERIC]
 
     found = 0
+    paths = staged_paths() if mode == "--staged" else [p for p in git("ls-files", "-z").split("\0") if p]
+    for path in paths:
+        if DENYLIST_NAME.search(Path(path).name):
+            print(f"BLOCKED (denylist file): {path} -- the private denylist must never be committed", file=sys.stderr)
+            found += 1
+
     lines = staged_lines() if mode == "--staged" else all_lines()
     for path, num, text in lines:
+        if DENYLIST_MARKER in text or (deny_raw and text.strip() in deny_raw):
+            print(f"BLOCKED (denylist copy): {path}:{num} is copied from the private denylist", file=sys.stderr)
+            found += 1
+            continue
         if SKIP_MARKER in text:
             continue
         for label, rx in generic:
