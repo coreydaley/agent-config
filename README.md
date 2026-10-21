@@ -40,7 +40,7 @@ commands/                       → ~/.claude/commands/
 skills/                         → ~/.claude/skills/
 lib/                            → ~/.claude/lib/
 scripts/statusline-command.sh   → ~/.claude/statusline-command.sh
-subagents/                      → ~/.claude/agents/   (only if the folder exists; none ship today)
+subagents/                      → ~/.claude/agents/   (review roles used by the pr-* skills)
 ```
 
 Existing files at symlink destinations are backed up with a `.old` extension before replacement.
@@ -78,6 +78,13 @@ Skills are auto-discovered from `~/.claude/skills/` and invoked as `/skill-name`
 | `/feature-plan` | Plan a feature issue into self-assigned native GitHub sub-issues ordered by blocked-by dependencies, with drafts and critiques from fresh sub-agents |
 | `/feature-work` | Build a feature's sub-issues on a `feature/<slug>` branch — one commit per sub-issue with `Closes #N`, pushed but never merged; ends with a punch list |
 | `/issue-create` | Capture a standalone bug / enhancement / chore / docs item as a labeled GitHub issue |
+| `/pr-plan` | Turn an issue, PR, markdown file, or sentence into an approved PLAN.md with a scope contract; M+ plans get an adversarial pass first |
+| `/pr-build` | Execute an approved PLAN.md: one commit and targeted test per task, plan-delivery and hygiene checks, then a draft PR once you approve the body |
+| `/pr-review` | Multi-role review of a PR or local branch: independent and adversarial reviewers in parallel, synthesis, devil's advocate, adjudication |
+| `/pr-fix` | Triage review findings or PR threads against the plan's scope, apply only approved fixes, gate the push, draft replies |
+| `/pr-address` | `/pr-fix` pointed at everything on a PR: human and bot threads, reviews, failing checks |
+| `/pr-polish` | Final pre-merge pass: rewrite the body to the final state, resolve addressed threads, slim comments, tidy history or propose the squash message |
+| `/review-design` | Adversarial review of a design's claims against the code, with a defense pass and a Build / Rework / Don't build verdict |
 | `/project-create` | Discuss a new project, then scaffold it: private GitHub repo, bare clone + worktree, README and overview |
 | `/skill-creator` | Author a new skill: pick the pattern (dot-graph or CLI wrapper), scaffold, validate, hand off uncommitted |
 | `/create-blog-post` | Draft a post for coreydaley.dev, get an editorial critique from a fresh sub-agent, then finalize |

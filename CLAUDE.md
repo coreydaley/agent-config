@@ -87,16 +87,22 @@ Currently:
 - `audit-runner.sh` — owns audit `$AUDIT_DIR` creation under `~/Reports/<org>/<repo>/audits/<TS>-<audit-name>/` and writes `MANIFEST.json`. Every audit skill's `init` node calls this; without it, no downstream node has a writable directory.
 - `audit-verify.sh` — the hard artifact gate every audit's `verify` node runs. Exits non-zero if any required artifact (claude.md, synthesis.md, REPORT.md) is missing or empty; the handoff message must include its output verbatim.
 - `external-content-handling.md` — copy-paste boilerplate that skills fetching untrusted external content (GitHub, web pages, etc.) include verbatim in their `SKILL.md`.
+- `agent-roles.md` — single-provider, multiple-role review contract: which `subagents/` role (`independent-reviewer`, `adversarial-reviewer`, `synthesizer`, `devils-advocate`, `adjudicator`, `defender`, `verifier`) judges what, and how to brief it.
+- `pr-artifacts.md`, `pr-discipline.md`, `code-hygiene.md`, `paths.py` — the `pr-*` family's shared layout and PLAN.md schema, scope/sizing/ceremony rules, comment/test/commit rules, and `~/Reports/<org>/<repo>` resolver.
 
 ## Skill patterns
 
 Skills with multi-phase workflows (review pipelines, feature planning, address-feedback loops) use the **dot-graph skill pattern**: the flow is a `graph.dot` with per-node markdown sidecars under `nodes/`, walked deterministically by `lib/graph_walker.py`. The graph is the source of truth — drift between prose and routing is structurally impossible. Reference: [`docs/DOT-GRAPH-SKILL-PATTERN.md`](docs/DOT-GRAPH-SKILL-PATTERN.md).
 
-Skills currently on this pattern: `commit`, `polish-pull-request`, `review-address-feedback`, `review-pr-comprehensive`, `review-pr-simple`, `feature-create`, `feature-plan`, `feature-work`, all 30 `audit-*` skills (22 apple + 8 general/web). CLI-wrapper skills (`gh`, `gws`, `obsidian`, `orbstack`) are not on this pattern — they're one-shot operations with no internal state machine.
+Skills currently on this pattern: `commit`, `pr-plan`, `pr-build`, `pr-review`, `pr-fix`, `pr-polish`, `review-design`, `feature-create`, `feature-plan`, `feature-work`, all 30 `audit-*` skills (22 apple + 8 general/web). CLI-wrapper skills (`gh`, `gws`, `obsidian`, `orbstack`) are not on this pattern — they're one-shot operations with no internal state machine.
 
 ## Feature workflow
 
 End-to-end lifecycle for capturing, planning, and building work as a **feature** — a GitHub issue (`type/feature` label) whose body is the spec, grounded in the repo README (no PRD, no milestone). Three skills compose: `/feature-create` captures the feature issue, `/feature-plan` decomposes it into native GitHub sub-issues ordered by native blocked-by dependencies, and `/feature-work` builds those sub-issues on a `feature/<slug>` branch — one commit per sub-issue with `Closes #N`, pushed but not merged. The user merges by hand later (which fires each `Closes #N` and closes the sub-issues), then closes the feature.
+
+## PR workflow
+
+The single-PR track, for one issue → one branch → one PR: `/pr-plan` (approved PLAN.md) → `/pr-build` (one commit per task, draft PR) → `/pr-review` (multi-role review) → `/pr-fix` / `/pr-address` (scope-triaged fixes and replies) → `/pr-polish` (final body, threads, history). `/review-design` attacks a design before it's built. Every judgment runs in a fresh role subagent (`lib/agent-roles.md`); artifacts live under `~/Reports/<org>/<repo>/prs/<key>/`. Guide: [`docs/PR-WORKFLOW.md`](docs/PR-WORKFLOW.md).
 
 All feature, review, and audit artifacts live under `~/Reports/<org>/<repo>/` (derived from `upstream` remote, falling back to `origin`). Nothing is written into the project repo.
 
