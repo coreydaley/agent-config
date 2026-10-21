@@ -1,0 +1,54 @@
+// review-design state machine.
+//
+// Source of truth for the /review-design skill. Takes a design (markdown,
+// PLAN.md, GitHub issue, pasted text), extracts its checkable claims, has
+// an independent-reviewer and an adversarial-reviewer attack them against
+// the code in parallel, synthesizes, runs a defense pass, and delivers a
+// Build / Build with changes / Rework / Don't build verdict as REVIEW.md.
+// The walker (Claude, per SKILL.md) reads each node's prose from
+// nodes/<id>.md, does the work, and transitions via scripts/walk.sh.
+//
+// Every judgment node hands its work to a role subagent (lib/agent-roles.md).
+// The walker only launches, verifies the artifact, and transitions. A
+// crashed run resumes from the state file's current node with
+// --resume <session-dir>.
+//
+// Render to SVG with scripts/render.sh. Validate with scripts/validate.py.
+
+digraph review_design {
+    rankdir=TB;
+    bgcolor="white";
+    node  [fontname="Helvetica", fontsize=11];
+    edge  [fontname="Helvetica", fontsize=9];
+
+    // -- Process nodes (rounded boxes, light blue) ----------------------
+    init            [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="init\n(parse args, render subject,\nresolve grounding, session dir)"];
+    extract_claims  [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="extract-claims\n(verifier: claim ledger)"];
+    attack          [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="attack\n(independent-reviewer + adversarial-reviewer\nin parallel, verify claims against the code)"];
+    synthesize      [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="synthesize\n(synthesizer: merge, verify,\ncalibrate, verdict)"];
+    defend          [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="defend\n(defender argues for the design,\nadjudicator rules)"];
+    write_review    [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="write-review\n(format REVIEW.md from synthesis)"];
+    display         [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="display\n(print REVIEW.md inline,\nname the hand-off, end turn)"];
+
+    // -- Terminal node (green double-circle) ---------------------------
+    terminal        [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
+                     label="terminal"];
+
+    // -- Edges ---------------------------------------------------------
+    // A straight line. Grounding and the defense outcome are handled
+    // inside attack and defend via walker state, not as graph branches.
+    init           -> extract_claims;
+    extract_claims -> attack;
+    attack         -> synthesize;
+    synthesize     -> defend;
+    defend         -> write_review;
+    write_review   -> display;
+    display        -> terminal;
+}
