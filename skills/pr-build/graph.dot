@@ -1,0 +1,77 @@
+// pr-build state machine.
+//
+// Source of truth for the /pr-build skill. Executes an approved
+// PLAN.md task by task (one commit per task, targeted tests per task),
+// verifies the whole branch against the plan, sweeps comments and
+// test assertions, drafts the PR body, and opens a draft PR once the
+// user approves the body. The walker (Claude, per SKILL.md) reads each
+// node's prose from nodes/<id>.md, performs the work, evaluates the
+// outgoing edges' conditions, and transitions via scripts/walk.sh.
+//
+// Render to SVG with scripts/render.sh. Validate with scripts/validate.py.
+
+digraph pr_build {
+    rankdir=TB;
+    bgcolor="white";
+    node  [fontname="Helvetica", fontsize=11];
+    edge  [fontname="Helvetica", fontsize=9];
+
+    // -- Process nodes (rounded boxes, light blue) ----------------------
+    init            [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="init\n(locate + validate PLAN.md,\nset paths)"];
+    implement       [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="implement\n(walk Tasks: edit, targeted tests,\none commit per task)"];
+    sweep           [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="sweep\n(verifier: whole-branch diff,\ncomments, test assertions, IDs, secrets)"];
+    draft_pr_body   [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="draft-pr-body\n(title + body from PLAN.md\n→ pr-body.md)"];
+    display         [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="display\n(print body + branch summary,\nend turn with plain-text question)"];
+    open_pr         [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="open-pr\n(push to origin, gh pr create --draft,\nor push to existing PR)"];
+    finalize        [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="finalize\n(PLAN.md status + Log,\nprint summary + next step)"];
+
+    // -- Decision nodes (amber diamonds) --------------------------------
+    setup_worktree  [shape=diamond, style=filled, fillcolor="#ffe0b2",
+                     label="setup-worktree\n(find or create the branch\nworktree, clean?)"];
+    detect_inflight [shape=diamond, style=filled, fillcolor="#ffe0b2",
+                     label="detect-inflight\n(commits ahead? PR exists?\nhuman review started?)"];
+    verify          [shape=diamond, style=filled, fillcolor="#ffe0b2",
+                     label="verify\n(full tests + lint,\nverifier: Tests table + Scope In walk)"];
+
+    // -- User-input nodes (coral diamonds) ------------------------------
+    ask_open        [shape=diamond, style=filled, fillcolor="#ffccbc",
+                     label="ask-open\n(open / edit / stop)"];
+
+    // -- Terminal node (green double-circle) ---------------------------
+    terminal        [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
+                     label="terminal"];
+
+    // -- Edges ---------------------------------------------------------
+    // Single-outgoing edges (no condition needed).
+    init          -> setup_worktree;
+    implement     -> verify;
+    sweep         -> draft_pr_body;
+    draft_pr_body -> display;
+    display       -> ask_open;
+    open_pr       -> finalize;
+    finalize      -> terminal;
+
+    // setup-worktree: is there a usable worktree on the plan's branch?
+    setup_worktree -> detect_inflight [label="worktree_ok"];
+    setup_worktree -> terminal        [label="worktree_missing"];
+
+    // detect-inflight: fresh start, or the user chose to continue.
+    detect_inflight -> implement [label="user_continue"];
+    detect_inflight -> terminal  [label="user_exit"];
+
+    // verify: does the branch deliver the plan?
+    verify -> sweep    [label="verified"];
+    verify -> terminal [label="user_blocked"];
+
+    // ask-open: the user's reply to the drafted PR body.
+    ask_open -> open_pr       [label="user_open"];
+    ask_open -> draft_pr_body [label="user_edit"];
+    ask_open -> finalize      [label="user_stop"];
+}

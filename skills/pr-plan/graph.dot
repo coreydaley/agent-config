@@ -1,0 +1,59 @@
+// pr-plan state machine.
+//
+// Source of truth for the /pr-plan skill. Turns a GitHub issue, an
+// existing PR, a markdown file, or a free-text idea into an approved
+// PLAN.md that /pr-build executes. The walker (Claude, per SKILL.md)
+// reads each node's prose from nodes/<id>.md, performs the work,
+// evaluates the outgoing edges' conditions, and transitions via
+// scripts/walk.sh.
+//
+// Render to SVG with scripts/render.sh. Validate with scripts/validate.py.
+
+digraph pr_plan {
+    rankdir=TB;
+    bgcolor="white";
+    node  [fontname="Helvetica", fontsize=11];
+    edge  [fontname="Helvetica", fontsize=9];
+
+    // -- Process nodes (rounded boxes, light blue) ----------------------
+    init          [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                   label="init\n(parse args, fetch source,\nresolve branch + key, set paths)"];
+    orient        [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                   label="orient\n(read code + dependencies,\nprior art, size, ceremony)"];
+    draft_plan    [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                   label="draft-plan\n(write PLAN.md)"];
+    attack        [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                   label="attack\n(M+ only: adversarial-reviewer attacks,\nadjudicator folds in valid challenges)"];
+    display       [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                   label="display\n(print PLAN.md inline,\nend turn with plain-text question)"];
+    discuss       [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                   label="discuss\n(iterate, edit PLAN.md in place)"];
+    finalize      [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                   label="finalize\n(set status, pin base,\nappend Log, print next step)"];
+
+    // -- User-input nodes (coral diamonds) ------------------------------
+    ask_approval  [shape=diamond, style=filled, fillcolor="#ffccbc",
+                   label="ask-approval\n(approve / discuss / no-build)"];
+
+    // -- Terminal node (green double-circle) ---------------------------
+    terminal      [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
+                   label="terminal"];
+
+    // -- Edges ---------------------------------------------------------
+    // Single-outgoing edges (no condition needed).
+    init       -> orient;
+    orient     -> draft_plan;
+    draft_plan -> attack;
+    attack     -> display;
+    display    -> ask_approval;
+    finalize   -> terminal;
+
+    // ask-approval: the user's reply routes.
+    ask_approval -> finalize [label="user_approve"];
+    ask_approval -> discuss  [label="user_discuss"];
+    ask_approval -> finalize [label="user_no_build"];
+
+    // discuss: after iterating, re-display so the user sees the
+    // updated plan before answering again.
+    discuss -> display [label="discussion_done"];
+}
