@@ -239,13 +239,16 @@ echo "==> Mirroring ${LOCAL_ROOT} → ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_ROO
 ssh "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p '${REMOTE_ROOT}'"
 
 # Excludes: anything regenerable by the build, anything large/local-only,
-# anything git-related (we don't need history on the mini).
+# anything git-related (we don't need history on the mini). `.build-*/` is
+# SwiftPM scratch paths beside `.build/`, such as sanitizer builds
+# (`--scratch-path .build-sanitize`), hundreds of MB each.
 "$RSYNC" -az --delete \
   --exclude='.git/' \
   --exclude='.gitignore' \
   --exclude='build/' \
   --exclude='DerivedData/' \
   --exclude='.build/' \
+  --exclude='.build-*/' \
   --exclude='node_modules/' \
   --exclude='*.xcuserstate' \
   --exclude='*.xcresult' \
