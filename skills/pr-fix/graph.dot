@@ -1,0 +1,86 @@
+// pr-fix state machine.
+//
+// Source of truth for the /pr-fix skill. Loads findings from one
+// source (a REVIEW.md from /pr-review, or the human comments on the
+// PR), triages every finding against PLAN.md's scope contract into
+// fix / defer / won't-fix, shows the triage table and waits for
+// approval, applies the approved fixes with targeted tests, commits
+// in the regime the PR is in (squash-into-original before human
+// review, append-only after), optionally pushes, drafts and posts
+// replies to human and bot threads on approval, and records everything in
+// ADDRESSED.md and PLAN.md. The walker (Claude, per SKILL.md) reads
+// each node's prose from nodes/<id>.md, performs the work, evaluates
+// the outgoing edges' conditions, and transitions via scripts/walk.sh.
+//
+// Render to SVG with scripts/render.sh. Validate with scripts/validate.py.
+
+digraph pr_fix {
+    rankdir=TB;
+    bgcolor="white";
+    node  [fontname="Helvetica", fontsize=11];
+    edge  [fontname="Helvetica", fontsize=9];
+
+    // -- Process nodes (rounded boxes, light blue) ----------------------
+    init            [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="init\n(resolve source mode, PR, branch\nworktree, plan, review regime)"];
+    triage          [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="triage\n(classify each finding against\nScope In/Out → TRIAGE.md)"];
+    display         [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="display\n(print TRIAGE.md + scope anchor,\nend turn with plain-text question)"];
+    apply           [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="apply\n(per approved fix: live code,\nedit, targeted tests, commit)"];
+    push            [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="push\n(regime-aware: squash+force-with-lease\nor append; ask, then act)"];
+    post_replies    [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="post-replies\n(gh api: reply per thread)"];
+    persist         [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="persist\n(ADDRESSED.md, PLAN.md\nFollow-ups + Log)"];
+    finalize        [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="finalize\n(summary, re-review\nrecommendation, next step)"];
+
+    // -- Decision nodes (amber diamonds) --------------------------------
+    load_findings   [shape=diamond, style=filled, fillcolor="#ffe0b2",
+                     label="load-findings\n(REVIEW.md / PR threads /\nTRIAGE.md resume)"];
+    draft_replies   [shape=diamond, style=filled, fillcolor="#ffe0b2",
+                     label="draft-replies\n(any threads? draft one reply\neach, show, end turn)"];
+
+    // -- User-input nodes (coral diamonds) ------------------------------
+    ask_triage      [shape=diamond, style=filled, fillcolor="#ffccbc",
+                     label="ask-triage\n(approve / adjust / stop)"];
+    ask_replies     [shape=diamond, style=filled, fillcolor="#ffccbc",
+                     label="ask-replies\n(post / edit / skip)"];
+
+    // -- Terminal node (green double-circle) ---------------------------
+    terminal        [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
+                     label="terminal"];
+
+    // -- Edges ---------------------------------------------------------
+    // Single-outgoing edges (no condition needed).
+    init         -> load_findings;
+    triage       -> display;
+    display      -> ask_triage;
+    apply        -> push;
+    push         -> draft_replies;
+    post_replies -> persist;
+    persist      -> finalize;
+    finalize     -> terminal;
+
+    // load-findings: anything to do, and from where?
+    load_findings -> triage   [label="findings_loaded"];
+    load_findings -> apply    [label="triage_resumed"];
+    load_findings -> terminal [label="no_findings"];
+
+    // ask-triage: the user's reply to the triage table.
+    ask_triage -> apply    [label="user_approve"];
+    ask_triage -> triage   [label="user_adjust"];
+    ask_triage -> finalize [label="user_stop"];
+
+    // draft-replies: only PR-sourced findings have threads to reply to.
+    draft_replies -> ask_replies [label="drafted"];
+    draft_replies -> persist     [label="no_threads"];
+
+    // ask-replies: the user's reply to the drafted replies.
+    ask_replies -> post_replies  [label="user_post"];
+    ask_replies -> draft_replies [label="user_edit"];
+    ask_replies -> persist       [label="user_skip"];
+}

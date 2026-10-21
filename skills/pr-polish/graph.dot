@@ -1,0 +1,77 @@
+// pr-polish state machine.
+//
+// Source of truth for the /pr-polish skill. Final pass before merge on
+// one of our PRs: rewrite the description to the final state, check the
+// title, resolve threads that later commits addressed, slim the code
+// comments the branch added, and (before human review only) tidy the
+// commit history. Everything is proposed, shown, and approved by
+// category before it's applied. The walker (Claude, per SKILL.md)
+// reads each node's prose from nodes/<id>.md, performs the work,
+// evaluates the outgoing edges' conditions, and transitions via
+// scripts/walk.sh.
+//
+// Render to SVG with scripts/render.sh. Validate with scripts/validate.py.
+
+digraph pr_polish {
+    rankdir=TB;
+    bgcolor="white";
+    node  [fontname="Helvetica", fontsize=11];
+    edge  [fontname="Helvetica", fontsize=9];
+
+    // -- Process nodes (rounded boxes, light blue) ----------------------
+    init            [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="init\n(PR, ours?, worktree, plan,\nregime, merged?)"];
+    analyze         [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="analyze\n(title, body, threads, comments,\ncommits → PROPOSALS.md)"];
+    display         [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="display\n(print PROPOSALS.md,\nend turn with plain-text question)"];
+    apply_github    [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="apply-github\n(gh pr edit title/body,\nresolve approved threads)"];
+    apply_comments  [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="apply-comments\n(Edit per comment, stage;\ncommit or hold for rewrite)"];
+    apply_commits   [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="apply-commits\n(reset --soft base, recommit groups,\npush --force-with-lease)"];
+    finalize        [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                     label="finalize\n(PLAN.md Log/Status, summary,\nsquash-merge message)"];
+
+    // -- Decision nodes (amber diamonds) --------------------------------
+    preflight       [shape=diamond, style=filled, fillcolor="#ffe0b2",
+                     label="preflight\n(still safe to rewrite?\nregime re-checked)"];
+
+    // -- User-input nodes (coral diamonds) ------------------------------
+    ask_polish      [shape=diamond, style=filled, fillcolor="#ffccbc",
+                     label="ask-polish\n(apply named categories /\nadjust / stop)"];
+
+    // -- Terminal node (green double-circle) ---------------------------
+    terminal        [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
+                     label="terminal"];
+
+    // -- Edges ---------------------------------------------------------
+    // Single-outgoing edges (no condition needed).
+    analyze       -> display;
+    display       -> ask_polish;
+    apply_commits -> finalize;
+    finalize      -> terminal;
+
+    // init: an already-merged PR just gets its plan status recorded.
+    init -> analyze  [label="pr_open"];
+    init -> finalize [label="already_merged"];
+
+    // ask-polish: the user's reply to the proposals.
+    ask_polish -> apply_github [label="user_apply"];
+    ask_polish -> analyze      [label="user_adjust"];
+    ask_polish -> finalize     [label="user_stop"];
+
+    // apply-github: which local categories were approved?
+    apply_github -> apply_comments [label="comments_approved"];
+    apply_github -> preflight      [label="commits_only"];
+    apply_github -> finalize       [label="github_only"];
+
+    // apply-comments: commit rewrite still to do?
+    apply_comments -> preflight [label="commits_approved"];
+    apply_comments -> finalize  [label="no_commits"];
+
+    // preflight: branch state still safe to rewrite right now?
+    preflight -> apply_commits [label="preflight_ok"];
+    preflight -> finalize      [label="preflight_failed"];
+}
