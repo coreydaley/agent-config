@@ -10,11 +10,11 @@ Understand the topic deeply, internalize the project's content conventions, deri
 
 ## Steps
 
-1. Read `CLAUDE.md` to internalize frontmatter requirements, the **fixed category list and approved tag list**, authorship rules, and tone conventions.
+1. Read `CLAUDE.md` to internalize frontmatter requirements, the **fixed category list and approved tag list**, authorship rules, tone conventions, and the **Accuracy** and **Scheduling posts** sections. Those two govern sourcing, unreleased features and publish dates.
 2. Read 2–3 recent posts from `content/posts/` to calibrate voice, tone, structure, and length.
-3. Research the topic using available tools (WebSearch if helpful).
+3. Research the topic using available tools (WebSearch if helpful). **For a post about code (the apps, agent-config, anything with a repo), build a source sheet first:** read the commits, code and tests in the source repo (the app repos are private, e.g. `~/Code/github.com/coreydaley/purrchiver/main`), and write `$DRAFTS_DIR/source-facts.md` with what the sources actually say, short excerpts, which release the change ships in (`git merge-base --is-ancestor <commit> <release-tag>`; `main` is the next release), and anything ambiguous. A research sub-agent can do this, and several can run in parallel when writing more than one post. The draft and the editorial review both work from this sheet.
 4. Derive a URL-safe slug from the topic (lowercase, hyphenated, e.g. `my-post-topic`). Store as `SLUG`.
-5. Determine the current year and month (e.g. `2026/03`). Store as `YYYY/MM`. The final post path will be `content/posts/YYYY/MM/$SLUG/index.md`.
+5. **Pick the publish date** per CLAUDE.md's Scheduling rules: today if nothing is queued, otherwise the next free morning (check `hugo list future` and the dated posts in `content/posts/`). A post that must wait on a release, a test or data is a held draft (far-future date, `draft = true`). Store the date's year and month as `YYYY/MM`; the final post path will be `content/posts/YYYY/MM/$SLUG/index.md`.
 6. **Resolve the artifact directory.** All intermediate drafts/critiques are written under `~/Reports/<org>/<repo>/blog-posts/$SLUG/` — process artifacts never live in the repo. Run once and persist:
    ```bash
    REPO_ROOT="$HOME/Code/github.com/coreydaley/coreydaley-dev/main"

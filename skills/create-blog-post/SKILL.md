@@ -1,9 +1,10 @@
 ---
 name: create-blog-post
 description: >-
-  Create a blog post for the coreydaley-dev Hugo site: Claude writes a draft,
-  a fresh Claude sub-agent gives a professional editorial critique, and Claude
-  finalizes the post. Always writes into ~/Code/github.com/coreydaley/coreydaley-dev/main/.
+  Create a blog post for coreydaley.dev, Corey's blog, which is the Hugo site in
+  the coreydaley-dev repo: Claude writes a draft, a fresh Claude sub-agent gives
+  a professional editorial critique, and Claude finalizes the post. Use it for
+  every new post on that blog. Always writes into ~/Code/github.com/coreydaley/coreydaley-dev/main/.
   Intermediate artifacts live under ~/Reports/coreydaley/coreydaley-dev/blog-posts/<slug>/;
   only the final post lands in content/. Graph-driven (graph.dot + nodes/ walked by lib/graph_walker.py).
 argument-hint: "<topic>"
@@ -15,6 +16,16 @@ Produce a high-quality blog post: Claude authors a draft, a fresh-context
 sub-agent gives a professional editorial critique (independence comes from a
 separate context, not from a second model), and Claude finalizes. Claude
 orchestrates and is the author throughout.
+
+**Where posts go:** every post is for the coreydaley.dev blog, in the
+`coreydaley-dev` repo (`~/Code/github.com/coreydaley/coreydaley-dev/main/`,
+GitHub `coreydaley/coreydaley-dev`), at `content/posts/YYYY/MM/<slug>/index.md`.
+**The site's content rules live in that repo's `CLAUDE.md`**: front matter,
+tags and categories, the Accuracy rules (fact-check against the private app
+repos, no invented discovery stories, no internal paths or SHAs, `since` for
+unreleased features), and Scheduling (one post a day, held drafts). Read it in
+`orient`; this skill doesn't repeat those rules. Landing, how-to and help pages
+under `content/apps/` are not blog posts and don't use this skill.
 
 This skill is **graph-driven** (the same dot-graph pattern as the agent-config
 skill fleet): `graph.dot` is the source of truth, per-node prose lives in

@@ -26,8 +26,18 @@ just made.
    > too long, too short, or in the wrong order?, (3) voice consistency — does
    > the post read as one cohesive piece?, (4) specific lines or paragraphs to
    > cut, rewrite, or move, (5) whether the opening hook and closing question
-   > are strong. Be direct and specific — line-level feedback where useful. The
-   > file you write is the deliverable, not your returned message.
+   > are strong, (6) technical accuracy: check every claim against
+   > `$DRAFTS_DIR/source-facts.md` and the source repo itself (commits, code,
+   > tests; you may run read-only commands and tests in a scratch copy), and
+   > flag anything unsupported, overclaimed, or invented, including how a bug
+   > was found and what a test actually covers, and (7) front matter and build
+   > problems per CLAUDE.md (approved tags/category, description length,
+   > `appSection` for app shortcodes, `aliases`, no internal paths or SHAs).
+   > Be direct and specific — line-level feedback where useful. The file you
+   > write is the deliverable, not your returned message.
+
+   Add the source repo path and any key commits to the prompt so the reviewer
+   can fact-check, not just copy-edit.
 
 2. **Verify the critique exists.** It should produce (in `$DRAFTS_DIR`):
    - `$SLUG-draft-editorial-critique.md`
