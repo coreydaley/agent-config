@@ -623,6 +623,7 @@ just leave it procedural.
 |---|---:|---:|---|
 | `/commit` | 7 | 5 | Linear, smallest skill on the pattern |
 | `/create-blog-post` | 8 | 6 | Draft → fresh-agent critique → finalize |
+| `/create-website-content` | 8 | 9 | Hands-on research → draft → fresh-agent fact-check with one retest loop → finalize → visual check |
 | `/project-create` | 10 | 12 | Discuss loop, single approve-or-cancel scaffold gate |
 | `/feature-create` | 13 | 15 | Explore+structure discuss loop, size-gated readiness gate |
 | `/issue-create` | 13 | 16 | Type-aware capture, optional readiness gate |

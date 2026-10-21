@@ -81,6 +81,7 @@ Skills are auto-discovered from `~/.claude/skills/` and invoked as `/skill-name`
 | `/project-create` | Discuss a new project, then scaffold it: private GitHub repo, bare clone + worktree, README and overview |
 | `/skill-creator` | Author a new skill: pick the pattern (dot-graph or CLI wrapper), scaffold, validate, hand off uncommitted |
 | `/create-blog-post` | Draft a post for coreydaley.dev, get an editorial critique from a fresh sub-agent, then finalize |
+| `/create-website-content` | Research and hands-on test a coreydaley.dev page (answer, help, compare, landing section), fact-check it with a fresh sub-agent, then finalize and check it in light, dark and phone widths |
 
 ### Audits
 
@@ -98,7 +99,7 @@ Skills are auto-discovered from `~/.claude/skills/` and invoked as `/skill-name`
 | `orbstack` | OrbStack — Linux machines, Docker, Kubernetes |
 | `xcuitest-on-mini` | Run `xcodebuild test` on a Mac mini over SSH so UI tests don't take over your screen (set `XCUITEST_ON_MINI_HOST`) |
 
-Most multi-phase skills (`commit`, `feature-*`, `issue-create`, `project-create`, `skill-creator`, `create-blog-post`, and every `audit-*`) are built on the [dot-graph skill pattern](docs/DOT-GRAPH-SKILL-PATTERN.md): the workflow lives in a `graph.dot` with per-node prose under `nodes/`, walked deterministically by `lib/graph_walker.py`. Drift between routing and prose is structurally impossible.
+Most multi-phase skills (`commit`, `feature-*`, `issue-create`, `project-create`, `skill-creator`, `create-blog-post`, `create-website-content`, and every `audit-*`) are built on the [dot-graph skill pattern](docs/DOT-GRAPH-SKILL-PATTERN.md): the workflow lives in a `graph.dot` with per-node prose under `nodes/`, walked deterministically by `lib/graph_walker.py`. Drift between routing and prose is structurally impossible.
 
 ### Audit output
 

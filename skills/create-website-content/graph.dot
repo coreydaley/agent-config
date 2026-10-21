@@ -1,0 +1,57 @@
+// create-website-content state machine.
+//
+// Source of truth for the create-website-content skill. The walker (Claude,
+// per SKILL.md) reads each node's prose from nodes/<id>.md, performs the work,
+// evaluates the outgoing edges' conditions, and transitions via
+// scripts/walk.sh.
+//
+// Non-blog pages for coreydaley.dev: answer / how-to pages, help pages,
+// comparison pages, landing-page sections and site pages. Claude researches
+// and tests every claim, drafts, a fresh sub-agent fact-checks by re-running
+// the claims, and Claude finalizes and checks the page visually. Process
+// artifacts live OUTSIDE the repo under ~/Reports/<org>/<repo>/site-pages/<slug>/.
+//
+// Render to SVG with scripts/render.sh. Validate with scripts/validate.py.
+
+digraph create_website_content {
+    rankdir=TB;
+    bgcolor="white";
+    node  [fontname="Helvetica", fontsize=11];
+    edge  [fontname="Helvetica", fontsize=9];
+
+    // -- Process nodes (rounded boxes, light blue) ----------------------
+    init         [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                  label="init\n(parse args, set up walker state)"];
+    orient       [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                  label="orient\n(page type, rules, neighbors,\nsearch demand, slug, $WORK_DIR)"];
+    research     [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                  label="research (Claude)\n(sources + hands-on tests,\nresearch log)"];
+    draft        [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                  label="draft (Claude)\n(write the page)"];
+    fact_check   [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                  label="fact-check (sub-agent)\n(re-run every claim, fresh context)"];
+    finalize     [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                  label="finalize (Claude)\n(write into content/, hub + links,\nbuild check)"];
+    visual_check [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                  label="visual-check (Claude)\n(local server: light, dark, phone)"];
+
+    // -- Terminal node (green double-circle) ---------------------------
+    terminal     [shape=doublecircle, style=filled, fillcolor="#c8e6c9",
+                  label="terminal"];
+
+    // -- Edges ---------------------------------------------------------
+    orient       -> research;
+    research     -> draft;
+    draft        -> fact_check;
+    finalize     -> visual_check;
+    visual_check -> terminal;
+
+    // fact_check: claims hold (or are softened in place) vs claims that need
+    // new tests before the page can be written honestly. Retest at most once.
+    fact_check -> finalize [label="pass"];
+    fact_check -> research [label="retest"];
+
+    // init: help mode vs a real run.
+    init -> orient   [label="run"];
+    init -> terminal [label="help"];
+}
