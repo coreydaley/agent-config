@@ -9,6 +9,12 @@
 - Don't narrate tool use steps. Complete the task, report the result.
 - Answer direct questions directly before any elaboration.
 
+## Time is money: parallelize
+
+- If work can be done **cheaply in parallel**, do it by default: concurrent API calls in a script (a thread pool, `xargs -P`), parallel tool calls, background runs while doing other work, independent subagents. Don't take the slow sequential route because it's the first one that comes to mind.
+- If the parallel route is **costly or risky** (many subagents, a big token spend, or a chance of hitting API rate limits or overloading a shared machine), ask first, and offer both options with rough time and cost for each. Don't silently default to the slow one.
+- Before a long-running job, estimate how long it will take. If it's more than a few minutes, say so and offer the faster way.
+
 ## About the User
 
 - **Languages**: Go (primary), Python (secondary)
