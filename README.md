@@ -134,6 +134,8 @@ All roles run on Fable, read-only against the code, and write only the artifact 
 |---|---|
 | `gh` | GitHub via the `gh` CLI — cloning/forking (bare clone + worktrees), issues, PRs, releases, CI |
 | `orbstack` | OrbStack — Linux machines, Docker, Kubernetes |
+| `job-market-scan` | Read current postings from companies you choose (public Greenhouse, Lever and Ashby APIs), count which requirements keep appearing, compare with the last scan and, optionally, your resume; writes a short report. Reads only |
+| `job-posting-match` | Compare your resume against one job posting: a match percentage with the math shown, requirement-by-requirement evidence, a check against your own criteria, a sourced company snapshot and questions to ask. Reads only |
 | `xcuitest-on-mini` | Run `xcodebuild test` on a Mac mini over SSH so UI tests don't take over your screen (set `XCUITEST_ON_MINI_HOST`) |
 
 Most multi-phase skills (`commit`, `feature-*`, `pr-*` (except the `pr-address` wrapper), `review-design`, `issue-create`, `project-create`, `skill-creator`, `create-blog-post`, `create-website-content`, and every `audit-*`) are built on the [dot-graph skill pattern](docs/DOT-GRAPH-SKILL-PATTERN.md): the workflow lives in a `graph.dot` with per-node prose under `nodes/`, walked deterministically by `lib/graph_walker.py`. Drift between routing and prose is structurally impossible.

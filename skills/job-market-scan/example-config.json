@@ -1,0 +1,52 @@
+{
+  "_comment": "Copy to ~/.config/job-market-scan/config.json and edit. Pick 10-20 companies whose work you respect. board is greenhouse, lever or ashby; slug is the company's id in that board's URL (boards.greenhouse.io/<slug>, jobs.lever.co/<slug>, jobs.ashbyhq.com/<slug>).",
+  "companies": [
+    {
+      "name": "Brex",
+      "board": "greenhouse",
+      "slug": "brex"
+    },
+    {
+      "name": "DoorDash",
+      "board": "greenhouse",
+      "slug": "doordashusa"
+    },
+    {
+      "name": "Affirm",
+      "board": "greenhouse",
+      "slug": "affirm"
+    },
+    {
+      "name": "Spotify",
+      "board": "lever",
+      "slug": "spotify"
+    },
+    {
+      "name": "Linear",
+      "board": "ashby",
+      "slug": "linear"
+    }
+  ],
+  "title_keywords": [
+    "software engineer",
+    "platform",
+    "infrastructure",
+    "security engineer"
+  ],
+  "exclude_title_keywords": [
+    "intern",
+    "manager",
+    "director",
+    "marketing",
+    "sales",
+    "recruit",
+    "designer",
+    "copywriter",
+    "analyst",
+    "administrator",
+    "associate"
+  ],
+  "location_keywords": [],
+  "max_per_company": 4,
+  "resume": "~/Documents/resume.pdf"
+}

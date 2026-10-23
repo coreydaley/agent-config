@@ -1,0 +1,12 @@
+{
+  "_comment": "Copy to ~/.config/job-posting-match/criteria.json and edit. Every field is optional. These are your private requirements; they never go into the public repo.",
+  "resume": "~/Documents/resume.pdf",
+  "min_base": 180000,
+  "home_state": "TX",
+  "currency": "USD",
+  "remote_only": true,
+  "locations": ["United States"],
+  "max_travel_percent": 20,
+  "dealbreakers": ["on-site only", "contract to hire"],
+  "preferences": ["platform or infrastructure work", "AI-forward engineering culture", "public pay ranges"]
+}
