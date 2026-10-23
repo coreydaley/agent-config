@@ -40,3 +40,6 @@ npm-debug.log*
 
 # claude plugin eval output
 evals/results/
+
+# Claude Code synced claude.ai skills (lands here via the ~/.claude/skills symlink)
+skills/synced/
