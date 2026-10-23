@@ -1,0 +1,18 @@
+{
+  "name": "agent-config",
+  "description": "Corey Daley's Claude Code skills and subagents. Packaged as a plugin so `claude plugin eval` can test the skills; day-to-day install is still `make symlinks`.",
+  "author": {
+    "name": "Corey Daley"
+  },
+  "repository": "https://github.com/coreydaley/agent-config",
+  "license": "MIT",
+  "agents": [
+    "./subagents/adjudicator.md",
+    "./subagents/adversarial-reviewer.md",
+    "./subagents/defender.md",
+    "./subagents/devils-advocate.md",
+    "./subagents/independent-reviewer.md",
+    "./subagents/synthesizer.md",
+    "./subagents/verifier.md"
+  ]
+}

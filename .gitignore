@@ -37,3 +37,6 @@ npm-debug.log*
 *.swp
 *.swo
 *~
+
+# claude plugin eval output
+evals/results/

@@ -13,6 +13,13 @@ hooks: ## Install git hooks (requires: brew install gitleaks mermaid-cli)
 	@bash scripts/setup-hooks.sh
 .PHONY: hooks
 
+## Eval Targets
+evals: ## Run skill evals with claude plugin eval (SKILL=<name> to filter; EVAL_FLAGS=--trust-plugin for CI)
+	@claude plugin eval . $(if $(SKILL),--tag $(SKILL)) \
+		--scaffold --allow-tools "Bash(git *)" \
+		-j 4 --max-cost-usd $(or $(MAX_COST),5) --no-publish $(EVAL_FLAGS)
+.PHONY: evals
+
 ## All
 all: symlinks hooks ## Run all setup targets
 .PHONY: all
