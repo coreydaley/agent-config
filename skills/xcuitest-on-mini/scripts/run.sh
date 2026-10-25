@@ -35,6 +35,10 @@ PULL_XCRESULT=false
 # xcodebuild -destination. Default macOS (the historical behaviour); override
 # for iOS/iPadOS UI tests, e.g. --destination 'platform=iOS Simulator,name=iPad (A16)'.
 DESTINATION="platform=macOS"
+DESTINATION_SET=false
+# Build and test one architecture only (e.g. x86_64, under Rosetta on an
+# Apple silicon mini). Empty: xcodebuild's default, the mini's own arch.
+ARCH=""
 
 usage() {
   cat <<'EOF'
@@ -42,7 +46,7 @@ xcuitest-on-mini — run xcodebuild test on the Mac mini, stream results back
 
 USAGE
   xcuitest-on-mini [<test-filter>] [--all] [--scheme NAME]
-                   [--project PATH] [--pull-xcresult] [--help]
+                   [--project PATH] [--arch NAME] [--pull-xcresult] [--help]
 
 ARGUMENTS
   <test-filter>     Positional, optional. Passes verbatim to
@@ -64,6 +68,15 @@ FLAGS
   --destination D   xcodebuild -destination string. Default: 'platform=macOS'.
                     For iOS/iPadOS UI tests pass an iOS Simulator destination,
                     e.g. --destination 'platform=iOS Simulator,name=iPad (A16)'.
+  --arch NAME       Build and test for one architecture, e.g. x86_64 to
+                    test a universal app's Intel slice under Rosetta on an
+                    Apple silicon mini. Sets the destination to
+                    'platform=macOS,arch=NAME' (unless --destination is
+                    given), passes ARCHS=NAME ONLY_ACTIVE_ARCH=NO, keeps its
+                    own DerivedData (build/DerivedData-NAME) and result
+                    bundle (build/remote-tests-NAME.xcresult), and gives the
+                    tests XCUITEST_ON_MINI_ARCH=NAME so they can check what
+                    they run as. Not with --ci.
   --scheme NAME     Xcode scheme name. Default: derived from the
                     .xcodeproj basename.
   --project PATH    Path to the .xcodeproj. Default: first .xcodeproj
@@ -94,6 +107,9 @@ EXAMPLES
   # Run a unit-test target (override the default UI test guess)
   xcuitest-on-mini PurrchiverTests
 
+  # Run everything again as Intel code, under Rosetta
+  xcuitest-on-mini --all --arch x86_64
+
 EOF
 }
 
@@ -107,7 +123,8 @@ while [[ $# -gt 0 ]]; do
     --all) RUN_ALL=true; shift ;;
     --ci) CI_MODE=true; shift ;;
     --scheme) SCHEME="$2"; shift 2 ;;
-    --destination) DESTINATION="$2"; shift 2 ;;
+    --destination) DESTINATION="$2"; DESTINATION_SET=true; shift 2 ;;
+    --arch) ARCH="$2"; shift 2 ;;
     --project) PROJECT_PATH="$2"; shift 2 ;;
     --pull-xcresult) PULL_XCRESULT=true; shift ;;
     --) shift; TEST_FILTER="${1:-}"; break ;;
@@ -123,6 +140,19 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ -n "$ARCH" ]]; then
+  if [[ ! "$ARCH" =~ ^[a-z0-9_]+$ ]]; then
+    echo "error: --arch takes an architecture name like x86_64 or arm64" >&2
+    exit 2
+  fi
+  if [[ "$CI_MODE" == true ]]; then
+    echo "error: --arch doesn't apply to --ci (scripts/ci-test.sh picks its own builds)" >&2
+    exit 2
+  fi
+  [[ "$DESTINATION_SET" == true ]] || DESTINATION="platform=macOS,arch=${ARCH}"
+fi
+RESULT_BUNDLE="build/remote-tests${ARCH:+-$ARCH}.xcresult"
 
 if [[ -z "$REMOTE_HOST" ]]; then
   echo "error: set XCUITEST_ON_MINI_HOST to the Mac mini's hostname (e.g. in ~/.zshrc)" >&2
@@ -270,13 +300,22 @@ if [[ "$CI_MODE" == true ]]; then
   # The script does its own xcbeautify formatting, so no outer pipe.
   REMOTE_CMD_STR="cd '${REMOTE_ROOT}' && bash scripts/ci-test.sh all"
 else
-  REMOTE_CMD=(
-    cd "${REMOTE_ROOT}" \&\& xcodebuild test
+  REMOTE_CMD=( cd "${REMOTE_ROOT}" \&\& )
+  # xcodebuild hands TEST_RUNNER_-prefixed variables to the tests, prefix
+  # stripped.
+  if [[ -n "$ARCH" ]]; then
+    REMOTE_CMD+=( env "TEST_RUNNER_XCUITEST_ON_MINI_ARCH=${ARCH}" )
+  fi
+  REMOTE_CMD+=(
+    xcodebuild test
     "${CONTAINER_FLAG}" "'${REL_CONTAINER}'"
     -scheme "'${SCHEME}'"
     -destination "'${DESTINATION}'"
-    -resultBundlePath "'build/remote-tests.xcresult'"
+    -resultBundlePath "'${RESULT_BUNDLE}'"
   )
+  if [[ -n "$ARCH" ]]; then
+    REMOTE_CMD+=( -derivedDataPath "'build/DerivedData-${ARCH}'" "ARCHS=${ARCH}" ONLY_ACTIVE_ARCH=NO )
+  fi
 
   if [[ "$RUN_ALL" == false && -n "$TEST_FILTER" ]]; then
     REMOTE_CMD+=( "-only-testing:${TEST_FILTER}" )
@@ -301,7 +340,7 @@ fi
 # logged in at the console (auto-login satisfies this).
 # -----------------------------------------------------------------------
 
-echo "==> Running on ${REMOTE_HOST}: xcodebuild test -scheme ${SCHEME}${TEST_FILTER:+ -only-testing:${TEST_FILTER}}"
+echo "==> Running on ${REMOTE_HOST}: xcodebuild test -scheme ${SCHEME}${TEST_FILTER:+ -only-testing:${TEST_FILTER}}${ARCH:+ (${ARCH} only)}"
 echo
 
 # xcodebuild refuses to overwrite an existing -resultBundlePath, so
@@ -309,7 +348,7 @@ echo
 # sudo because an earlier failed run that landed as root may have
 # left root-owned files in the bundle that a plain rm can't touch.
 ssh "${REMOTE_USER}@${REMOTE_HOST}" \
-  "sudo -n rm -rf '${REMOTE_ROOT}/build/remote-tests.xcresult'"
+  "sudo -n rm -rf '${REMOTE_ROOT}/${RESULT_BUNDLE}'"
 
 set +e
 # Three layers:
@@ -373,9 +412,9 @@ if [[ "$EXIT_CODE" -ne 0 && "$PULL_XCRESULT" == true ]]; then
   echo "==> Test failed; pulling xcresult bundle..."
   mkdir -p "${LOCAL_ROOT}/build"
   "$RSYNC" -az --delete \
-    "${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_ROOT}/build/remote-tests.xcresult/" \
-    "${LOCAL_ROOT}/build/remote-ui-tests.xcresult/"
-  echo "==> Open with: open '${LOCAL_ROOT}/build/remote-ui-tests.xcresult'"
+    "${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_ROOT}/${RESULT_BUNDLE}/" \
+    "${LOCAL_ROOT}/build/remote-ui-tests${ARCH:+-$ARCH}.xcresult/"
+  echo "==> Open with: open '${LOCAL_ROOT}/build/remote-ui-tests${ARCH:+-$ARCH}.xcresult'"
 fi
 
 exit "$EXIT_CODE"

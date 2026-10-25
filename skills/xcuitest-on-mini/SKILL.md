@@ -11,7 +11,7 @@ description: >-
   Use when: the user asks to "run UI tests on the mini", "remote test",
   "test without locking my screen", or after a code change that needs
   UI verification before committing.
-argument-hint: "[<test-filter>] [--all] [--scheme NAME] [--project PATH] [--pull-xcresult]"
+argument-hint: "[<test-filter>] [--all] [--scheme NAME] [--project PATH] [--arch NAME] [--pull-xcresult]"
 ---
 disable-model-invocation: false
 
@@ -57,6 +57,13 @@ This skill exists because:
 5. On failure with `--pull-xcresult`, rsyncs the `.xcresult` bundle
    back to `<repo>/build/remote-ui-tests.xcresult/` for local Xcode
    inspection.
+
+`--arch x86_64` builds and tests the Intel slice only, under Rosetta on
+an Apple silicon mini: destination `platform=macOS,arch=x86_64`,
+`ARCHS=x86_64 ONLY_ACTIVE_ARCH=NO`, its own DerivedData and result
+bundle, and `XCUITEST_ON_MINI_ARCH` in the tests' environment so a test
+can confirm it's running as that architecture. A universal app gets one
+`--all` run per architecture.
 
 Path mapping is **namespaced, not identity**: `$LOCAL_ROOT` becomes
 `$XCUITEST_ON_MINI_DIR$LOCAL_ROOT` on the mini (e.g.
