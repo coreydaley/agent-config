@@ -21,6 +21,8 @@ digraph create_blog_post {
     // -- Process nodes (rounded boxes, light blue) ----------------------
     init             [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
                       label="init\n(parse args, set up walker state)"];
+    overlap_check    [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
+                      label="overlap-check\n(find existing similar posts;\nstop and discuss if one exists)"];
     orient           [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
                       label="orient\n(research, conventions, slug,\nresolve $DRAFTS_DIR)"];
     draft            [shape=box, style="rounded,filled", fillcolor="#e1f5fe",
@@ -42,6 +44,10 @@ digraph create_blog_post {
     finalize         -> terminal;
 
     // init: help mode vs a real run.
-    init -> orient   [label="run"];
-    init -> terminal [label="help"];
+    init -> overlap_check [label="run"];
+    init -> terminal      [label="help"];
+
+    // overlap_check: clear to write, or stop (update the existing post / drop it).
+    overlap_check -> orient   [label="clear"];
+    overlap_check -> terminal [label="stop"];
 }

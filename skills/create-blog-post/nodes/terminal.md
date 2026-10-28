@@ -9,6 +9,7 @@ Sink. Print a brief confirmation and stop.
      - Final post: `content/posts/$YYYY/$MM/$SLUG/index.md`
      - Intermediate drafts: `$DRAFTS_DIR` (`~/Reports/<org>/<repo>/blog-posts/$SLUG/`)
      - Reminder: once it's live, run the URL through LinkedIn Post Inspector (https://www.linkedin.com/post-inspector/) before featuring or sharing it there.
+   - From `overlap_check → terminal [stop]`: say which existing post covers it and what the user chose (update it directly, or drop the idea).
    - From `init → terminal [help]`: nothing extra — the help text was already printed.
 
 2. **Stop.** No transitions, no further work.

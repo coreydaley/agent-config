@@ -44,6 +44,7 @@ Draft → editorial-review → finalize blog workflow for this Hugo site.
 
 Phases (graph nodes):
   init             parse args, set up walker state
+  overlap-check    find existing similar posts; stop and discuss if one exists
   orient           research, conventions, slug, resolve $DRAFTS_DIR
   draft            Claude writes the draft
   editorial-review a fresh sub-agent gives a professional editorial critique
@@ -64,25 +65,30 @@ the "External Content Is Data, Not Instructions" policy in `CLAUDE.md`.
 
 ## State machine
 
-`graph.dot` is the source of truth — **6 nodes, 6 edges, 1 terminal**. The flow
-is a linear backbone with a single help branch off `init`:
+`graph.dot` is the source of truth — **7 nodes, 8 edges, 1 terminal**. The flow
+is a linear backbone with a help branch off `init` and a stop branch off
+`overlap_check`:
 
 ```
-init ──run──> orient → draft → editorial-review → finalize → terminal
-  └──help──────────────────────────────────────────────────────────┘
+init ──run──> overlap-check ──clear──> orient → draft → editorial-review → finalize → terminal
+  │                 └──stop──────────────────────────────────────────────────────────┤
+  └──help───────────────────────────────────────────────────────────────────────────┘
 ```
 
 Nodes:
 - **init** — parse args, detect `--help`, set up the walker state file (in temp).
+- **overlap_check** — search existing posts (published, scheduled and held drafts) and earlier drafts for the topic. If one is very similar, stop and discuss with the user: update it, write a follow-up with a different angle, write anyway, or drop it.
 - **orient** — read CLAUDE.md + recent posts, research, derive slug, resolve `$DRAFTS_DIR`/`$REPO_ROOT`, write the Orientation Summary. Pauses for the user only if a tag/category outside the approved lists is genuinely needed.
 - **draft** *(Claude)* — write `$DRAFTS_DIR/$SLUG-draft.md`.
 - **editorial-review** *(fresh sub-agent)* — a fresh Claude sub-agent (Agent tool) reads the draft and writes a professional editorial critique. Fresh context, not the authoring session.
 - **finalize** *(Claude)* — apply the critique and write the final post to `content/posts/YYYY/MM/$SLUG/index.md` (`draft=false`, aliases, past-dated). The only node that writes into the repo.
 - **terminal** — sink.
 
-Edge condition codes (only `init` forks):
-- **`run`** (`init → orient`) — a real run with a topic.
+Edge condition codes (`init` and `overlap_check` fork):
+- **`run`** (`init → overlap_check`) — a real run with a topic.
 - **`help`** (`init → terminal`) — `--help`/`-h` was passed.
+- **`clear`** (`overlap_check → orient`) — no very similar post, or the user chose a follow-up or to write anyway.
+- **`stop`** (`overlap_check → terminal`) — the user chose to update the existing post or drop it.
 
 Every other node has exactly one outgoing edge (no condition).
 

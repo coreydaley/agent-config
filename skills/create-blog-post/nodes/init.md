@@ -27,7 +27,7 @@ Parse arguments, detect help mode, and set up the walker state file. This skill'
    scripts/walk.sh set --state "$STATE" --key topic --value "<the raw topic text>"
    ```
 
-   Nothing else is known yet — `orient` derives the slug, paths, and conventions.
+   Nothing else is known yet — `overlap_check` looks for existing posts, then `orient` derives the slug, paths, and conventions.
 
 ## Outputs
 
@@ -36,14 +36,14 @@ Parse arguments, detect help mode, and set up the walker state file. This skill'
 
 ## Outgoing edges
 
-- **`run`** → `orient`. A real run with a topic.
+- **`run`** → `overlap_check`. A real run with a topic.
 - **`help`** → `terminal`. `--help` / `-h` was passed; help text already printed.
 
 Record exactly one:
 
 ```bash
 # Real run:
-scripts/walk.sh transition --state "$STATE" --from init --to orient --condition run
+scripts/walk.sh transition --state "$STATE" --from init --to overlap_check --condition run
 
 # Help mode (no state file needed; omit --state if none was created):
 scripts/walk.sh transition --state "$STATE" --from init --to terminal --condition help

@@ -4,7 +4,7 @@ Understand the topic deeply, internalize the project's content conventions, deri
 
 ## Inputs
 
-- `topic` (walker state)
+- `topic`, `related_posts` and `angle` (walker state, from `overlap_check`). If an `angle` was agreed, the post takes that angle.
 - `CLAUDE.md` (repo root) — frontmatter requirements, fixed category list, approved tag list, authorship, tone
 - 2–3 recent posts under `content/posts/`
 
@@ -38,6 +38,7 @@ Write a brief **Orientation Summary** covering:
 - Core argument or angle for the post
 - Target audience
 - 3–5 key points to cover
+- Related posts from `overlap_check` that the draft will link to
 - Proposed slug, title, **the single category** (from the fixed list in CLAUDE.md), and **proposed tags** (from the approved list in CLAUDE.md, max 4)
 
 ## Tag/category discipline (mandatory)
