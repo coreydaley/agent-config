@@ -43,7 +43,8 @@ create-website-content <page type> <topic or question>
 
 Page types: answer (how-to / "won't open" / landing page for a search
 question), help (an app help topic), compare (app vs a competitor),
-landing (a section of an app's landing page), site (about, privacy, …).
+landing (a section of an app's landing page), guide (a page in a
+/guides/ guide, not tied to an app), site (about, privacy, …).
 
 Phases (graph nodes):
   init          parse args, set up walker state

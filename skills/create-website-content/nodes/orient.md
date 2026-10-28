@@ -19,6 +19,7 @@ how the site already handles neighboring topics.
    | help | `content/apps/<app>/help/<slug>.md` | YAML: `title`, `description`, `weight`, `topics`, `since` if unreleased |
    | compare | `content/apps/<app>/compare/<competitor>.md` | YAML: `title`, `description`, `checked:` date, `sitemap`, `topics` |
    | landing | `content/apps/<app>/_index.md` → `landing.sections` | an existing section `kind` |
+   | guide | `content/guides/<guide>/<slug>.md` (a new guide also needs its `_index.md`, see the site `CLAUDE.md`) | YAML: `title`, `description` ≤150, `date`, `weight`, `sitemap` |
    | site | `content/<slug>.md` | per the page's neighbors |
 
 3. **Read two or three neighbors of the same type** in that app (and the
