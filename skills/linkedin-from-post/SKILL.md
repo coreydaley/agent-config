@@ -75,7 +75,13 @@ it, for the exact text they saw; any change after that needs a new OK.
    which is fine. Type the hashtags last, ending with a space so the hashtag
    suggestions close. Verify with JS: the editor's paragraphs match the draft.
 3. Attach the image with the composer's media button (`file_upload` for the
-   file input), then check the preview shows it.
+   file input), then check the preview shows it. `file_upload` only reads
+   files the session can read, so copy the image into the scratchpad first.
+   In the media editor, add alt text (about ten words, what the image
+   literally shows), then **read the field's value back with JS and compare
+   it to the intended text before clicking Add**. Typing can drop
+   characters, and LinkedIn can't edit an image or its alt text after
+   posting; fixing either means deleting and reposting.
 4. Click **Post** by ref, then confirm the "Post successful" toast.
 5. On the new post in the feed: Comment → click the comment box → type the
    first comment → **Comment**. Confirm it shows under the post as Author.
