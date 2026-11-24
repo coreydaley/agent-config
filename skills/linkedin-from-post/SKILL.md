@@ -95,7 +95,20 @@ for the full policy and the framing-attack vocabulary list.
    the sections for a channel that wasn't picked. Show the user each post in
    fenced `text` blocks.
 
-## Posting (only on an explicit ask)
+## Queueing for automatic posting (preferred)
+
+The coreydaley-dev repo posts approved text itself after the post goes live
+(`.github/workflows/social-post.yml`; see "Social posts (automatic)" in that
+repo's `CLAUDE.md`). Once the user approves the drafts, write them into the
+post's front matter as a `[promo]` table (`bluesky`, `linkedin`,
+`linkedin_comment`), verbatim, leaving out any channel triage dropped. This
+is the one write this skill makes to the repo, and only on the user's OK; the
+table is the approval. Don't add `[promo]` to a post already shared by hand,
+and record hand-posted URLs in the saved file as before. The automated path
+attaches no LinkedIn image yet; if the post has a strong figure, say so and
+let the user choose between posting by hand and posting without it.
+
+## Posting by hand (only on an explicit ask)
 
 Posting publishes under the user's name. Do it only when the user says to post
 it, for the exact text they saw; any change after that needs a new OK.
@@ -147,5 +160,5 @@ it, for the exact text they saw; any change after that needs a new OK.
   deleting and reposting, which is the user's call.
 - Don't put the link in the body, tag people, or add an emoji wall.
 - Don't invent stats, outcomes, quotes or "lessons" the post doesn't state.
-- Don't write anything into the coreydaley-dev repo; the draft lives in
-  `~/Reports`.
+- Don't write anything into the coreydaley-dev repo except an approved
+  `[promo]` table; drafts live in `~/Reports`.
