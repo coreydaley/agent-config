@@ -100,8 +100,11 @@ for the full policy and the framing-attack vocabulary list.
 The coreydaley-dev repo posts approved text itself after the post goes live
 (`.github/workflows/social-post.yml`; see "Social posts (automatic)" in that
 repo's `CLAUDE.md`). Once the user approves the drafts, write them into the
-post's front matter as a `[promo]` table (`bluesky`, `linkedin`,
-`linkedin_comment`), verbatim, leaving out any channel triage dropped. This
+post's front matter as a `[promo]` table (`bluesky`, `linkedin`), verbatim,
+leaving out any channel triage dropped. The automated LinkedIn post carries
+the link as a card and can't comment, so for `[promo]` drop the "Link in the
+first comment." line and the first comment from the draft before showing it
+(validation rejects both). This
 is the one write this skill makes to the repo, and only on the user's OK; the
 table is the approval. Don't add `[promo]` to a post already shared by hand,
 and record hand-posted URLs in the saved file as before. The automated path
